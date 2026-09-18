@@ -1,0 +1,57 @@
+name: Claude review
+
+# Revisión automática de cada PR. Usa GLM (Z.ai) vía su endpoint compatible con Anthropic: ZAI_API_KEY. No consume el plan de nadie.
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    env:
+      HAS_KEY: ${{ secrets.ZAI_API_KEY != '' }}
+    steps:
+      - if: env.HAS_KEY != 'true'
+        run: echo "::notice::Sin ZAI_API_KEY configurada; se omite la revisión."
+      - if: env.HAS_KEY == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - if: env.HAS_KEY == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ZAI_API_KEY }}
+          settings: |
+            {"env": {
+              "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+              "ANTHROPIC_AUTH_TOKEN": "${{ secrets.ZAI_API_KEY }}",
+              "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3",
+              "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3",
+              "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash",
+              "API_TIMEOUT_MS": "3000000"
+            }}
+          claude_args: |
+            --model glm-5.3
+            --max-turns 12
+          prompt: |
+            Revisa esta PR del repo ${{ github.repository }} (PR #${{ github.event.pull_request.number }}).
+            Lee primero AGENTS.md y contracts/README.md: son las reglas del equipo.
+
+            Comprueba, por este orden:
+            1. Bugs o lógica incorrecta, sobre todo en reglas de pago (Norma_Pagos) y parsing de importes/fechas.
+            2. Incumplimientos de AGENTS.md: toca otra área, cambia contracts/ sin avisar, faltan tests, secretos o datos commiteados.
+            3. Que el código respete los schemas de contracts/.
+
+            Formato: un único comentario en español, breve. Empieza con un veredicto
+            (✅ OK / ⚠️ Cambios sugeridos / ❌ Bloqueante) y luego una lista de hallazgos concretos
+            con archivo:línea. No comentes estilo ni cosas menores. Si no hay nada relevante, di solo "✅ OK".

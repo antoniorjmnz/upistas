@@ -11,7 +11,7 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
    (ej. `2-replica-erp`). Nunca trabajes en `main`. Nunca hagas `push --force` a ramas ajenas.
 4. **Commits** de una sola línea: `tipo(área): descripción (#N)`. Sin cuerpo ni firmas. El hook lo valida.
 5. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
-6. **PR** corta (qué y por qué en 2-3 frases, y si cambia algún resultado), título con el mismo formato que un commit (`feat(fuentes): réplica del ERP (#2)`), que será el commit final en `main`, y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
+6. **PR** corta (qué y por qué en 2-3 frases, y si cambia algún resultado), título con el formato de commit pero sin número (`feat(fuentes): réplica del ERP`), que será el commit final en `main` (GitHub le añade el nº de PR), y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
 7. **Merge**: solo con CI en verde. Squash merge. Borrar la rama después.
 
 ## Límites de cada cambio
@@ -39,3 +39,10 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
 ## Cómo escribir PRs, issues y commits
 Como lo escribiría un compañero: corto, directo, sin tablas ni emojis ni relleno.
 Qué cambia y por qué. Si algo afecta a los resultados, dilo en una frase.
+
+## Agente de GitHub (Claude Code con modelo GLM)
+- Cada PR (no borrador) recibe una revisión automática (Claude Code + GLM de Z.ai). Es un aviso, no bloquea el merge:
+  un ❌ Bloqueante se discute en la PR antes de mergear.
+- Escribe `@claude <pregunta>` en una issue o PR para pedirle algo (explicar un fallo de CI, resumir cambios...).
+- Va con API key de Z.ai (se paga por uso): no lo uses para tareas largas; para programar usa tu agente local.
+- Abre las PRs como **borrador** mientras trabajas; la revisión se lanza al marcarla "Ready for review".

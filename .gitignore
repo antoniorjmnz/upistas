@@ -23,3 +23,7 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# Estado local de DBOS
+*.sqlite
+*.sqlite-*
