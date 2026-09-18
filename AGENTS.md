@@ -9,9 +9,9 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
 2. **Una vez tras clonar**: `sh scripts/setup.sh` (plantilla de commit + hooks).
 3. **Rama propia desde `main` actualizado**: `git switch main && git pull && git switch -c <N>-<slug>`
    (ej. `2-replica-erp`). Nunca trabajes en `main`. Nunca hagas `push --force` a ramas ajenas.
-4. **Commits** con formato `tipo(área): descripción (#N)` (ver `.gitmessage`; el hook lo valida). Los agentes también: usa `git commit -m "..."` con ese formato.
+4. **Commits** de una sola línea: `tipo(área): descripción (#N)`. Sin cuerpo ni firmas. El hook lo valida.
 5. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
-6. **PR** corta (qué y por qué en 2-3 frases, y si cambia algún resultado), título `#N: descripción` y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
+6. **PR** corta (qué y por qué en 2-3 frases, y si cambia algún resultado), título con el mismo formato que un commit (`feat(fuentes): réplica del ERP (#2)`), que será el commit final en `main`, y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
 7. **Merge**: solo con CI en verde. Squash merge. Borrar la rama después.
 
 ## Límites de cada cambio
