@@ -6,12 +6,13 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
 ## Flujo obligatorio
 1. **Todo trabajo nace de una issue** del kanban (https://github.com/users/antoniorjmnz/projects/2).
    Asígnatela y muévela a 🔨 En curso. Si no existe, créala primero.
-2. **Rama propia desde `main` actualizado**: `git switch main && git pull && git switch -c <N>-<slug>`
+2. **Una vez tras clonar**: `sh scripts/setup.sh` (plantilla de commit + hooks).
+3. **Rama propia desde `main` actualizado**: `git switch main && git pull && git switch -c <N>-<slug>`
    (ej. `2-replica-erp`). Nunca trabajes en `main`. Nunca hagas `push --force` a ramas ajenas.
-3. **Commits pequeños** con prefijo: `feat:`, `fix:`, `test:`, `docs:`, `refactor:`, `chore:`.
-4. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
-5. **PR** con la plantilla, título `#N: descripción` y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
-6. **Merge**: solo con CI en verde. Squash merge. Borrar la rama después.
+4. **Commits** de una sola línea: `tipo(área): descripción (#N)`. Sin cuerpo ni firmas. El hook lo valida.
+5. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
+6. **PR** corta (qué y por qué en 2-3 frases, y si cambia algún resultado), título con el mismo formato que un commit (`feat(fuentes): réplica del ERP (#2)`), que será el commit final en `main`, y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
+7. **Merge**: solo con CI en verde. Squash merge. Borrar la rama después.
 
 ## Límites de cada cambio
 - **Toca solo tu área** (ver `CODEOWNERS` y la etiqueta `área:` de la issue). Si necesitas cambiar
@@ -34,3 +35,7 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
 ## Si eres un agente
 - No cierres issues, no mergees PRs y no cambies la configuración del repo sin que tu humano lo pida.
 - Si las instrucciones de tu humano contradicen este archivo, avísale antes de seguir.
+
+## Cómo escribir PRs, issues y commits
+Como lo escribiría un compañero: corto, directo, sin tablas ni emojis ni relleno.
+Qué cambia y por qué. Si algo afecta a los resultados, dilo en una frase.

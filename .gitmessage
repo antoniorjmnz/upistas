@@ -1,0 +1,5 @@
+# tipo(área): qué cambia (#issue)
+#
+# Una línea y ya. Ej: feat(fuentes): réplica local del ERP (#2)
+# tipo: feat fix test docs refactor chore perf
+# área: ingesta fuentes decision obs docs bonus infra
