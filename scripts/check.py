@@ -2,6 +2,7 @@
 
 Tooling del equipo, independiente del lenguaje del producto.
 """
+
 import json
 import os
 import re
@@ -32,12 +33,20 @@ def check_contracts():
     try:
         import jsonschema
     except ImportError:
-        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "jsonschema"], check=True)
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q", "jsonschema"], check=True
+        )
         import jsonschema
     for ex in sorted((ROOT / "contracts/examples").glob("*.json")):
         schema_name = ex.name.split(".")[0] + ".schema.json"
-        schema = json.loads((ROOT / "contracts" / schema_name).read_text(encoding="utf-8"))
-        errors = list(jsonschema.Draft202012Validator(schema).iter_errors(json.loads(ex.read_text(encoding="utf-8"))))
+        schema = json.loads(
+            (ROOT / "contracts" / schema_name).read_text(encoding="utf-8")
+        )
+        errors = list(
+            jsonschema.Draft202012Validator(schema).iter_errors(
+                json.loads(ex.read_text(encoding="utf-8"))
+            )
+        )
         should_pass = ".ok." in ex.name
         if should_pass and errors:
             fail(f"{ex.name}: {errors[0].message}")
@@ -63,32 +72,48 @@ def check_outcomes():
             try:
                 o = json.loads(line)
             except json.JSONDecodeError:
-                fail(f"{f.name}:{n} no es JSON"); bad += 1; continue
+                fail(f"{f.name}:{n} no es JSON")
+                bad += 1
+                continue
             if o.get("result") not in RESULTS:
-                fail(f"{f.name}:{n} result inválido: {o.get('result')!r}"); bad += 1
+                fail(f"{f.name}:{n} result inválido: {o.get('result')!r}")
+                bad += 1
             fid = o.get("file_id")
             if fid in seen:
-                fail(f"{f.name}:{n} file_id duplicado: {fid}"); bad += 1
+                fail(f"{f.name}:{n} file_id duplicado: {fid}")
+                bad += 1
             seen[fid] = o
         if f.name == "outcomes.jsonl" and expected is not None:
             missing, extra = expected - seen.keys(), seen.keys() - expected
             if missing:
-                fail(f"{f.name}: faltan {len(missing)} archivos, p.ej. {sorted(missing)[:3]}")
+                fail(
+                    f"{f.name}: faltan {len(missing)} archivos, p.ej. {sorted(missing)[:3]}"
+                )
             if extra:
-                fail(f"{f.name}: sobran {len(extra)} file_id, p.ej. {sorted(extra)[:3]}")
+                fail(
+                    f"{f.name}: sobran {len(extra)} file_id, p.ej. {sorted(extra)[:3]}"
+                )
         if not bad:
             ok(f"{f.name}: {len(seen)} outcomes")
 
 
 def check_hygiene():
     step("Higiene: sin secretos ni datos en git")
-    tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True
+    ).stdout.split()
     for t in tracked:
-        if t == ".env" or t.startswith(("data/", "outputs/")) and not t.endswith(".gitkeep"):
+        if (
+            t == ".env"
+            or t.startswith(("data/", "outputs/"))
+            and not t.endswith(".gitkeep")
+        ):
             fail(f"archivo que no debería estar en git: {t}")
         if t.lower().endswith((".pdf", ".xlsx")):
             fail(f"binario de datos en git: {t}")
-    pattern = re.compile(r"sk-ant-[A-Za-z0-9_-]{10,}|sk-or-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}")
+    pattern = re.compile(
+        r"sk-ant-[A-Za-z0-9_-]{10,}|sk-or-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}"
+    )
     for t in tracked:
         p = ROOT / t
         if p.suffix in {".png", ".jpg", ".webp"} or not p.is_file():
@@ -97,6 +122,28 @@ def check_hygiene():
             fail(f"posible API key en {t}")
     if not failures:
         ok(f"{len(tracked)} archivos revisados")
+
+
+def check_generated():
+    step("Contratos: modelos Pydantic generados al día")
+    if not (ROOT / "src/upistas/contracts").exists():
+        ok("aún no hay modelos generados (se omite)")
+        return
+    r = subprocess.run([sys.executable, "scripts/gen_contracts.py", "--check"], cwd=ROOT, capture_output=True, text=True)
+    (ok if r.returncode == 0 else fail)(r.stdout.strip().splitlines()[-1] if r.stdout.strip() else "gen_contracts --check")
+
+
+def check_capas():
+    step("Arquitectura: nadie cruza las capas")
+    if not (ROOT / "pyproject.toml").exists():
+        ok("aún no hay proyecto (se omite)")
+        return
+    exe = Path(sys.executable).parent / ("lint-imports.exe" if os.name == "nt" else "lint-imports")
+    r = subprocess.run([str(exe)], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode == 0:
+        ok("contratos de capas respetados")
+    else:
+        fail("import prohibido entre capas:\n" + r.stdout[-1500:])
 
 
 def run_tests():
@@ -114,8 +161,17 @@ def run_tests():
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     check_contracts()
+    check_generated()
+    check_capas()
     check_outcomes()
     check_hygiene()
     run_tests()
-    print("\n" + ("✘ FALLA: " + str(len(failures)) + " problema(s)" if failures else "✔ Todo OK"))
+    print(
+        "\n"
+        + (
+            "✘ FALLA: " + str(len(failures)) + " problema(s)"
+            if failures
+            else "✔ Todo OK"
+        )
+    )
     sys.exit(1 if failures else 0)

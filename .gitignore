@@ -9,6 +9,8 @@ outputs/*
 !outputs/.gitkeep
 
 # Python
+*.sqlite
+*.sqlite-*
 __pycache__/
 *.pyc
 .venv/
@@ -24,6 +26,3 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Estado local de DBOS
-*.sqlite
-*.sqlite-*

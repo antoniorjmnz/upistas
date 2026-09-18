@@ -1,0 +1,15 @@
+# Postgres para escalar el pipeline (opcional: en local basta SQLite).
+# Arrancar: docker compose up -d   → luego DATABASE_URL=postgresql://upistas:upistas@localhost:5432/upistas
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: upistas
+      POSTGRES_PASSWORD: upistas
+      POSTGRES_DB: upistas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
