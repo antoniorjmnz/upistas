@@ -1,0 +1,25 @@
+# Secretos
+.env
+*.key
+
+# Datos del reto (se copian del repo oficial, no se versionan)
+data/*
+!data/.gitkeep
+outputs/*
+!outputs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
