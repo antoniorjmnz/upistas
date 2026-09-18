@@ -1,0 +1,14 @@
+# <tipo>(<área>): <qué cambia, en imperativo> (#<issue>)
+#
+# Por qué:
+#
+# Cómo se ha probado:
+#
+# Agente: <claude|copilot|ninguno>   Autor: <tu usuario>
+#
+# ── Guía ─────────────────────────────────────────────
+# tipo:  feat | fix | test | docs | refactor | chore | perf
+# área:  ingesta | fuentes | decision | obs | docs | bonus | infra
+# Ej:    feat(fuentes): réplica local del ERP con reintentos (#2)
+# La referencia (#N) a la issue es OBLIGATORIA (el hook lo comprueba).
+# Las líneas que empiezan por # se ignoran.

@@ -3,12 +3,15 @@
 Chuleta para humanos. Las reglas completas están en [AGENTS.md](AGENTS.md).
 
 ```bash
+# una vez tras clonar
+sh scripts/setup.sh
+
 # empezar tarea #7
 git switch main && git pull
 git switch -c 7-trazas
 
 # ...trabajar, commits pequeños...
-git commit -m "feat: traza por factura (#7)"
+git commit -m "feat(obs): traza por factura (#7)"
 
 # antes de la PR
 git pull --rebase origin main

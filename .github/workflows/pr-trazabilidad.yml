@@ -1,0 +1,20 @@
+name: Trazabilidad PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  trazabilidad:
+    runs-on: ubuntu-latest
+    steps:
+      - name: La PR enlaza una issue y rellena la plantilla
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          fail=0
+          echo "$BODY" | grep -Eiq '(closes|fixes|resolves|refs) #[0-9]+' || { echo "::error::Falta 'Closes #N' en la descripción"; fail=1; }
+          echo "$TITLE" | grep -Eq '#[0-9]+' || { echo "::error::El título debe incluir la issue: '#N: descripción'"; fail=1; }
+          echo "$BODY" | grep -q '| Área | <!--' && { echo "::error::Rellena la tabla de Trazabilidad (Área)"; fail=1; }
+          exit $fail

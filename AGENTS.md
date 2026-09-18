@@ -6,12 +6,13 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
 ## Flujo obligatorio
 1. **Todo trabajo nace de una issue** del kanban (https://github.com/users/antoniorjmnz/projects/2).
    Asígnatela y muévela a 🔨 En curso. Si no existe, créala primero.
-2. **Rama propia desde `main` actualizado**: `git switch main && git pull && git switch -c <N>-<slug>`
+2. **Una vez tras clonar**: `sh scripts/setup.sh` (plantilla de commit + hooks).
+3. **Rama propia desde `main` actualizado**: `git switch main && git pull && git switch -c <N>-<slug>`
    (ej. `2-replica-erp`). Nunca trabajes en `main`. Nunca hagas `push --force` a ramas ajenas.
-3. **Commits pequeños** con prefijo: `feat:`, `fix:`, `test:`, `docs:`, `refactor:`, `chore:`.
-4. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
-5. **PR** con la plantilla, título `#N: descripción` y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
-6. **Merge**: solo con CI en verde. Squash merge. Borrar la rama después.
+4. **Commits** con formato `tipo(área): descripción (#N)` (ver `.gitmessage`; el hook lo valida). Los agentes también: usa `git commit -m "..."` con ese formato.
+5. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
+6. **PR** con la plantilla (rellena la tabla de Trazabilidad), título `#N: descripción` y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
+7. **Merge**: solo con CI en verde. Squash merge. Borrar la rama después.
 
 ## Límites de cada cambio
 - **Toca solo tu área** (ver `CODEOWNERS` y la etiqueta `área:` de la issue). Si necesitas cambiar
