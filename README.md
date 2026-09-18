@@ -1,5 +1,7 @@
 # upistas
 
+📋 **Kanban**: https://github.com/users/antoniorjmnz/projects/2
+
 Repo de trabajo del equipo para el hackathon Maisa **"500 Sombras de Alberto"** (ETSIT UPM, 18-20 sep 2026).
 
 > ⚠️ Este repo es **privado**. La entrega va en un repo público aparte que solo contiene
