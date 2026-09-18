@@ -2,6 +2,8 @@
 
 Chuleta para humanos. Las reglas completas están en [AGENTS.md](AGENTS.md).
 
+Con Claude Code es más fácil: `/tarea 25` para empezar la issue 25 y `/pr` para abrir la PR.
+
 ```bash
 # una vez tras clonar
 sh scripts/setup.sh

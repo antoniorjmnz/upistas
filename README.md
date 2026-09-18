@@ -1,6 +1,7 @@
 # upistas
 
-📋 **Kanban**: https://github.com/users/antoniorjmnz/projects/2
+**¿Nuevo en el proyecto? Empieza por [docs/contexto.md](docs/contexto.md).**
+Tablero: https://github.com/users/antoniorjmnz/projects/2
 
 Repo de trabajo del equipo para el hackathon Maisa **"500 Sombras de Alberto"** (ETSIT UPM, 18-20 sep 2026).
 
