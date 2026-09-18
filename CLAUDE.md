@@ -1,31 +1,31 @@
-# upistas — contexto para Claude
+# upistas
 
-Hackathon Maisa "500 Sombras de Alberto". Equipo de 4. Ver README.md para reto, calendario y rúbrica.
+Hackathon Maisa "500 Sombras de Alberto": decidir PAGAR / NO_PAGAR / ESCALAR para facturas PDF
+cruzando un Excel y un ERP de 2009. Equipo de 4, cada uno con su propio Claude.
 
-## Objetivo
-Sistema que procesa facturas PDF (nativas y escaneadas), cruza con un Excel caótico de proveedores
-y un ERP legado (`http://127.0.0.1:8009`, `make erp` en el repo oficial; ver MANUAL_ERP_2009.md)
-y decide `PAGAR` / `NO_PAGAR` / `ESCALAR` por factura.
+## Antes de tocar nada
+1. Lee [docs/contexto.md](docs/contexto.md): el reto, los datos, lo decidido y el estado actual.
+2. Lee [AGENTS.md](AGENTS.md): cómo trabajamos (rama por issue, commits de una línea, PR corta).
+3. Si vas a añadir código, lee [docs/arquitectura.md](docs/arquitectura.md): dónde va cada cosa.
+4. Trabaja siempre a partir de una issue del tablero. Si no existe, pregunta a tu humano antes de crearla.
 
-## Principios (lo que puntúa)
-- **Trazabilidad**: cada decisión debe poder seguirse desde el input: qué se extrajo, qué regla aplicó, por qué.
-- **Reglas como datos**: la norma cambia (v3.2 → v4 el sábado, dato cambiado el domingo). Cambiar reglas y reprocesar no debe requerir tocar código.
-- **Resiliencia**: checkpoint por factura, idempotencia (sin duplicados), reintentos con backoff, fallback si el LLM falla o devuelve algo inválido.
-- **Coste**: medir tokens/€ por factura; usar LLM solo donde el determinista no llega.
-- **Proporcionado**: mejor pequeño y bien razonado que grande sin criterio.
+## Comandos
+- `uv run pytest` — tests
+- `uv run python scripts/check.py` — lo mismo que la CI; tiene que pasar antes de abrir PR
+- `uv run upistas run [--limit N] [--norma v3]` — procesa La Caja → `outputs/outcomes.jsonl`
+- `uv run python scripts/gen_contracts.py` — tras cambiar `contracts/*.schema.json`
+- `/tarea N` empieza la issue N · `/pr` cierra el trabajo y abre la PR
 
-## Convenciones
-- Nunca commitear `.env`, datos del reto ni outputs.
-- Toda decisión de arquitectura relevante → nuevo ADR en `docs/adr/` (usar `000-plantilla.md`).
-- Salida obligatoria: exactamente un outcome por archivo en `outputs/outcomes.jsonl`.
+## Reglas del código
+- El LLM solo extrae datos; las decisiones las toman las reglas de `dominio/`. Nunca al revés.
+- Lógica de negocio solo en `src/upistas/dominio/`, en funciones puras con tests.
+- Los `@DBOS.step` solo orquestan. `infra/contenedor.py` es el único sitio que elige adaptadores.
+- `lint-imports` vigila las capas: si falla, el código está en la capa equivocada. No lo desactives.
+- Tests sin red, sin IA real y sin el ERP: usa las fuentes en memoria.
+- La norma cambia (v4 el sábado, un dato el domingo): reglas y umbrales en `normas/`, no en el código.
+- Decisión de arquitectura relevante → ADR en `docs/adr/`. Van al PDF de la entrega.
+- Nunca subas `.env`, datos de La Caja, `outputs/` ni ficheros `.sqlite`.
 
-## Trabajo en equipo
-**Lee y cumple [AGENTS.md](AGENTS.md)**: rama por issue, PR con `Closes #N`, `python scripts/check.py`
-en verde antes de la PR, no tocar otras áreas ni `contracts/` sin avisar.
-
-## Stack y comandos
-Ver [ADR-001](docs/adr/001-stack.md). `uv run pytest` · `uv run upistas run` · `uv run python scripts/check.py`.
-- Arquitectura hexagonal: lee [docs/arquitectura.md](docs/arquitectura.md) antes de añadir código.
-- Lógica de negocio solo en `dominio/`; los `@DBOS.step` solo orquestan; `contenedor.py` monta los adaptadores.
-- `lint-imports` vigila las capas: si falla, el código está en la capa equivocada, no se desactiva.
-- Tras cambiar `contracts/*.schema.json`: `uv run python scripts/gen_contracts.py`.
+## Cómo escribir
+PRs, issues y commits cortos y en español normal, como un compañero. Sin tablas, emojis ni relleno.
+Commit: `tipo(área): qué cambia (#issue)` en una línea. Si un cambio altera resultados de outcomes, dilo.
