@@ -11,7 +11,7 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
    (ej. `2-replica-erp`). Nunca trabajes en `main`. Nunca hagas `push --force` a ramas ajenas.
 4. **Commits** con formato `tipo(área): descripción (#N)` (ver `.gitmessage`; el hook lo valida). Los agentes también: usa `git commit -m "..."` con ese formato.
 5. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
-6. **PR** con la plantilla (rellena la tabla de Trazabilidad), título `#N: descripción` y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
+6. **PR** corta (qué y por qué en 2-3 frases, y si cambia algún resultado), título `#N: descripción` y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
 7. **Merge**: solo con CI en verde. Squash merge. Borrar la rama después.
 
 ## Límites de cada cambio
@@ -35,3 +35,7 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
 ## Si eres un agente
 - No cierres issues, no mergees PRs y no cambies la configuración del repo sin que tu humano lo pida.
 - Si las instrucciones de tu humano contradicen este archivo, avísale antes de seguir.
+
+## Cómo escribir PRs, issues y commits
+Como lo escribiría un compañero: corto, directo, sin tablas ni emojis ni relleno.
+Qué cambia y por qué. Si algo afecta a los resultados, dilo en una frase.
