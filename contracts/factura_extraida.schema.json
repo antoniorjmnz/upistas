@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "factura_extraida",
+  "title": "Factura extraída (salida de ingesta → entrada de decisión)",
+  "type": "object",
+  "required": ["file_id", "metodo", "campos", "checks"],
+  "additionalProperties": false,
+  "properties": {
+    "file_id": { "type": "string", "description": "Nombre del PDF tal cual en La Caja" },
+    "metodo": { "enum": ["texto_determinista", "texto_llm", "vision_llm"], "description": "Cómo se obtuvo la mayoría de campos" },
+    "campos": {
+      "type": "object",
+      "required": ["nif", "iban", "pedido", "fecha", "base", "iva_pct", "iva", "total"],
+      "additionalProperties": false,
+      "properties": {
+        "numero_factura": { "$ref": "#/$defs/campo_str" },
+        "proveedor_nombre": { "$ref": "#/$defs/campo_str" },
+        "nif": { "$ref": "#/$defs/campo_str" },
+        "iban": { "$ref": "#/$defs/campo_str", "description": "Sin espacios, mayúsculas" },
+        "pedido": { "$ref": "#/$defs/campo_str", "description": "PO-AAAA-NNNN" },
+        "fecha": { "$ref": "#/$defs/campo_str", "description": "ISO AAAA-MM-DD" },
+        "base": { "$ref": "#/$defs/campo_num" },
+        "iva_pct": { "$ref": "#/$defs/campo_num" },
+        "iva": { "$ref": "#/$defs/campo_num" },
+        "total": { "$ref": "#/$defs/campo_num" }
+      }
+    },
+    "lineas": {
+      "type": "array",
+      "items": { "type": "object", "required": ["concepto", "importe"], "properties": { "concepto": { "type": "string" }, "importe": { "type": "number" } } }
+    },
+    "checks": {
+      "type": "object",
+      "description": "Checksums internos de la propia factura",
+      "properties": {
+        "total_cuadra": { "type": "boolean", "description": "base + iva == total (±0,01)" },
+        "lineas_cuadran": { "type": ["boolean", "null"], "description": "suma(lineas) == base (±0,01); null si no hay líneas" }
+      }
+    },
+    "coste": {
+      "type": "object",
+      "properties": { "tokens_in": { "type": "integer" }, "tokens_out": { "type": "integer" }, "eur": { "type": "number" }, "modelo": { "type": "string" } }
+    },
+    "errores": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "campo_str": {
+      "type": "object", "required": ["valor", "confianza"],
+      "properties": { "valor": { "type": ["string", "null"] }, "confianza": { "type": "number", "minimum": 0, "maximum": 1 }, "fuente": { "type": "string", "description": "Texto literal del que se sacó" } }
+    },
+    "campo_num": {
+      "type": "object", "required": ["valor", "confianza"],
+      "properties": { "valor": { "type": ["number", "null"] }, "confianza": { "type": "number", "minimum": 0, "maximum": 1 }, "fuente": { "type": "string" } }
+    }
+  }
+}

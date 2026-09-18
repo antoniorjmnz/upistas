@@ -18,3 +18,7 @@ y decide `PAGAR` / `NO_PAGAR` / `ESCALAR` por factura.
 - Nunca commitear `.env`, datos del reto ni outputs.
 - Toda decisión de arquitectura relevante → nuevo ADR en `docs/adr/` (usar `000-plantilla.md`).
 - Salida obligatoria: exactamente un outcome por archivo en `outputs/outcomes.jsonl`.
+
+## Trabajo en equipo
+**Lee y cumple [AGENTS.md](AGENTS.md)**: rama por issue, PR con `Closes #N`, `python scripts/check.py`
+en verde antes de la PR, no tocar otras áreas ni `contracts/` sin avisar.

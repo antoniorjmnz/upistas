@@ -1,0 +1,14 @@
+{
+  "file_id": "2026-01-08_P001.pdf",
+  "result": "PAGAR",
+  "motivo": "Cumple las 6 reglas de la norma v3",
+  "norma": "v3",
+  "pedido": "PO-2026-0096",
+  "reglas": [
+    { "id": "R1_nif_iban", "ok": true },
+    { "id": "R2_pedido_importe", "ok": true },
+    { "id": "R3_iva_total", "ok": true },
+    { "id": "R4_fecha", "ok": true },
+    { "id": "R5_erp_pendiente", "ok": true }
+  ]
+}

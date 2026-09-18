@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
+        with:
+          node-version: "22"
+      - name: Instalar dependencias del proyecto
+        run: |
+          if [ -f pyproject.toml ]; then pip install -e ".[dev]" || pip install -e . pytest; fi
+          if [ -f package.json ]; then npm ci; fi
+      - name: La Caja (repo oficial, público)
+        run: git clone --depth 1 https://github.com/ikurotime/500-sombras-de-alberto ../caja
+      - name: Checks
+        run: python scripts/check.py
