@@ -1,0 +1,61 @@
+[project]
+name = "upistas"
+version = "0.1.0"
+description = "Decisiones de pago de facturas para Alberto (Hackathon Maisa · 500 Sombras de Alberto)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dbos>=3.0",
+    "django>=5.2",
+    "pymupdf>=1.26",
+    "openpyxl>=3.1",
+    "openai>=1.99",
+    "pydantic>=2.11",
+    "python-dotenv>=1.1",
+    "httpx>=0.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4",
+    "jsonschema>=4.25",
+    "datamodel-code-generator>=0.33",
+    "import-linter>=2.3",
+]
+
+[project.scripts]
+upistas = "upistas.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/upistas", "web"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+# Fronteras entre capas. `lint-imports` falla si alguien las cruza (lo ejecuta check.py y la CI).
+[tool.importlinter]
+root_packages = ["upistas"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Capas: infra > adaptadores > aplicacion > dominio (nunca al reves)"
+type = "layers"
+layers = ["upistas.infra", "upistas.adaptadores", "upistas.aplicacion", "upistas.dominio"]
+exhaustive = false
+
+[[tool.importlinter.contracts]]
+name = "El dominio no depende de frameworks ni de E-S"
+type = "forbidden"
+source_modules = ["upistas.dominio"]
+forbidden_modules = ["upistas.puertos", "upistas.contracts", "upistas.config", "dbos", "django", "httpx", "openai", "pymupdf", "openpyxl", "pydantic"]
+
+[[tool.importlinter.contracts]]
+name = "La aplicacion no conoce DBOS, Django ni adaptadores concretos"
+type = "forbidden"
+source_modules = ["upistas.aplicacion"]
+forbidden_modules = ["upistas.adaptadores", "upistas.infra", "dbos", "django", "httpx", "openai", "pymupdf", "openpyxl"]

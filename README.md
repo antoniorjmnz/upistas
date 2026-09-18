@@ -35,16 +35,35 @@ para cada factura: `PAGAR`, `NO_PAGAR` o `ESCALAR`.
 
 Desempate: escalabilidad → resiliencia → bonus.
 
-## Estructura
-```
-data/        # facturas, Excel, lote 2 (no versionado)
-outputs/     # outcomes*.jsonl, trazas (no versionado)
-docs/adr/    # decisiones de arquitectura (2-5 para el PDF)
-docs/albertitos_plan.md  # fuente del PDF de entrega
-```
+## Stack
+Python 3.12 · **DBOS** (pipeline duradero) · **Django** + HTMX + Alpine + Tailwind/DaisyUI ·
+Helmcode (LLM) · pymupdf · openpyxl. Motivos y alternativas en [ADR-001](docs/adr/001-stack.md).
 
-## Setup
+## Arrancar
 ```bash
-git clone https://github.com/ikurotime/500-sombras-de-alberto ../caja
-cp .env.example .env   # y rellena la API key
+git clone https://github.com/ikurotime/500-sombras-de-alberto ../caja   # datos del reto
+cp .env.example .env            # y rellena HELMCODE_API_KEY
+sh scripts/setup.sh             # plantilla de commit + hooks
+uv sync --extra dev             # instala todo (Python 3.12 incluido)
+uv run pytest                   # tests
+uv run upistas run --limit 20   # procesa 20 facturas → outputs/outcomes.jsonl
+uv run upistas run              # procesa La Caja entera
+```
+Postgres (opcional, para varios procesos): `docker compose up -d` y `DATABASE_URL` en `.env`.
+
+## Estructura
+Arquitectura hexagonal: ver [docs/arquitectura.md](docs/arquitectura.md), con recetas para añadir reglas, normas, lectores o fuentes.
+```
+src/upistas/
+  dominio/        # modelos, reglas y norma: lógica pura, sin E/S
+  puertos.py      # interfaces que implementan los adaptadores
+  aplicacion/     # casos de uso (leer → decidir)
+  adaptadores/    # PDF, Excel, ERP, LLM...
+  infra/          # DBOS, montaje de adaptadores, CLI
+  contracts/      # modelos GENERADOS desde contracts/ (no editar)
+normas/           # la norma de pagos como datos (v3.toml, v4.toml...)
+web/              # Django: panel y bandeja de revisión
+contracts/        # JSON Schema entre módulos
+tests/unit/       # dominio, milisegundos
+tests/integracion/# pipeline con DBOS
 ```

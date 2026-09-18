@@ -22,3 +22,10 @@ y decide `PAGAR` / `NO_PAGAR` / `ESCALAR` por factura.
 ## Trabajo en equipo
 **Lee y cumple [AGENTS.md](AGENTS.md)**: rama por issue, PR con `Closes #N`, `python scripts/check.py`
 en verde antes de la PR, no tocar otras áreas ni `contracts/` sin avisar.
+
+## Stack y comandos
+Ver [ADR-001](docs/adr/001-stack.md). `uv run pytest` · `uv run upistas run` · `uv run python scripts/check.py`.
+- Arquitectura hexagonal: lee [docs/arquitectura.md](docs/arquitectura.md) antes de añadir código.
+- Lógica de negocio solo en `dominio/`; los `@DBOS.step` solo orquestan; `contenedor.py` monta los adaptadores.
+- `lint-imports` vigila las capas: si falla, el código está en la capa equivocada, no se desactiva.
+- Tras cambiar `contracts/*.schema.json`: `uv run python scripts/gen_contracts.py`.

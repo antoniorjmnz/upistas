@@ -1,0 +1,15 @@
+# Norma de pagos v3 (hoja Norma_Pagos_v3 del Excel de Alberto).
+# Cada regla: qué resultado provoca si falla. Si fallan varias, gana la más restrictiva
+# (NO_PAGAR > ESCALAR > PAGAR). Las reglas viven en src/upistas/dominio/reglas/.
+version = "v3"
+
+# 4. La fecha debe ser válida y no futura.
+[reglas.R4_fecha]
+si_falla = "ESCALAR"
+
+# Pendientes de implementar (issue del motor de reglas):
+# 1. NIF en el maestro y IBAN coincide            → R1_nif_iban
+# 2. Pedido existe, es del proveedor, importe ±0,01 → R2_pedido_importe
+# 3. IVA bien calculado y total = base + IVA       → R3_iva_total
+# 5. Pedido PENDIENTE en ERP, nunca pagar dos veces → R5_erp_pendiente
+# 6. Ante duda razonable, ESCALAR                 → implícito: lectura dudosa = ESCALAR
