@@ -25,12 +25,36 @@
 
 <form class="barra" method="get" action="{% url 'panel:cola' %}"
       hx-get="{% url 'panel:cola' %}" hx-target="#lista" hx-push-url="true"
-      hx-trigger="input changed delay:300ms from:#buscar, change from:#lote, submit">
+      hx-trigger="input changed delay:300ms from:#buscar, change from:#lote, change from:#proveedor, submit">
   <div class="buscador">
     {% icono "buscar" 20 %}
     <input id="buscar" type="search" name="q" value="{{ q }}" placeholder="Busque una factura o un pedido" autocomplete="off" aria-label="Buscar">
   </div>
+  <label class="elegir-proveedor" for="proveedor"><span class="suave">Proveedor</span>
+    <select id="proveedor" name="proveedor">
+      <option value="">Todos los proveedores</option>
+      {% for codigo, nombre in proveedores %}<option value="{{ codigo }}" {% if codigo == proveedor %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+  </label>
   {% include "panel/_revisar_chips.html" %}
+  <details class="filtro{% if desde or hasta %} activo{% endif %}">
+    <summary>{% icono "filtro" 16 %}Filtrar</summary>
+    <div class="filtro-panel">
+      <div class="dos">
+        <div class="campo">
+          <label for="desde">Desde</label>
+          <input id="desde" type="number" step="0.01" min="0" name="desde" value="{{ desde }}" placeholder="0,00">
+        </div>
+        <div class="campo">
+          <label for="hasta">Hasta</label>
+          <input id="hasta" type="number" step="0.01" min="0" name="hasta" value="{{ hasta }}" placeholder="0,00">
+        </div>
+      </div>
+      <div class="pie-formulario">
+        <button type="submit" class="boton pequeno" hx-get="{% url 'panel:cola' %}" hx-target="#lista" hx-push-url="true" hx-include="closest form">Aplicar</button>
+      </div>
+    </div>
+  </details>
   {% if varios_lotes %}
   <label class="elegir-lote" for="lote"><span class="suave">Lote</span>
     <select id="lote" name="lote">
@@ -40,6 +64,17 @@
   {% endif %}
   <noscript><button class="boton" type="submit">Buscar</button></noscript>
 </form>
+
+{% if proveedor or desde or hasta %}
+<p class="filtros-puestos">
+  {% if proveedor %}<span>Proveedor: {{ proveedor_nombre|default:proveedor }}</span>{% endif %}
+  {% if desde or hasta %}
+    {% if proveedor %}<span>·</span>{% endif %}
+    <span>Importe: {% if desde %}de {{ desde|euros }}{% endif %}{% if desde and hasta %} {% endif %}{% if hasta %}a {{ hasta|euros }}{% endif %}</span>
+  {% endif %}
+  <a href="?estado={{ estado }}&amp;{{ sin_filtros }}" hx-get="?estado={{ estado }}&amp;{{ sin_filtros }}" hx-target="#lista" hx-push-url="true">Quitar filtros</a>
+</p>
+{% endif %}
 
 <div id="lista" class="cola">
   {% include "panel/_revisar_lista.html" %}

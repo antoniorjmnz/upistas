@@ -148,3 +148,44 @@ def test_cuando_todo_esta_decidido_se_lo_dice(alberto, lote_de_prueba):
 
     assert "No hay nada esperando su decisión" in html and "2 de 2 decididas" in html
     assert '<div class="vacio">' in html and "No le queda nada por decidir" in html
+
+
+@pytest.fixture
+def proveedor_p001():
+    from web.panel.models import Proveedor
+
+    return Proveedor.objects.create(codigo="P001", nombre="Suministros Levante S.L.", nif="B46102331")
+
+
+def test_el_filtro_de_proveedor_deja_solo_las_suyas(alberto, lote_de_prueba, proveedor_p001):
+    html = cola(alberto, proveedor="P001")
+    assert ESCALADA in html and ESCANEADA not in html  # el escaneado no tiene NIF leído
+
+
+def test_el_filtro_de_importe_desde_deja_fuera_lo_que_no_llega(alberto, lote_de_prueba):
+    html = cola(alberto, desde="90000")
+    assert ESCALADA not in html and ESCANEADA not in html
+    assert "Ninguna factura coincide con la búsqueda o los filtros" in html
+
+
+def test_el_filtro_de_importe_hasta_deja_lo_que_no_se_pasa(alberto, lote_de_prueba):
+    html = cola(alberto, hasta="90000")
+    assert ESCALADA in html
+
+
+def test_el_select_de_proveedor_lleva_el_maestro(alberto, lote_de_prueba, proveedor_p001):
+    html = cola(alberto)
+    assert 'value="P001"' in html and "Suministros Levante S.L." in html
+    assert "Todos los proveedores" in html
+
+
+def test_los_chips_oob_conservan_el_proveedor(alberto, lote_de_prueba, proveedor_p001):
+    html = alberto.get(reverse("panel:cola"), {"proveedor": "P001"}, HTTP_HX_REQUEST="true").content.decode()
+    assert 'hx-swap-oob="outerHTML"' in html
+    assert "proveedor=P001" in html
+
+
+def test_quitar_filtros_enlaza_sin_proveedor_ni_importe(alberto, lote_de_prueba, proveedor_p001):
+    html = cola(alberto, proveedor="P001", desde="1000", hasta="3000")
+    assert "Quitar filtros" in html
+    assert 'href="?estado=pendientes&amp;q=&amp;lote=lote1"' in html
