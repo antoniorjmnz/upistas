@@ -89,6 +89,9 @@ def lista(request: HttpRequest) -> HttpResponse:
     ejecucion = consultas.ultima_ejecucion(pedido_lote or None)
     q = (request.GET.get("q") or "").strip()
     resultado = request.GET.get("resultado") or ""
+    proveedor = request.GET.get("proveedor") or ""
+    desde = request.GET.get("desde") or ""
+    hasta = request.GET.get("hasta") or ""
 
     decisiones = consultas.decisiones_de(ejecucion) if ejecucion else Decision.objects.none()
     cuenta = {f["resultado"]: f["n"] for f in decisiones.values("resultado").annotate(n=Count("id"))}
@@ -104,6 +107,7 @@ def lista(request: HttpRequest) -> HttpResponse:
             | Q(motivo__icontains=q)
             | Q(documento__sha256__in=con_ese_proveedor)
         )
+    qs = consultas.filtrar_decisiones(qs, proveedor=proveedor, desde=consultas.importe_o_nada(desde), hasta=consultas.importe_o_nada(hasta))
 
     pagina = Paginator(qs.order_by("documento__file_id"), POR_PAGINA).get_page(request.GET.get("pagina"))
     filas = list(pagina)
@@ -116,12 +120,19 @@ def lista(request: HttpRequest) -> HttpResponse:
         d.revision = revisiones.get(d.documento_id)
         d.porque = consultas.motivo_corto(d)
 
+    proveedores = consultas.proveedores_para_filtro()
     ctx = {
         "lotes": consultas.lotes(),
         "lote": ejecucion.lote if ejecucion else pedido_lote,
         "ejecucion": ejecucion,
         "q": q,
         "resultado": resultado,
+        "proveedores": proveedores,
+        "proveedor": proveedor,
+        "proveedor_nombre": dict(proveedores).get(proveedor, ""),
+        "desde": desde,
+        "hasta": hasta,
+        "filtrando": bool(proveedor or desde or hasta),
         "pagina": pagina,
         "cuenta": cuenta,
         "total": sum(cuenta.values()),

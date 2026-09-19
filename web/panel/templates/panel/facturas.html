@@ -23,6 +23,34 @@
            hx-get="{% url 'panel:facturas' %}" hx-include="closest form"
            hx-trigger="input changed delay:300ms" hx-target="#tabla" hx-push-url="true">
   </div>
+  <select name="proveedor" aria-label="Filtrar por proveedor"
+          hx-get="{% url 'panel:facturas' %}" hx-include="closest form"
+          hx-target="#tabla" hx-push-url="true">
+    <option value="">Todos los proveedores</option>
+    {% for codigo, nombre in proveedores %}
+      <option value="{{ codigo }}" {% if codigo == proveedor %}selected{% endif %}>{{ nombre }}</option>
+    {% endfor %}
+  </select>
+  <details class="filtro{% if desde or hasta %} activo{% endif %}">
+    <summary>{% icono "filtro" 16 %}Filtrar</summary>
+    <div class="filtro-panel">
+      <div class="dos">
+        <div class="campo">
+          <label for="fac-desde">Desde</label>
+          <input type="number" step="0.01" min="0" id="fac-desde" name="desde" value="{{ desde }}" placeholder="0,00">
+        </div>
+        <div class="campo">
+          <label for="fac-hasta">Hasta</label>
+          <input type="number" step="0.01" min="0" id="fac-hasta" name="hasta" value="{{ hasta }}" placeholder="0,00">
+        </div>
+      </div>
+      <div class="pie-formulario">
+        <button class="boton pequeno" type="submit"
+                hx-get="{% url 'panel:facturas' %}" hx-include="closest form"
+                hx-target="#tabla" hx-push-url="true">Aplicar</button>
+      </div>
+    </div>
+  </details>
   <div class="chips">
     <a class="chip {% if not resultado %}activa{% endif %}"
        href="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}"
@@ -48,6 +76,23 @@
     </label>
   {% endif %}
 </form>
+
+{% if filtrando %}
+<div class="filtros-puestos">
+  {% if proveedor %}<span>Proveedor: {{ proveedor_nombre|default:proveedor }}</span>{% endif %}
+  {% if desde or hasta %}
+    <span>Importe:
+      {% if desde and hasta %}de {{ desde|euros }} a {{ hasta|euros }}
+      {% elif desde %}desde {{ desde|euros }}
+      {% else %}hasta {{ hasta|euros }}
+      {% endif %}
+    </span>
+  {% endif %}
+  <a href="{% url 'panel:facturas' %}{% querystring proveedor=None desde=None hasta=None pagina=None %}"
+     hx-get="{% url 'panel:facturas' %}{% querystring proveedor=None desde=None hasta=None pagina=None %}"
+     hx-target="#tabla" hx-push-url="true">Quitar filtros</a>
+</div>
+{% endif %}
 {% endif %}
 
 <div id="tabla">

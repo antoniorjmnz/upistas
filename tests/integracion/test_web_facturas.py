@@ -2,15 +2,22 @@
 import pytest
 from django.urls import reverse
 
-from web.panel.models import RevisionHumana
+from web.panel.models import Proveedor, RevisionHumana
 
 pytestmark = pytest.mark.django_db
 
 P001 = "2026-01-08_P001.pdf"
 P009 = "2026-07-01_P009.pdf"
 FA1016 = "FA-1016_papelería.pdf"
+SUM3011 = "F26-3011_suministros.pdf"
 SCAN = "scan_001.pdf"
 PLEGADO = '<details class="mas">'
+
+
+def _proveedor_p001() -> Proveedor:
+    return Proveedor.objects.create(
+        codigo="P001", nombre="Suministros Levante S.L.", nif="B46102331", iban="ES2100491500051234567890"
+    )
 
 
 def lista(alberto, **filtros) -> str:
@@ -79,6 +86,60 @@ def test_cada_fila_deja_previsualizar_la_factura(alberto, lote_de_prueba):
 
 def test_si_no_hay_nada_que_ensenar_lo_dice_con_calma(alberto, lote_de_prueba):
     assert "Ninguna factura coincide" in lista(alberto, q="Ferretería Pepe")
+
+
+# --- Filtrar por proveedor e importe ---------------------------------------------------------
+
+
+def test_el_filtro_de_proveedor_deja_solo_lo_suyo(alberto, lote_de_prueba):
+    _proveedor_p001()
+    html = lista(alberto, proveedor="P001")
+    for file_id in (P001, FA1016, P009, SUM3011):
+        assert file_id in html
+    assert SCAN not in html
+
+
+def test_el_filtro_de_importe_deja_solo_lo_que_esta_en_rango(alberto, lote_de_prueba):
+    html = lista(alberto, desde="2000", hasta="3000")
+    assert P001 in html
+    for file_id in (FA1016, P009, SUM3011, SCAN):
+        assert file_id not in html
+
+
+def test_un_proveedor_que_no_existe_no_deja_nada(alberto, lote_de_prueba):
+    html = lista(alberto, proveedor="P999")
+    assert "Ninguna factura coincide con la búsqueda o los filtros" in html
+    for file_id in (P001, FA1016, P009, SUM3011, SCAN):
+        assert file_id not in html
+
+
+def test_el_select_de_proveedor_lista_el_maestro(alberto, lote_de_prueba):
+    _proveedor_p001()
+    bloque = lista(alberto).split('<select name="proveedor"')[1].split("</select>")[0]
+    assert '<option value="">Todos los proveedores</option>' in bloque
+    assert '<option value="P001" >Suministros Levante S.L.</option>' in bloque
+
+
+def test_los_filtros_puestos_se_ven_y_se_pueden_quitar(alberto, lote_de_prueba):
+    _proveedor_p001()
+    html = lista(alberto, proveedor="P001", desde="1000", hasta="3000")
+    bloque = html.split('class="filtros-puestos"')[1].split("</div>")[0]
+    assert "Proveedor: Suministros Levante S.L." in bloque
+    assert "de 1.000,00 € a 3.000,00 €" in bloque
+    enlace = bloque.split('<a href="')[1].split('"')[0]
+    assert "proveedor=" not in enlace and "desde=" not in enlace and "hasta=" not in enlace
+    assert "Quitar filtros" in bloque
+
+
+def test_sin_filtros_puestos_no_sale_la_linea(alberto, lote_de_prueba):
+    assert 'class="filtros-puestos"' not in lista(alberto)
+
+
+def test_los_chips_conservan_el_proveedor(alberto, lote_de_prueba):
+    _proveedor_p001()
+    html = lista(alberto, proveedor="P001")
+    activa = html.split('class="chip activa"')[1].split("</a>")[0]
+    assert "proveedor=P001" in activa
 
 
 def test_la_lista_ensena_la_decision_de_alberto_cuando_la_hay(alberto, lote_de_prueba):
