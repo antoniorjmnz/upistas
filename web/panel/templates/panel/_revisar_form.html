@@ -1,23 +1,23 @@
-{# Lo que Alberto decide sobre una factura escalada. Espera `decision` (Decision) y, si ya la revisó, `revision`. #}
+{# Lo que Alberto decide sobre una factura. Espera `decision` (Decision) y, si ya decidió, `revision`. #}
 {% load panel_extras %}
-<div id="revision-{{ decision.id }}" class="revision">
+<div id="revision-{{ decision.id }}" class="decidir">
   {% if revision %}
-    <p>
-      <span class="pildora {{ revision.resultado|pildora }}">{{ revision.resultado|etiqueta }}</span>
-      <span class="suave">{{ revision.quien }}, {{ revision.cuando|date:"d/m H:i" }}</span>
-      {% if revision.comentario %}<br><span class="suave">«{{ revision.comentario }}»</span>{% endif %}
+    <p class="decidido">
+      <span class="pildora grande {{ revision.resultado|pildora }}">{% if revision.resultado == "PAGAR" %}{% icono "check" 16 %}{% else %}{% icono "x" 16 %}{% endif %}{{ revision.resultado|etiqueta }}</span>
+      <span class="suave">Lo decidió usted el {{ revision.cuando|date:"j/n" }} a las {{ revision.cuando|date:"H:i" }}{% if revision.comentario %}: «{{ revision.comentario }}»{% endif %}</span>
     </p>
+    <details class="cambiar">
+      <summary>Cambiar la decisión</summary>
   {% endif %}
-  <form method="post" action="{% url 'panel:revisar' decision.documento.lote decision.documento.file_id %}"
+  <form class="decidir-form" method="post" action="{% url 'panel:revisar' decision.documento.lote decision.documento.file_id %}"
         hx-post="{% url 'panel:revisar' decision.documento.lote decision.documento.file_id %}"
         hx-target="#revision-{{ decision.id }}" hx-swap="outerHTML">
     {% csrf_token %}
-    <label>Comentario
-      <input type="text" name="comentario" maxlength="500" placeholder="Por qué lo decide así (opcional)">
-    </label>
-    <div class="acciones">
-      <button class="boton" type="submit" name="resultado" value="PAGAR">Pagar</button>
-      <button class="boton secundario" type="submit" name="resultado" value="NO_PAGAR">No pagar</button>
-    </div>
+    <input type="text" name="comentario" maxlength="500" placeholder="Un comentario, si quiere" aria-label="Comentario">
+    <button class="boton pagar" type="submit" name="resultado" value="PAGAR">{% icono "check" 18 %}Pagar</button>
+    <button class="boton nopagar" type="submit" name="resultado" value="NO_PAGAR">{% icono "x" 18 %}No pagar</button>
   </form>
+  {% if revision %}
+    </details>
+  {% endif %}
 </div>

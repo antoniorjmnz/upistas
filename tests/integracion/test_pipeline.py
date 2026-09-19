@@ -49,17 +49,21 @@ def carpeta(tmp_path):
     return tmp_path
 
 
-def test_reprocesar_el_mismo_lote_no_duplica(dbos_lanzado, tmp_path):
+def test_reprocesar_el_mismo_lote_no_relee_lo_ya_leido(dbos_lanzado, tmp_path):
     ruta = tmp_path / "valida.pdf"
     with pymupdf.open() as pdf:
         pagina = pdf.new_page()
-        pagina.insert_text((40, 40), "FACTURA FA-001\nNIF B12345678\nIBAN ES1212341234123412341234\nPedido PO-2026-0001\nFecha 15/01/2026\nBase 100,00\nIVA 21% 21,00\nTOTAL 121,00")
+        lineas = ["FACTURA FA-001", "NIF B12345678", "IBAN ES1212341234123412341234", "Pedido PO-2026-0001",
+                  "Fecha 15/01/2026", "Base 100,00", "IVA 21% 21,00", "TOTAL 121,00"]
+        pagina.insert_text((40, 40), "\n".join(lineas))
         pdf.save(ruta)
-    a = pipeline.encolar_lecturas("test", [ruta])[0]
-    resultado = a.get_result()
-    b = pipeline.encolar_lecturas("test", [ruta])[0]
-    assert a.get_workflow_id() == b.get_workflow_id()
-    assert resultado == b.get_result()
+    handles, saltados = pipeline.encolar_lecturas("test", [ruta])
+    assert saltados == [] and len(handles) == 1
+    resultado = handles[0].get_result()
+    assert resultado["leida"] and not resultado["cache"]
+    # La segunda vez ni pasa por DBOS: ya está leída en este lote con estos lectores.
+    handles, saltados = pipeline.encolar_lecturas("test", [ruta])
+    assert handles == [] and saltados[0]["file_id"] == "valida.pdf" and saltados[0]["cache"]
 
 
 def test_cli_unificada_con_pdf_excel_y_erp(dbos_lanzado, tmp_path, monkeypatch):

@@ -2,11 +2,12 @@
 {% load panel_extras %}
 <ul class="lista">
   {% for c in cambios %}
-  <li>
-    <a href="{% url 'panel:factura' lote c.file_id %}">{{ c.file_id }}</a>
-    <span class="suave">pasa de</span> <span class="pildora {{ c.antes|pildora }}">{{ c.antes|etiqueta }}</span>
-    <span class="suave">a</span> <span class="pildora {{ c.despues|pildora }}">{{ c.despues|etiqueta }}</span>
-    <div class="suave">{{ c.motivo }}</div>
+  <li class="fila-factura">
+    <span class="pildora {{ c.despues|pildora }}">{{ c.despues|etiqueta }}</span>
+    <span class="quien"><a href="{% url 'panel:factura' lote c.file_id %}">{{ c.file_id }}</a>
+      <span class="suave"> · antes {{ c.antes|etiqueta|lower }}</span></span>
+    <span></span>
+    <span class="porque">{{ c.motivo|truncatechars:140 }}</span>
   </li>
   {% endfor %}
 </ul>

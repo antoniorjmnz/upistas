@@ -1,13 +1,20 @@
 from django.urls import path
 
-from web.panel.views import chat, cuenta, ejecuciones, erp, facturas, resumen, revision
+from web.panel.views import chat, ejecuciones, erp, facturas, proveedores, resumen, revision, subida
 
 app_name = "panel"
 
 urlpatterns = [
     path("", resumen.resumen, name="inicio"),
-    path("entrar/", cuenta.entrar, name="entrar"),
-    path("salir/", cuenta.salir, name="salir"),
+    path("subir/", subida.subir, name="subir"),
+    path("repasar/", subida.repasar, name="repasar"),
+    path("repasos/<int:id>/estado/", subida.estado, name="repaso_estado"),
+    path("proveedores/", proveedores.lista, name="proveedores"),
+    path("proveedores/nuevo/", proveedores.nuevo, name="proveedor_nuevo"),
+    path("proveedores/<int:id>/", proveedores.detalle, name="proveedor"),
+    path("proveedores/<int:id>/editar/", proveedores.editar, name="proveedor_editar"),
+    path("proveedores/<int:id>/pedidos/nuevo/", proveedores.nuevo_pedido, name="pedido_nuevo"),
+    path("pedidos/<int:id>/editar/", proveedores.editar_pedido, name="pedido_editar"),
     path("facturas/", facturas.lista, name="facturas"),
     path("facturas/<str:lote>/<str:file_id>/", facturas.detalle, name="factura"),
     path("facturas/<str:lote>/<str:file_id>/pdf/", facturas.pdf, name="factura_pdf"),

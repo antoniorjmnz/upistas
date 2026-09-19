@@ -1,0 +1,48 @@
+{% extends "panel/base.html" %}
+{% load panel_extras %}
+{% block titulo %}Subir facturas · Pagos de Alberto{% endblock %}
+{% block contenido %}
+
+<section class="hero">
+  <h1>Subir facturas</h1>
+  <p class="lead">Suelte aquí los PDF (o un zip) y en unos segundos verá qué se paga, qué no y cuáles tiene que mirar.</p>
+</section>
+
+{% if repaso %}{% include "panel/_repaso.html" %}{% endif %}
+
+<section class="tarjeta">
+  <form class="formulario" method="post" action="{% url 'panel:subir' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <label class="zona-subida campo ancho" id="zona-subida">
+      <span class="icono">{% icono "subir" 24 %}</span>
+      <b>Suelte aquí sus facturas</b>
+      <span class="ayuda">o pulse para buscarlas en el ordenador. Valen los PDF sueltos y un zip con varias dentro.</span>
+      <input type="file" name="facturas" id="facturas" multiple accept=".pdf,.zip">
+      <span class="ayuda" id="elegidas" hidden></span>
+    </label>
+
+    <div class="campo">
+      <label for="lote">Lote</label>
+      <select name="lote" id="lote">
+        {% for l in lotes %}<option value="{{ l.id }}" {% if l.id == lote %}selected{% endif %}>{{ l.nombre }}</option>{% endfor %}
+        <option value="{{ nuevo }}">Nuevo lote…</option>
+      </select>
+      <span class="ayuda">El montón de facturas al que se añaden. Se repasa entero, pero las que ya estaban no se vuelven a leer.</span>
+    </div>
+
+    <div class="campo" id="campo-lote-nuevo" hidden>
+      <label for="lote_nuevo">Nombre del lote nuevo</label>
+      <input type="text" name="lote_nuevo" id="lote_nuevo" placeholder="lote3" autocomplete="off">
+      <span class="ayuda">Por ejemplo, lote3.</span>
+    </div>
+
+    <div class="pie-formulario">
+      <button type="submit" class="boton grande" id="enviar">{% icono "subir" 18 %}Subir y repasar</button>
+      <span class="ayuda">Las facturas se guardan en este ordenador; al ERP no se escribe nada.</span>
+    </div>
+  </form>
+</section>
+
+<script defer src="{% estatico 'panel/subida.js' %}"></script>
+{% endblock %}

@@ -28,11 +28,6 @@ DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
-# Toda la web exige sesión (LoginRequiredMiddleware); solo la pantalla de entrar queda fuera.
-LOGIN_URL = "/entrar/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/entrar/"
-
 
 # Application definition
 
@@ -53,7 +48,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -123,6 +117,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
+
+# Los PDF que suben por la web, guardados por su huella. Nunca se sube a git.
+MEDIA_ROOT = Path(os.getenv("ALMACEN_DIR", BASE_DIR / "almacen"))
+MEDIA_URL = "almacen/"
+DATA_UPLOAD_MAX_NUMBER_FILES = 1000
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
 
 
 # Email

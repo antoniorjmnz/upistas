@@ -41,7 +41,7 @@ def test_la_revision_humana_saca_la_factura_de_pendientes(lote_de_prueba, django
 def test_la_cabecera_cuenta_lo_pendiente_de_revisar(alberto, lote_de_prueba):
     html = alberto.get(reverse("panel:conexion")).content.decode()
     assert '<span class="insignia" title="Pendientes de revisar">2</span>' in html
-    assert "Salir" in html and "alberto" in html
+    assert "Registro de repasos" in html  # el pie, para quien lleva el sistema
 
 
 def test_filtros_de_plantilla():
@@ -51,9 +51,52 @@ def test_filtros_de_plantilla():
     assert campo({"campos": {"total": {"valor": 3}}}, "total") == 3 and campo(None, "total") is None
 
 
-def test_el_comando_alberto_crea_el_usuario_una_vez(django_user_model):
-    from django.core.management import call_command
+def test_el_motivo_corto_habla_como_alberto(lote_de_prueba):
+    d = lote_de_prueba["decisiones"]
+    assert consultas.motivo_corto(d["FA-1016_papelería.pdf"]) == "El ERP dice que ya está pagada"
+    assert consultas.motivo_corto(d["2026-07-01_P009.pdf"]) == "Trae texto que intenta influir en la decisión"
+    assert consultas.motivo_corto(d["scan_001.pdf"]) == "No se pudo leer la factura"
+    assert consultas.motivo_corto(d["2026-01-08_P001.pdf"]) == "Cumple la norma"
 
-    call_command("alberto")
-    call_command("alberto")
-    assert django_user_model.objects.filter(username="alberto").count() == 1
+
+def test_iniciales_y_color_del_avatar():
+    from web.panel.templatetags.panel_extras import color_avatar, iniciales
+
+    assert iniciales("Construcciones Benimaclet S.A.") == "CB" and iniciales("Limpiezas Turia S.L.") == "LT"
+    assert iniciales("Suministros Levante S.L.") == "SL" and iniciales(None) == "?"
+    assert color_avatar("Limpiezas Turia S.L.") in "abcdef" and color_avatar("Limpiezas Turia S.L.") == color_avatar("Limpiezas Turia S.L.")
+
+
+def test_la_barra_lateral_dice_como_esta_el_erp(alberto, lote_de_prueba):
+    from django.utils import timezone
+
+    from web.panel.models import SincronizacionERP
+
+    assert "ERP: todavía sin copia" in alberto.get(reverse("panel:inicio")).content.decode()
+    ahora = timezone.now()
+    SincronizacionERP.objects.create(inicio=ahora, fin=ahora, ok=True, n_asientos=516)
+    html = alberto.get(reverse("panel:inicio")).content.decode()
+    assert "ERP al día" in html and 'class="estado-erp bien"' in html
+    SincronizacionERP.objects.create(inicio=ahora, fin=ahora, ok=False, error="ORA-00600")
+    assert 'class="estado-erp mal"' in alberto.get(reverse("panel:inicio")).content.decode()
+
+
+def test_previsualizar_abre_el_pdf_encima_de_la_pagina(alberto, lote_de_prueba):
+    html = alberto.get(reverse("panel:inicio")).content.decode()
+    assert 'data-pdf="' + reverse("panel:factura_pdf", args=["lote1", "2026-07-01_P009.pdf"]) + '"' in html
+    assert 'id="visor"' in html and "panel/panel.js" in html
+
+
+def test_el_pdf_se_puede_ensenar_dentro_de_nuestra_pagina(alberto, lote_de_prueba, tmp_path):
+    import pymupdf
+
+    ruta = tmp_path / "factura.pdf"
+    with pymupdf.open() as pdf:
+        pdf.new_page().insert_text((72, 72), "FACTURA")
+        pdf.save(ruta)
+    doc = lote_de_prueba["documentos"]["2026-07-01_P009.pdf"]
+    doc.ruta = str(ruta)
+    doc.save(update_fields=["ruta"])
+    r = alberto.get(reverse("panel:factura_pdf", args=["lote1", "2026-07-01_P009.pdf"]))
+    assert r.status_code == 200 and r["Content-Type"] == "application/pdf"
+    assert r["X-Frame-Options"] == "SAMEORIGIN"  # el visor lo carga en un marco de la misma web

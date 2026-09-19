@@ -1,0 +1,9 @@
+{# Los dos montones de la cola. Vuelven con la lista (fuera de sitio) para que lo elegido se vea marcado. #}
+{% load panel_extras %}
+<div id="chips" class="chips"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
+  <input type="hidden" name="estado" value="{{ estado }}">
+  <a class="chip{% if estado == 'pendientes' %} activa{% endif %}" href="?estado=pendientes&amp;{{ consulta }}"
+     hx-get="?estado=pendientes&amp;{{ consulta }}" hx-target="#lista" hx-push-url="true">{% icono "ojo" 16 %}Pendientes <span class="cuenta">({{ n_pendientes }})</span></a>
+  <a class="chip{% if estado == 'decididas' %} activa{% endif %}" href="?estado=decididas&amp;{{ consulta }}"
+     hx-get="?estado=decididas&amp;{{ consulta }}" hx-target="#lista" hx-push-url="true">{% icono "check" 16 %}Decididas <span class="cuenta">({{ n_decididas }})</span></a>
+</div>

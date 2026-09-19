@@ -1,86 +1,76 @@
 {% extends "panel/base.html" %}
-{% load static humanize panel_extras %}
-{% block titulo %}Repaso del {{ ejecucion.inicio|date:"d/m/Y H:i" }} · Pagos de Alberto{% endblock %}
-{% block css %}<link rel="stylesheet" href="{% static 'panel/resumen.css' %}">{% endblock %}
+{% load humanize panel_extras %}
+{% block titulo %}Repaso del {{ ejecucion.inicio|date:"j \d\e F" }} · Pagos de Alberto{% endblock %}
 {% block contenido %}
-<div>
-  <h1>Repaso del {{ ejecucion.inicio|date:"d/m/Y" }} a las {{ ejecucion.inicio|date:"H:i" }}</h1>
-  <p class="intro">{{ nombre_lote }}, con la norma {{ ejecucion.norma }}.
-    {% if ejecucion.estado == "terminada" %}Terminó bien.
-    {% elif ejecucion.estado == "en_curso" %}Todavía está en marcha, así que las cifras pueden cambiar.
-    {% else %}Se interrumpió antes de acabar, así que las cifras están incompletas.{% endif %}
-    <a href="{% url 'panel:ejecuciones' %}">Volver a la lista de repasos</a></p>
+
+<section class="hero">
+  <a class="volver" href="{% url 'panel:ejecuciones' %}">Volver al registro</a>
+  <h1>Repaso del {{ ejecucion.inicio|date:"j \d\e F" }} a las {{ ejecucion.inicio|date:"H:i" }}</h1>
+  <p class="lead">De las <b>{{ cifras.documentos }}</b> facturas del {{ nombre_lote|lower }},
+    <b>{{ cifras.PAGAR }}</b> se pueden pagar, <b>{{ cifras.NO_PAGAR }}</b> no,
+    y <b>{{ cifras.ESCALAR }}</b> esperan su decisión.</p>
+</section>
+
+{% if ejecucion.estado != "terminada" %}
+<div class="aviso ojo" role="status">
+  {% icono "alerta" 20 %}
+  <div>{% if ejecucion.estado == "en_curso" %}<b>Este repaso todavía está en marcha</b>, así que las cifras pueden cambiar.
+    {% else %}<b>Este repaso se interrumpió antes de acabar</b>, así que las cifras están incompletas.{% endif %}</div>
 </div>
+{% endif %}
 
 <div class="cifras">
   <div class="cifra"><b>{{ cifras.documentos }}</b><span>facturas repasadas</span></div>
-  <div class="cifra"><b>{{ cifras.PAGAR }}</b><span>para pagar</span></div>
-  <div class="cifra"><b>{{ cifras.NO_PAGAR }}</b><span>para no pagar</span></div>
-  <div class="cifra"><b>{{ cifras.ESCALAR }}</b><span>para mirar usted</span></div>
-  <div class="cifra"><b>{{ cifras.segundos|floatformat:1 }} s</b><span>tardó en total</span></div>
-  <div class="cifra"><b>{{ cifras.coste_eur|floatformat:2 }} €</b><span>costó la inteligencia artificial</span></div>
-</div>
-
-<div class="grid-2">
-  <section class="tarjeta">
-    <h2>Con qué datos se decidió</h2>
-    <dl class="datos">
-      <dt>Lote</dt><dd>{{ nombre_lote }}</dd>
-      <dt>Norma</dt><dd>{{ ejecucion.norma }}, las reglas de pago en vigor ese día</dd>
-      <dt>Copia del ERP</dt>
-      <dd><a href="{% url 'panel:asientos' %}?version={{ ejecucion.version_erp }}">Ver los asientos con los que se decidió</a>
-        <span class="suave mono">{{ ejecucion.version_erp }}</span></dd>
-      <dt>Excel de proveedores</dt>
-      <dd>El maestro tal como estaba entonces <span class="suave mono">{{ ejecucion.version_excel }}</span></dd>
-      <dt>Empezó</dt><dd>{{ ejecucion.inicio|date:"d/m/Y H:i:s" }} <span class="suave">({{ ejecucion.inicio|naturaltime }})</span></dd>
-      <dt>Acabó</dt><dd>{% if ejecucion.fin %}{{ ejecucion.fin|date:"d/m/Y H:i:s" }}{% else %}<span class="suave">todavía no</span>{% endif %}</dd>
-    </dl>
-  </section>
-
-  <section class="tarjeta">
-    <h2>Cuánto costó y cómo se leyó</h2>
-    <dl class="datos">
-      <dt>Duración</dt><dd>{{ cifras.segundos|floatformat:1 }} segundos</dd>
-      <dt>Ritmo</dt>
-      <dd>{% if cifras.por_segundo %}{{ cifras.por_segundo|floatformat:1 }} facturas por segundo{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
-      <dt>Coste</dt>
-      <dd>{{ cifras.coste_eur|euros }} <span class="suave">({{ cifras.tokens_in|intcomma }} de entrada y {{ cifras.tokens_out|intcomma }} de salida a la inteligencia artificial)</span></dd>
-      <dt>Se pudieron leer</dt><dd>{{ cifras.leidos }} de {{ cifras.documentos }}</dd>
-      <dt>Sin inteligencia artificial</dt><dd>{{ cifras.sin_ia }}, solo con el texto del propio PDF</dd>
-      <dt>Detalle</dt>
-      <dd><ul class="menuda">{% for m in cifras.metodos %}<li>{{ m.n }} {{ m.texto }}</li>{% empty %}<li>sin datos</li>{% endfor %}</ul></dd>
-    </dl>
-  </section>
+  <div class="cifra"><b>{{ cifras.PAGAR }}</b><span>se pagan</span></div>
+  <div class="cifra"><b>{{ cifras.NO_PAGAR }}</b><span>no se pagan</span></div>
+  <div class="cifra"><b>{{ cifras.ESCALAR }}</b><span>para revisar</span></div>
 </div>
 
 <section class="tarjeta">
-  <h2>El ordenador donde se hizo</h2>
-  {% if hardware %}
-    <dl class="datos">
-      {% for h in hardware %}<dt>{{ h.que }}</dt><dd>{{ h.valor }}</dd>{% endfor %}
-    </dl>
-  {% else %}
-    <p class="suave">No se apuntó en qué ordenador se hizo este repaso.</p>
-  {% endif %}
-</section>
-
-<section class="tarjeta">
-  <h2>Qué cambió respecto al repaso anterior</h2>
+  <div class="cabecera-tarjeta"><h2>Qué cambió respecto al repaso anterior</h2></div>
   {% if not anterior %}
     <p class="suave">Es el primer repaso de este lote, así que no hay nada con lo que compararlo.</p>
   {% elif not cambios %}
-    <p class="suave">Ninguna factura cambia de resultado respecto al repaso del {{ anterior.inicio|date:"d/m/Y H:i" }}.</p>
+    <p class="suave">Ninguna factura cambia de resultado respecto al repaso del
+      {{ anterior.inicio|date:"j \d\e F" }} a las {{ anterior.inicio|date:"H:i" }}.</p>
   {% else %}
-    <p>Respecto al repaso del {{ anterior.inicio|date:"d/m/Y" }} a las {{ anterior.inicio|date:"H:i" }}:
-      <b>{{ cambios|length }}</b> factura{{ cambios|length|pluralize:"s" }} con otro resultado.</p>
+    <p>Respecto al repaso del {{ anterior.inicio|date:"j \d\e F" }} a las {{ anterior.inicio|date:"H:i" }},
+      <b>{{ cambios|length }}</b> factura{{ cambios|length|pluralize }} cambia{{ cambios|length|pluralize:"n" }} de resultado.</p>
     {% include "panel/_cambios.html" with cambios=cambios lote=ejecucion.lote %}
   {% endif %}
 </section>
 
 <section class="tarjeta">
-  <h2>El fichero de resultados</h2>
-  <p class="suave">Una línea por factura con el resultado y el porqué, tal como se entrega. Si alguien le pide
+  <div class="cabecera-tarjeta"><h2>El fichero de resultados</h2></div>
+  <p class="intro">Una línea por factura con el resultado y el porqué, tal como se entrega. Si alguien le pide
     «el jsonl», es este.</p>
-  <p><a class="boton" href="{% url 'panel:outcomes' ejecucion.id %}">Descargar el fichero de resultados</a></p>
+  <p class="acciones" style="margin: 18px 0 0;"><a class="boton" href="{% url 'panel:outcomes' ejecucion.id %}">{% icono "doc" 18 %}Descargar el fichero de resultados</a></p>
+</section>
+
+<section class="tarjeta">
+  <details class="mas">
+    <summary>Detalles técnicos{% icono "chevron" 16 %}</summary>
+    <dl class="datos">
+      <dt>Norma</dt><dd>{{ ejecucion.norma }}, las reglas de pago en vigor ese día</dd>
+      <dt>Copia del ERP</dt>
+      <dd><a href="{% url 'panel:asientos' %}?version={{ ejecucion.version_erp }}">Ver los asientos con los que se decidió</a>
+        <span class="mono suave">{{ ejecucion.version_erp }}</span></dd>
+      <dt>Excel de proveedores</dt>
+      <dd>El maestro tal como estaba entonces <span class="mono suave">{{ ejecucion.version_excel }}</span></dd>
+      <dt>Empezó</dt><dd>{{ ejecucion.inicio|date:"d/m/Y H:i:s" }}</dd>
+      <dt>Acabó</dt><dd>{% if ejecucion.fin %}{{ ejecucion.fin|date:"d/m/Y H:i:s" }}{% else %}<span class="suave">todavía no</span>{% endif %}</dd>
+      <dt>Duración</dt>
+      <dd>{% if cifras.segundos %}{{ cifras.segundos|floatformat:1 }} segundos{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
+      <dt>Ritmo</dt>
+      <dd>{% if cifras.por_segundo %}{{ cifras.por_segundo|floatformat:1 }} facturas por segundo{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
+      <dt>Se pudieron leer</dt><dd>{{ cifras.leidos }} de {{ cifras.documentos }}</dd>
+      <dt>Sin inteligencia artificial</dt><dd>{{ cifras.sin_ia }}, solo con el texto del propio PDF</dd>
+      <dt>Cómo se leyeron</dt>
+      <dd><ul class="menuda">{% for m in cifras.metodos %}<li>{{ m.n }} {{ m.texto }}</li>{% empty %}<li>sin datos</li>{% endfor %}</ul></dd>
+      <dt>Coste</dt>
+      <dd>{{ cifras.coste_eur|euros }} <span class="suave">({{ cifras.tokens_in|intcomma }} tokens de entrada y {{ cifras.tokens_out|intcomma }} de salida)</span></dd>
+      {% for h in hardware %}<dt>{{ h.que }}</dt><dd>{{ h.valor }}</dd>{% endfor %}
+    </dl>
+  </details>
 </section>
 {% endblock %}

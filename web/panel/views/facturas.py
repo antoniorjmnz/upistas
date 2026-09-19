@@ -1,4 +1,4 @@
-"""Las facturas del lote: lista con filtros, detalle con toda su traza y el PDF original."""
+"""Las facturas del lote: la lista con su buscador, el detalle de cada una y el PDF original."""
 from __future__ import annotations
 
 from datetime import date
@@ -8,12 +8,28 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from web.panel import consultas
 from web.panel.models import Decision, Documento, Lectura
 from web.panel.templatetags.panel_extras import euros
 
-# Los datos leídos, en el orden en que Alberto los mira, con su nombre y cómo se escriben.
+POR_PAGINA = 25
+
+# Lo que Alberto mira de una factura, en el orden en que lo mira. El IVA lleva su tipo y su cuota juntos.
+LA_FACTURA = [
+    ("proveedor_nombre", "Proveedor", ""),
+    ("nif", "NIF", ""),
+    ("iban", "Cuenta donde cobra", ""),
+    ("pedido", "Pedido", ""),
+    ("fecha", "Fecha", "fecha"),
+    ("base", "Base imponible", "euros"),
+    ("iva", "IVA", "euros"),
+    ("total", "Total", "euros"),
+    ("numero_factura", "Número de factura", ""),
+]
+
+# Todo lo que se leyó, con su nombre y cómo se escribe. Solo se enseña en el plegado técnico.
 CAMPOS = [
     ("nif", "NIF del proveedor", ""),
     ("iban", "Cuenta donde cobra", ""),
@@ -68,24 +84,17 @@ def _fecha(valor) -> str:
 
 
 def lista(request: HttpRequest) -> HttpResponse:
-    """Las decisiones de la última ejecución del lote, con los filtros de Alberto."""
+    """Todas las facturas del lote, con lo que se decidió de cada una."""
     pedido_lote = (request.GET.get("lote") or "").strip()
     ejecucion = consultas.ultima_ejecucion(pedido_lote or None)
     q = (request.GET.get("q") or "").strip()
     resultado = request.GET.get("resultado") or ""
-    revision = request.GET.get("revision") or ""
 
     decisiones = consultas.decisiones_de(ejecucion) if ejecucion else Decision.objects.none()
     cuenta = {f["resultado"]: f["n"] for f in decisiones.values("resultado").annotate(n=Count("id"))}
     revisiones = consultas.revisiones_por_documento(ejecucion.lote) if ejecucion else {}
 
-    qs = decisiones
-    if resultado:
-        qs = qs.filter(resultado=resultado)
-    if revision == "pendientes":
-        qs = qs.exclude(documento_id__in=list(revisiones))
-    elif revision == "revisadas":
-        qs = qs.filter(documento_id__in=list(revisiones))
+    qs = decisiones.filter(resultado=resultado) if resultado else decisiones
     if q:
         # El proveedor no está en la decisión, sino dentro del JSON de la lectura.
         con_ese_proveedor = Lectura.objects.filter(extraida__campos__proveedor_nombre__valor__icontains=q).values("sha256")
@@ -96,7 +105,7 @@ def lista(request: HttpRequest) -> HttpResponse:
             | Q(documento__sha256__in=con_ese_proveedor)
         )
 
-    pagina = Paginator(qs.order_by("documento__file_id"), 25).get_page(request.GET.get("pagina"))
+    pagina = Paginator(qs.order_by("documento__file_id"), POR_PAGINA).get_page(request.GET.get("pagina"))
     filas = list(pagina)
     lecturas = consultas.lecturas_por_sha([d.documento.sha256 for d in filas])
     for d in filas:
@@ -105,6 +114,7 @@ def lista(request: HttpRequest) -> HttpResponse:
         d.fecha = _fecha(datos.get("fecha"))
         d.total = datos.get("total")
         d.revision = revisiones.get(d.documento_id)
+        d.porque = consultas.motivo_corto(d)
 
     ctx = {
         "lotes": consultas.lotes(),
@@ -112,12 +122,9 @@ def lista(request: HttpRequest) -> HttpResponse:
         "ejecucion": ejecucion,
         "q": q,
         "resultado": resultado,
-        "revision": revision,
         "pagina": pagina,
         "cuenta": cuenta,
         "total": sum(cuenta.values()),
-        "encontrados": pagina.paginator.count,
-        "filtrando": bool(q or resultado or revision),
     }
     plantilla = "panel/_facturas_tabla.html" if request.headers.get("HX-Request") else "panel/facturas.html"
     return render(request, plantilla, ctx)
@@ -132,6 +139,27 @@ def _escrito(valor, formato: str) -> str:
     if formato == "fecha":
         return _fecha(valor)
     return str(valor)
+
+
+def _poco_fiable(confianza) -> bool:
+    """Si no estamos seguros de haber leído bien ese dato."""
+    return isinstance(confianza, (int, float)) and not isinstance(confianza, bool) and confianza < POCO_FIABLE
+
+
+def _la_factura(extraida: dict | None) -> list[dict]:
+    """Los datos que Alberto mira, escritos como él los escribe. Valor vacío si el campo no aparece."""
+    campos = (extraida or {}).get("campos") or {}
+    filas = []
+    for nombre, etiqueta, formato in LA_FACTURA:
+        c = campos.get(nombre) or {}
+        valor = c.get("valor")
+        escrito = "" if valor in (None, "") else _escrito(valor, formato)
+        if nombre == "iva" and escrito:
+            tipo = (campos.get("iva_pct") or {}).get("valor")
+            if tipo not in (None, ""):
+                escrito = f"{tipo} % · {escrito}"
+        filas.append({"nombre": nombre, "etiqueta": etiqueta, "valor": escrito, "poco_fiable": _poco_fiable(c.get("confianza"))})
+    return filas
 
 
 def _leidos(extraida: dict | None) -> list[dict]:
@@ -149,13 +177,13 @@ def _leidos(extraida: dict | None) -> list[dict]:
             "falta": falta,
             "confianza": round(conf * 100) if numerica else None,
             "pagina": c.get("pagina"),
-            "poco_fiable": numerica and conf < POCO_FIABLE,
+            "poco_fiable": _poco_fiable(conf),
         })
     return filas
 
 
 def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
-    """Toda la traza de una factura: la norma, lo leído, el texto, el fichero y lo decidido."""
+    """Qué se decidió de una factura y por qué. Lo técnico va plegado."""
     ejecucion = consultas.ultima_ejecucion(lote)
     if ejecucion is None:
         raise Http404("Todavía no hemos decidido nada de este lote.")
@@ -167,15 +195,22 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     )
     documento = decision.documento
     lectura = consultas.lecturas_por_sha([documento.sha256]).get(documento.sha256)
+    leido = consultas.campos(lectura)
     extraida = lectura.extraida if lectura else None
+    reglas = (decision.outcome or {}).get("reglas") or []
+    revision = consultas.revisiones_por_documento(lote).get(documento.id)
 
     return render(request, "panel/factura.html", {
         "decision": decision,
         "documento": documento,
         "lectura": lectura,
         "ejecucion": ejecucion,
-        "proveedor": consultas.campos(lectura).get("proveedor_nombre"),
-        "reglas": (decision.outcome or {}).get("reglas") or [],
+        "proveedor": leido.get("proveedor_nombre"),
+        "total": leido.get("total"),
+        "motivo_corto": consultas.motivo_corto(decision),
+        "reglas": reglas,
+        "fallan": [r for r in reglas if not r.get("ok")],
+        "datos": _la_factura(extraida),
         "leidos": _leidos(extraida),
         "notas": [
             {"texto": n.get("texto", ""), "categorias": [CATEGORIAS.get(c, c) for c in (n.get("categorias") or [])]}
@@ -186,10 +221,13 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
         "metodo": METODO.get(lectura.metodo, lectura.metodo) if lectura else METODO["ninguno"],
         "historial": Decision.objects.filter(documento=documento).select_related("ejecucion").order_by("ejecucion__inicio"),
         "revisiones": documento.revisiones.all(),
-        "revision": consultas.revisiones_por_documento(lote).get(documento.id),
+        "revision": revision,
+        # Si el sistema no lo tiene claro, o si Alberto ya dijo la suya, lo primero es su decisión.
+        "decidir_arriba": decision.resultado == "ESCALAR" or revision is not None,
     })
 
 
+@xframe_options_sameorigin  # el PDF se enseña dentro de nuestra propia página (Previsualizar)
 def pdf(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     """El PDF original, tal cual llegó. La ruta sale de nuestra base de datos, no de la dirección."""
     documento = get_object_or_404(Documento, lote=lote, file_id=file_id)

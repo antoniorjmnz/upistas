@@ -1,0 +1,91 @@
+{% extends "panel/base.html" %}
+{% load panel_extras %}
+{% block titulo %}{{ proveedor.nombre }} · Pagos de Alberto{% endblock %}
+{% block contenido %}
+
+<section class="hero">
+  <a class="volver" href="{% url 'panel:proveedores' %}">Volver a proveedores</a>
+  <div class="quien-factura">
+    <span class="av grande {{ proveedor.nombre|color_avatar }}">{{ proveedor.nombre|iniciales }}</span>
+    <div>
+      <h1>{{ proveedor.nombre }}</h1>
+      <p class="lead">{{ proveedor.codigo }} · {{ proveedor.nif }}</p>
+    </div>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>Sus datos</h2>
+    <a class="boton suave" href="{% url 'panel:proveedor_editar' proveedor.id %}">{% icono "editar" 16 %}Editar</a>
+  </div>
+  <div class="datos">
+    <div class="dato"><span>Cuenta donde cobra</span><span class="mono">{{ proveedor.iban }}</span></div>
+    <div class="dato"><span>Ciudad</span>{{ proveedor.ciudad|default:"Sin anotar" }}</div>
+    <div class="dato"><span>Días de pago</span>{% if proveedor.condiciones_dias %}{{ proveedor.condiciones_dias }} días{% else %}Sin acordar{% endif %}</div>
+    <div class="dato"><span>Situación</span>{% if proveedor.activo %}De alta{% else %}Dado de baja{% endif %}</div>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>Pedidos{% if marcados %} <span class="pildora ojo">{{ marcados }} para mirar</span>{% endif %}</h2>
+    <a class="boton" href="{% url 'panel:pedido_nuevo' proveedor.id %}">{% icono "mas" 18 %}Nuevo pedido</a>
+  </div>
+  {% if not pedidos %}
+    <div class="vacio">
+      <div class="icono">{% icono "doc" 26 %}</div>
+      <p class="grande">Todavía no le ha apuntado ningún pedido</p>
+      <p class="suave">Sin el pedido, sus facturas no se pueden comprobar y acabarán esperando su decisión.</p>
+    </div>
+  {% else %}
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th>Pedido</th><th class="num">Importe</th><th>Fecha</th><th>Lo mira usted</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for p in pedidos %}
+          <tr>
+            <td class="mono">{{ p.numero }}</td>
+            <td class="num">{{ p.importe|euros }}</td>
+            <td>{% if p.fecha %}{{ p.fecha|date:"d/m/Y" }}{% else %}<span class="suave">sin fecha</span>{% endif %}</td>
+            <td>{% if p.revisar %}<span class="pildora ojo">{% icono "ojo" 14 %}Revisar</span>{% endif %}</td>
+            <td><a href="{% url 'panel:pedido_editar' p.id %}">Editar</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+
+<section class="tarjeta">
+  <div class="cabecera-tarjeta"><h2>Facturas suyas en el último repaso</h2></div>
+  {% if not facturas %}
+    <div class="vacio">
+      <div class="icono">{% icono "archivo" 26 %}</div>
+      <p class="grande">Ninguna factura suya en el último repaso</p>
+      <p class="suave">{% if ejecucion %}En el {{ ejecucion.lote|lote|lower }} no llegó ninguna factura de sus pedidos.{% else %}Todavía no se ha repasado ningún lote.{% endif %}</p>
+    </div>
+  {% else %}
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th>Factura</th><th>Pedido</th><th>Resultado</th><th>Por qué</th></tr>
+        </thead>
+        <tbody>
+        {% for f in facturas %}
+          <tr>
+            <td><a href="{% url 'panel:factura' f.decision.documento.lote f.decision.documento.file_id %}">{{ f.decision.documento.file_id }}</a></td>
+            <td class="mono">{{ f.decision.pedido }}</td>
+            <td><span class="pildora {{ f.decision.resultado|pildora }}">{{ f.decision.resultado|etiqueta }}</span></td>
+            <td class="porque">{{ f.motivo }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

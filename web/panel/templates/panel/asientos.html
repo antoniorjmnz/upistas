@@ -1,35 +1,45 @@
 {% extends "panel/base.html" %}
+{% load panel_extras %}
 {% block titulo %}Asientos del ERP · Pagos de Alberto{% endblock %}
 {% block contenido %}
-<div>
-  <h1>Asientos del ERP</h1>
-  <p class="intro">Los pedidos que tiene apuntados su contabilidad, tal como estaban en la copia que usamos para
-    decidir. Busque por pedido, asiento, proveedor (P001…) o NIF.</p>
-</div>
 
-<form class="filtros tarjeta" method="get" action="{% url 'panel:asientos' %}"
+<section class="hero">
+  <p class="sobre">Para quien lleva el sistema</p>
+  <h1>Asientos del ERP</h1>
+  <p class="lead">Los pedidos que tiene apuntados la contabilidad, tal como estaban en la copia con la que
+    se decidió.</p>
+</section>
+
+<form class="tarjeta" method="get" action="{% url 'panel:asientos' %}"
       hx-get="{% url 'panel:asientos' %}" hx-target="#tabla" hx-push-url="true"
-      hx-trigger="input changed delay:300ms from:#buscar, change from:select, submit">
-  <label for="buscar">Buscar
-    <input id="buscar" type="search" name="q" value="{{ q }}" placeholder="PO-2026-0492, AS-00507, P005, B96233419…" autocomplete="off">
-  </label>
-  <label for="estado">Estado
-    <select id="estado" name="estado">
-      <option value="" {% if not estado %}selected{% endif %}>Todos</option>
-      <option value="PENDIENTE" {% if estado == "PENDIENTE" %}selected{% endif %}>Pendientes de pago</option>
-      <option value="PAGADA" {% if estado == "PAGADA" %}selected{% endif %}>Ya pagados</option>
-    </select>
-  </label>
-  <label for="version">Copia
-    <select id="version" name="version">
-      {% for v in versiones %}
-        <option value="{{ v.version }}" {% if v.version == version %}selected{% endif %}>
-          {{ v.creada|date:"d/m H:i" }} · {{ v.version }}{% if en_uso and v.version == en_uso.version_id %} (en uso){% endif %}
-        </option>
-      {% empty %}<option value="">Sin copias todavía</option>{% endfor %}
-    </select>
-  </label>
-  <noscript><button class="boton" type="submit">Buscar</button></noscript>
+      hx-trigger="input changed delay:300ms from:#buscar, change from:select, change from:.chips, submit">
+  <div class="barra">
+    <div class="buscador">
+      {% icono "buscar" 20 %}
+      <input id="buscar" type="search" name="q" value="{{ q }}" aria-label="Buscar un asiento"
+             placeholder="Buscar por pedido, asiento, proveedor o NIF" autocomplete="off">
+    </div>
+    <div class="chips" role="group" aria-label="Estado del pedido">
+      <input type="radio" name="estado" id="estado-todos" value="" {% if not estado %}checked{% endif %}>
+      <label class="chip" for="estado-todos">Todos</label>
+      <input type="radio" name="estado" id="estado-pendiente" value="PENDIENTE" {% if estado == "PENDIENTE" %}checked{% endif %}>
+      <label class="chip" for="estado-pendiente"><span class="punto pagar"></span>Pendientes</label>
+      <input type="radio" name="estado" id="estado-pagada" value="PAGADA" {% if estado == "PAGADA" %}checked{% endif %}>
+      <label class="chip" for="estado-pagada"><span class="punto nopagar"></span>Ya pagados</label>
+    </div>
+  </div>
+  <div class="filtros" style="margin-top: 16px;">
+    <label for="version">Copia de los datos
+      <select id="version" name="version">
+        {% for v in versiones %}
+          <option value="{{ v.version }}" {% if v.version == version %}selected{% endif %}>
+            {{ v.creada|date:"j \d\e F, H:i" }}{% if en_uso and v.version == en_uso.version_id %} (la que se usa){% endif %}
+          </option>
+        {% empty %}<option value="">Sin copias todavía</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button class="boton" type="submit">Buscar</button></noscript>
+  </div>
 </form>
 
 <section class="tarjeta" id="tabla">

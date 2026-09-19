@@ -1,12 +1,14 @@
 {% extends "panel/base.html" %}
 {% block titulo %}Conexión con el ERP · Pagos de Alberto{% endblock %}
 {% block contenido %}
-<div>
+
+<section class="hero">
+  <p class="sobre">Para quien lleva el sistema</p>
   <h1>Conexión con el ERP</h1>
-  <p class="intro">Su ERP de 2009 es lento y falla a menudo. Por eso no le preguntamos en cada clic: traemos
-    una copia de todos sus asientos, la guardamos con su fecha y trabajamos con ella. Aquí ve cada conexión
-    y qué cambió. En el ERP nunca escribimos nada.</p>
-</div>
+  <p class="lead">El ERP es lento y falla a menudo, así que no se le pregunta en cada clic: se trae una copia
+    de todos sus asientos y se trabaja con ella. En el ERP no se escribe nunca.</p>
+</section>
+
 <div id="estado">
   {% include "panel/_conexion_estado.html" %}
 </div>

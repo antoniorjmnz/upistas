@@ -2,6 +2,8 @@
 de sus asientos, cada lectura de cada documento, cada ejecución y cada decisión con su traza."""
 from django.db import models
 
+from upistas.dominio.importes import normaliza_iban
+
 # --- Copia del ERP ---------------------------------------------------------------------------
 
 
@@ -183,3 +185,60 @@ class RevisionHumana(models.Model):
     class Meta:
         ordering = ["-cuando"]
         verbose_name_plural = "revisiones humanas"
+
+
+# --- Maestro: los proveedores y pedidos de Alberto, mantenidos desde la web -------------------
+
+
+class Proveedor(models.Model):
+    """A quién se le paga. Antes vivía en la hoja Proveedores del Excel.
+
+    `codigo` es el nombre que el ERP le da al proveedor en sus asientos (`AsientoERP.proveedor_id`):
+    aunque Alberto no lo mire nunca, sin él no se puede cruzar un pedido con su asiento.
+    `activo` es informativo (con quién se sigue trabajando); no cambia ninguna decisión.
+    """
+
+    codigo = models.CharField(max_length=10, unique=True)  # P001, P002...
+    nombre = models.CharField(max_length=200)
+    nif = models.CharField(max_length=12, unique=True)
+    iban = models.CharField(max_length=34)
+    ciudad = models.CharField(max_length=80, blank=True)
+    condiciones_dias = models.PositiveSmallIntegerField(null=True, blank=True)  # 30, 60... días para pagar
+    activo = models.BooleanField(default=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name_plural = "proveedores"
+
+    def save(self, *args, **kwargs):
+        # Se guardan ya comparables con lo que se lee de una factura: sin espacios y en mayúsculas.
+        self.nif = (self.nif or "").replace(" ", "").upper()
+        self.iban = normaliza_iban(self.iban) or ""
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.codigo} · {self.nombre}"
+
+
+class Pedido(models.Model):
+    """Un pedido hecho a un proveedor. Antes vivía en la hoja Pedidos_2026 del Excel.
+
+    `revisar` sustituye a la hoja `pendiente_revisar`: Alberto quiere mirar sus facturas.
+    """
+
+    numero = models.CharField(max_length=20, unique=True)  # PO-2026-0001
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, related_name="pedidos")
+    importe = models.DecimalField(max_digits=12, decimal_places=2)
+    fecha = models.DateField(null=True, blank=True)
+    revisar = models.BooleanField(default=False)
+    nota = models.TextField(blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["numero"]
+
+    def __str__(self) -> str:
+        return f"{self.numero} · {self.proveedor.codigo}"

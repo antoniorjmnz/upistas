@@ -1,40 +1,56 @@
-{% load static %}<!doctype html>
+{% load static panel_extras %}<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Pagos de Alberto{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
+  <link rel="stylesheet" href="{% estatico 'panel/panel.css' %}">
   {% block css %}{% endblock %}
-  <script src="{% static 'panel/htmx.min.js' %}" defer></script>
+  <script src="{% estatico 'panel/htmx.min.js' %}" defer></script>
+  <script src="{% estatico 'panel/panel.js' %}" defer></script>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% with pagina_actual=request.resolver_match.url_name %}
-  <header class="cab">
-    <a class="marca" href="{% url 'panel:inicio' %}">Pagos de Alberto</a>
-    {% if user.is_authenticated %}
-    <nav aria-label="Secciones">
-      <a href="{% url 'panel:inicio' %}" class="{% if pagina_actual == 'inicio' %}activa{% endif %}">Resumen</a>
-      <a href="{% url 'panel:facturas' %}" class="{% if pagina_actual == 'facturas' or pagina_actual == 'factura' %}activa{% endif %}">Facturas</a>
-      <a href="{% url 'panel:cola' %}" class="{% if pagina_actual == 'cola' %}activa{% endif %}">Para revisar{% if pendientes_revision %} <span class="insignia" title="Pendientes de revisar">{{ pendientes_revision }}</span>{% endif %}</a>
-      <a href="{% url 'panel:preguntar' %}" class="{% if pagina_actual == 'preguntar' %}activa{% endif %}">Preguntar</a>
-      <a href="{% url 'panel:ejecuciones' %}" class="{% if pagina_actual == 'ejecuciones' or pagina_actual == 'ejecucion' %}activa{% endif %}">Ejecuciones</a>
-      <a href="{% url 'panel:asientos' %}" class="{% if pagina_actual == 'asientos' %}activa{% endif %}">Asientos del ERP</a>
-      <a href="{% url 'panel:conexion' %}" class="{% if pagina_actual == 'conexion' or pagina_actual == 'cambios' %}activa{% endif %}">Conexión con el ERP</a>
-    </nav>
-    <form class="usuario" method="post" action="{% url 'panel:salir' %}">
-      {% csrf_token %}
-      <span class="suave">{{ user.get_username }}</span>
-      <button class="enlace" type="submit">Salir</button>
-    </form>
-    {% endif %}
-  </header>
+  <div class="app">
+    <aside class="lado">
+      <a class="marca" href="{% url 'panel:inicio' %}"><span class="logo">{% icono "check" 20 %}</span><span>Pagos de Alberto<small>Banco Miralmar</small></span></a>
+      <a class="boton subir-facturas" href="{% url 'panel:subir' %}">{% icono "subir" 18 %}<span>Subir facturas</span></a>
+      <nav aria-label="Secciones">
+        <a href="{% url 'panel:inicio' %}" class="{% if pagina_actual == 'inicio' %}activa{% endif %}">{% icono "casa" 20 %}<span>Hoy</span></a>
+        <a href="{% url 'panel:facturas' %}" class="{% if pagina_actual == 'facturas' or pagina_actual == 'factura' %}activa{% endif %}">{% icono "archivo" 20 %}<span>Facturas</span></a>
+        <a href="{% url 'panel:proveedores' %}" class="{% if pagina_actual|slice:':9' == 'proveedor' or pagina_actual|slice:':6' == 'pedido' %}activa{% endif %}">{% icono "proveedores" 20 %}<span>Proveedores</span></a>
+        <a href="{% url 'panel:cola' %}" class="{% if pagina_actual == 'cola' %}activa{% endif %}">{% icono "ojo" 20 %}<span>Para revisar</span>{% if pendientes_revision %}<span class="insignia" title="Pendientes de revisar">{{ pendientes_revision }}</span>{% endif %}</a>
+        <a href="{% url 'panel:preguntar' %}" class="{% if pagina_actual == 'preguntar' %}activa{% endif %}">{% icono "chat" 20 %}<span>Preguntar</span></a>
+      </nav>
+      <div class="abajo">
+        <nav aria-label="Para quien lleva el sistema">
+          <a href="{% url 'panel:ejecuciones' %}" class="{% if pagina_actual == 'ejecuciones' or pagina_actual == 'ejecucion' %}activa{% endif %}">{% icono "reloj" 18 %}<span>Registro de repasos</span></a>
+          <a href="{% url 'panel:conexion' %}" class="{% if pagina_actual == 'conexion' or pagina_actual == 'cambios' %}activa{% endif %}">{% icono "erp" 18 %}<span>Conexión con el ERP</span></a>
+          <a href="{% url 'panel:asientos' %}" class="{% if pagina_actual == 'asientos' %}activa{% endif %}">{% icono "lista" 18 %}<span>Asientos del ERP</span></a>
+        </nav>
+        {% if erp_estado %}
+        <div class="estado-erp {{ erp_estado.clase }}" title="{{ erp_estado.detalle }}"><span class="punto"></span><div>{{ erp_estado.texto }}</div></div>
+        {% endif %}
+        <div class="persona"><span class="av e">AL</span><div><b>Alberto</b><small>Contabilidad</small></div></div>
+      </div>
+    </aside>
+    <div class="contenido">
+      <main>
+        {% if messages %}
+          {% for m in messages %}<div class="aviso {{ m.tags|default:'bien' }}">{% icono "check" 18 %}<div>{{ m }}</div></div>{% endfor %}
+        {% endif %}
+        {% block contenido %}{% endblock %}
+      </main>
+    </div>
+  </div>
   {% endwith %}
-  <main>
-    {% if messages %}
-      {% for m in messages %}<div class="aviso {{ m.tags|default:'bien' }}">{{ m }}</div>{% endfor %}
-    {% endif %}
-    {% block contenido %}{% endblock %}
-  </main>
+  <dialog id="visor" class="visor" aria-label="Factura">
+    <div class="visor-cab">
+      {% icono "doc" 18 %}<b class="visor-titulo">Factura</b>
+      <a class="visor-abrir" href="#" target="_blank" rel="noopener">Abrir en otra pestaña</a>
+      <button type="button" class="boton pequeno suave" data-cerrar>{% icono "x" 14 %}Cerrar</button>
+    </div>
+    <iframe title="Factura original" src="about:blank"></iframe>
+  </dialog>
 </body>
 </html>

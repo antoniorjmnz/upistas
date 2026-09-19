@@ -1,0 +1,5 @@
+{% load panel_extras %}{% comment %}Repasar otra vez el lote sin subir nada: lleva a la pantalla de subir, con el progreso.{% endcomment %}
+<form method="post" action="{% url 'panel:repasar' %}">
+  {% csrf_token %}
+  <button type="submit" class="boton suave">{% icono "reloj" 16 %}Repasar ahora</button>
+</form>

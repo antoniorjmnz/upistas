@@ -1,47 +1,56 @@
 {% extends "panel/base.html" %}
-{% load static %}
+{% load static panel_extras %}
 {% block titulo %}Facturas · Pagos de Alberto{% endblock %}
 {% block css %}<link rel="stylesheet" href="{% static 'panel/facturas.css' %}">{% endblock %}
 {% block contenido %}
-<div>
+
+<section class="hero">
   <h1>Facturas</h1>
-  <p class="intro">Lo que hemos decidido sobre cada factura del lote, con el porqué. Pinche en el nombre de una
-    factura para ver de dónde sale su resultado. Puede buscar por el nombre del fichero, el proveedor, el número
-    de pedido o el motivo.</p>
-</div>
-
-<form class="filtros tarjeta" method="get" action="{% url 'panel:facturas' %}"
-      hx-get="{% url 'panel:facturas' %}" hx-target="#tabla" hx-push-url="true"
-      hx-trigger="input changed delay:300ms from:#buscar, change from:select, submit">
-  <label for="buscar">Buscar
-    <input id="buscar" type="search" name="q" value="{{ q }}" placeholder="Papelería Cervantes, PO-2026-0474, ya pagado…" autocomplete="off">
-  </label>
-  <label for="resultado">Resultado
-    <select id="resultado" name="resultado">
-      <option value="" {% if not resultado %}selected{% endif %}>Todos</option>
-      <option value="PAGAR" {% if resultado == "PAGAR" %}selected{% endif %}>Pagar</option>
-      <option value="NO_PAGAR" {% if resultado == "NO_PAGAR" %}selected{% endif %}>No pagar</option>
-      <option value="ESCALAR" {% if resultado == "ESCALAR" %}selected{% endif %}>Revisar</option>
-    </select>
-  </label>
-  <label for="revision">Su revisión
-    <select id="revision" name="revision">
-      <option value="" {% if not revision %}selected{% endif %}>Todas</option>
-      <option value="pendientes" {% if revision == "pendientes" %}selected{% endif %}>Pendientes de revisar</option>
-      <option value="revisadas" {% if revision == "revisadas" %}selected{% endif %}>Ya revisadas por usted</option>
-    </select>
-  </label>
-  <label for="lote">Lote
-    <select id="lote" name="lote">
-      {% for l in lotes %}
-        <option value="{{ l }}" {% if l == lote %}selected{% endif %}>{{ l }}</option>
-      {% empty %}<option value="">Sin lotes todavía</option>{% endfor %}
-    </select>
-  </label>
-  <noscript><button class="boton" type="submit">Buscar</button></noscript>
-</form>
-
-<section id="tabla">
-  {% include "panel/_facturas_tabla.html" %}
+  {% if ejecucion %}
+    <p class="lead">Las {{ total }} facturas del {{ lote|lote|lower }} con lo que se decidió de cada una; busque por proveedor, número o pedido.</p>
+  {% else %}
+    <p class="lead">Aquí verá todas las facturas del lote con lo que se decidió de cada una.</p>
+  {% endif %}
 </section>
+
+{% if ejecucion %}
+<form class="barra" method="get" action="{% url 'panel:facturas' %}">
+  <input type="hidden" name="resultado" value="{{ resultado }}">
+  <div class="buscador">
+    {% icono "buscar" 20 %}
+    <input type="search" name="q" value="{{ q }}" autocomplete="off" aria-label="Buscar una factura"
+           placeholder="Papelería Cervantes, PO-2026-0474, FA-1016…"
+           hx-get="{% url 'panel:facturas' %}" hx-include="closest form"
+           hx-trigger="input changed delay:300ms" hx-target="#tabla" hx-push-url="true">
+  </div>
+  <div class="chips">
+    <a class="chip {% if not resultado %}activa{% endif %}"
+       href="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}"
+       hx-get="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}"
+       hx-target="#tabla" hx-push-url="true">Todas <span class="cuenta">{{ total }}</span></a>
+    <a class="chip {% if resultado == 'PAGAR' %}activa{% endif %}"
+       href="{% url 'panel:facturas' %}{% querystring resultado='PAGAR' pagina=None %}"
+       hx-get="{% url 'panel:facturas' %}{% querystring resultado='PAGAR' pagina=None %}"
+       hx-target="#tabla" hx-push-url="true"><span class="punto pagar"></span>Se pagan <span class="cuenta">{{ cuenta.PAGAR|default:"0" }}</span></a>
+    <a class="chip {% if resultado == 'NO_PAGAR' %}activa{% endif %}"
+       href="{% url 'panel:facturas' %}{% querystring resultado='NO_PAGAR' pagina=None %}"
+       hx-get="{% url 'panel:facturas' %}{% querystring resultado='NO_PAGAR' pagina=None %}"
+       hx-target="#tabla" hx-push-url="true"><span class="punto nopagar"></span>No se pagan <span class="cuenta">{{ cuenta.NO_PAGAR|default:"0" }}</span></a>
+    <a class="chip {% if resultado == 'ESCALAR' %}activa{% endif %}"
+       href="{% url 'panel:facturas' %}{% querystring resultado='ESCALAR' pagina=None %}"
+       hx-get="{% url 'panel:facturas' %}{% querystring resultado='ESCALAR' pagina=None %}"
+       hx-target="#tabla" hx-push-url="true"><span class="punto revisar"></span>Para revisar <span class="cuenta">{{ cuenta.ESCALAR|default:"0" }}</span></a>
+  </div>
+  {% if lotes|length > 1 %}
+    <label class="elegir-lote"><span class="suave">Lote</span>
+      <select name="lote">{% for l in lotes %}<option value="{{ l }}" {% if l == lote %}selected{% endif %}>{{ l|lote }}</option>{% endfor %}</select>
+      <button class="boton pequeno suave" type="submit">Ver</button>
+    </label>
+  {% endif %}
+</form>
+{% endif %}
+
+<div id="tabla">
+  {% include "panel/_facturas_tabla.html" %}
+</div>
 {% endblock %}

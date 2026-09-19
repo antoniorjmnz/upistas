@@ -19,15 +19,33 @@ def _estado_del_erp() -> dict:
     return {"erp_fallo": ultima, "erp_copia": SincronizacionERP.objects.filter(ok=True).first()}
 
 
-def _importes(decisiones: list) -> dict:
+def _importes(decisiones: list, lecturas: dict) -> dict:
     """Cuánto dinero hay en cada montón, según el total que se leyó en cada factura."""
-    lecturas = consultas.lecturas_por_sha(d.documento.sha256 for d in decisiones)
     suma: dict[str, float] = {}
     for d in decisiones:
         total = consultas.campos(lecturas.get(d.documento.sha256)).get("total")
         if total is not None:
             suma[d.resultado] = suma.get(d.resultado, 0.0) + float(total)
     return suma
+
+
+CIRCUNFERENCIA = 289.03  # 2·π·46, el anillo del gráfico del lote
+
+
+def _dona(numeros: dict) -> dict:
+    """Los tramos del anillo, en la unidad del SVG, y los porcentajes redondeados."""
+    total = numeros["documentos"] or 1
+
+    def largo(n: int) -> float:
+        return round(CIRCUNFERENCIA * n / total, 2)
+
+    pagar, no_pagar, escalar = largo(numeros["PAGAR"]), largo(numeros["NO_PAGAR"]), largo(numeros["ESCALAR"])
+    return {
+        "pagar": pagar, "nopagar": no_pagar, "revisar": escalar,
+        "off_nopagar": -pagar, "off_revisar": -(pagar + no_pagar),
+        "pct_pagar": round(100 * numeros["PAGAR"] / total), "pct_nopagar": round(100 * numeros["NO_PAGAR"] / total),
+        "pct_revisar": round(100 * numeros["ESCALAR"] / total),
+    }
 
 
 def resumen(request: HttpRequest) -> HttpResponse:
@@ -44,12 +62,19 @@ def resumen(request: HttpRequest) -> HttpResponse:
         return render(request, "panel/resumen.html", ctx)
 
     decisiones = list(consultas.decisiones_de(ejecucion))
+    lecturas = consultas.lecturas_por_sha(d.documento.sha256 for d in decisiones)
     revisiones = consultas.revisiones_por_documento(ejecucion.lote)
     pendientes = list(consultas.pendientes_de_revision(ejecucion))
+    for d in pendientes[:EN_PORTADA]:  # quién es y cuánto pide, para que Alberto lo reconozca de un vistazo
+        datos = consultas.campos(lecturas.get(d.documento.sha256))
+        d.proveedor, d.total = datos.get("proveedor_nombre"), datos.get("total")
+        d.motivo_corto = consultas.motivo_corto(d)
     anterior, cambios = consultas.cambios_respecto_a_la_anterior(ejecucion)
-    importes = _importes(decisiones)
+    importes = _importes(decisiones, lecturas)
+    numeros = cifras(ejecucion)
     return render(request, "panel/resumen.html", ctx | {
-        "cifras": cifras(ejecucion),
+        "cifras": numeros,
+        "dona": _dona(numeros),
         "revisadas": sum(1 for d in decisiones if d.resultado == "ESCALAR" and d.documento_id in revisiones),
         "pendientes": pendientes[:EN_PORTADA],
         "por_revisar": len(pendientes),

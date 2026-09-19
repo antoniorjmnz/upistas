@@ -1,0 +1,40 @@
+{% extends "panel/base.html" %}
+{% load panel_extras %}
+{% block titulo %}{% if pedido.pk %}Editar {{ pedido.numero }}{% else %}Nuevo pedido{% endif %} · Pagos de Alberto{% endblock %}
+{% block contenido %}
+
+<section class="hero">
+  <a class="volver" href="{% url 'panel:proveedor' proveedor.id %}">Volver a {{ proveedor.nombre }}</a>
+  {% if pedido.pk %}
+    <h1>Editar pedido</h1>
+    <p class="lead">El importe es lo que se comprueba contra cada factura de este pedido: si no coincide,
+      no se paga.</p>
+  {% else %}
+    <h1>Nuevo pedido</h1>
+    <p class="lead">Apunte lo que le ha pedido a {{ proveedor.nombre }} y por cuánto. Cuando llegue la
+      factura, el sistema comprobará que el pedido existe y que el importe coincide.</p>
+  {% endif %}
+</section>
+
+<section class="tarjeta">
+  <form class="formulario" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="campo ancho"><span class="error">{{ form.non_field_errors.0 }}</span></div>
+    {% endif %}
+    {% include "panel/_campo.html" with campo=form.numero %}
+    {% include "panel/_campo.html" with campo=form.proveedor %}
+    {% include "panel/_campo.html" with campo=form.importe %}
+    {% include "panel/_campo.html" with campo=form.fecha %}
+    <div class="campo ancho{% if form.revisar.errors %} con-error{% endif %}">
+      <label class="conmutador" for="{{ form.revisar.id_for_label }}">{{ form.revisar }}{{ form.revisar.label }}</label>
+      <span class="ayuda">Sus facturas no se pagarán solas: pasarán por «Para revisar» aunque todo cuadre.</span>
+    </div>
+    {% include "panel/_campo.html" with campo=form.nota ancho=True %}
+    <div class="pie-formulario">
+      <button class="boton grande" type="submit">{% icono "check" 18 %}Guardar</button>
+      <a class="boton suave" href="{% url 'panel:proveedor' proveedor.id %}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

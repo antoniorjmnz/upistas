@@ -107,20 +107,39 @@ def iniciar() -> None:
     DBOS.register_queue(COLA, global_concurrency=settings.concurrencia)
 
 
-def encolar_lecturas(lote: str, rutas: Sequence[Path]) -> list[WorkflowHandle]:
+def _ya_leidos(lote: str, firma: str) -> dict[str, tuple[str, str]]:
+    """Documentos del lote que ya tienen lectura buena con estos lectores: file_id → (sha256, método).
+
+    Con eso, repasar un lote de 500 al que llegan 3 facturas nuevas solo pasa por DBOS esas 3;
+    lo demás se decide con lo que ya está guardado.
+    """
+    ya: dict[str, tuple[str, str]] = {}
+    for r in contenedor.lecturas().del_lote(lote):
+        if r.leida and r.sha256 and not r.extraida.errores and (r.extraida.lector or "").endswith(f"@{firma}"):
+            ya[r.file_id] = (r.sha256, r.metodo)
+    return ya
+
+
+def encolar_lecturas(lote: str, rutas: Sequence[Path]) -> tuple[list[WorkflowHandle], list[dict]]:
+    """Encola la lectura de lo que no esté ya leído en este lote; lo que ya estaba vuelve como resultado de caché."""
     cola = DBOS.retrieve_queue(COLA)
-    handles = []
     firma = contenedor.huella_lectores()
+    ya = _ya_leidos(lote, firma)
     fallidas = {r.file_id for r in contenedor.lecturas().del_lote(lote) if not r.leida or r.extraida.errores}
     reintento = uuid4().hex
+    handles: list[WorkflowHandle] = []
+    saltados: list[dict] = []
     for ruta in rutas:
         identificado = lectura_acotada.identificar(ruta)
         contenido = identificado.sha256 or f"no_legible:{identificado.bytes}"
+        if ruta.name in ya and ya[ruta.name][0] == contenido:
+            saltados.append({"file_id": ruta.name, "leida": True, "metodo": ya[ruta.name][1], "cache": True, "segundos": 0.0})
+            continue
         identidad = hashlib.sha256(f"{ruta.resolve()}:{contenido}".encode()).hexdigest()
         sufijo = f":reintento:{reintento}" if ruta.name in fallidas else ""
         with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{firma}:{lote}:{ruta.name}:{identidad}{sufijo}"):
             handles.append(cola.enqueue(leer_documento, lote, ruta.name, str(ruta)))
-    return handles
+    return handles, saltados
 
 
 # --- Un lote de principio a fin ---------------------------------------------------------------
@@ -188,12 +207,13 @@ def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincroni
     ejecucion = repo_dec.iniciar_ejecucion(lote, version_norma, ultima.version or "", maestro.version, hardware())
 
     t0 = time.perf_counter()
-    resultados = []
-    handles = encolar_lecturas(lote, rutas)
-    for numero, handle in enumerate(handles, 1):
+    handles, resultados = encolar_lecturas(lote, rutas)
+    if progreso and resultados:
+        progreso(len(resultados), len(rutas))
+    for numero, handle in enumerate(handles, len(resultados) + 1):
         resultados.append(handle.get_result())
         if progreso:
-            progreso(numero, len(handles))
+            progreso(numero, len(rutas))
     segundos_lectura = time.perf_counter() - t0
     nombres = {r.name for r in rutas}
     lecturas = [r for r in contenedor.lecturas().del_lote(lote) if r.file_id in nombres]

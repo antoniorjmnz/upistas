@@ -37,10 +37,8 @@ FACTURAS = [
 
 
 @pytest.fixture
-def alberto(client, django_user_model):
-    """El cliente de tests con la sesión de Alberto iniciada."""
-    usuario = django_user_model.objects.create_user("alberto", password="alberto", first_name="Alberto")
-    client.force_login(usuario)
+def alberto(client):
+    """El cliente de tests. La web no tiene usuarios: Alberto es quien la abre."""
     return client
 
 
