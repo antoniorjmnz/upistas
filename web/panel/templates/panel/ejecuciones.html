@@ -36,8 +36,8 @@
         <tbody>
         {% for f in filas %}
           <tr>
-            <td>{{ f.e.inicio|date:"j \d\e F, H:i" }}<br><span class="suave">{{ f.e.inicio|naturaltime }}</span></td>
-            <td>{{ f.lote }}</td>
+            <td class="entero">{{ f.e.inicio|date:"j \d\e F, H:i" }}<br><span class="suave">{{ f.e.inicio|naturaltime }}</span></td>
+            <td class="entero">{{ f.lote }}</td>
             <td class="num">{{ f.c.documentos }}</td>
             <td class="num">{{ f.c.PAGAR }}</td>
             <td class="num">{{ f.c.NO_PAGAR }}</td>

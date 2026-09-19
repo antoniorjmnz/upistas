@@ -40,7 +40,7 @@
         <tbody>
         {% for i in ultimas %}
           <tr>
-            <td>{{ i.cuando|date:"j/n/Y H:i" }}</td>
+            <td class="entero">{{ i.cuando|date:"j/n/Y H:i" }}</td>
             <td>{{ i.ficheros }}</td>
             <td class="num">{{ i.nuevos }}</td>
             <td class="num">{{ i.cambiados }}</td>
