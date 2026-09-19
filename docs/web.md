@@ -93,8 +93,10 @@ lista ni descargar nada. Se cierra con el botón Cerrar, con Escape o pulsando f
 Si la factura no se paga sola (no se paga, o la tiene que mirar Alberto, o se paga pero el fichero trae
 avisos), al lado hay otro botón: **Ver en el PDF qué ha hecho saltar la alarma**. Abre en el mismo visor
 una copia del PDF con cada dato que falla rodeado en naranja y una nota corta al lado («Cuenta distinta de
-la del maestro», «Total distinto del pedido: 12.847,40 €», «Fecha imposible», «Texto que intenta influir
-en la decisión»); el texto escondido va en rojo, como siempre. La copia acaba en una página nueva que
+la del maestro», «Total distinto del pedido: 12.847,40», «Fecha imposible», «Texto que intenta influir
+en la decisión»; si dos comprobaciones señalan el mismo dato, una nota debajo de la otra); el texto
+escondido va en rojo, como siempre. En la cola de Para revisar el botón solo sale cuando hay algo que
+rodear: una factura que solo está ahí porque no se ha podido leer no lo lleva. La copia acaba en una página nueva que
 empieza por el resultado y su motivo, lista las alarmas y en qué página está cada una (y lo que no hemos
 encontrado escrito en la factura), transcribe lo escondido y dice qué no se ha podido leer. El original no
 se toca. Lo decide el caso de uso `aplicacion/marcar_pdf.py` (qué se busca por cada regla y qué se
