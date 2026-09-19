@@ -14,8 +14,8 @@
 </section>
 
 {% if ejecucion %}
-{# Todo el filtro es un formulario normal: elegir proveedor, aplicar fechas o cambiar de estado recarga la página entera,
-   así el desplegable, el estado y la línea de filtros van siempre a una. Solo escribir en el buscador va con htmx. #}
+{% comment %}Todo el filtro es un formulario normal: elegir proveedor, aplicar fechas o cambiar de estado recarga la página
+entera, así el desplegable, el estado y la línea de filtros van siempre a una. Solo escribir en el buscador va con htmx.{% endcomment %}
 <form class="barra" method="get" action="{% url 'panel:facturas' %}">
   <input type="hidden" name="resultado" value="{{ resultado }}">
   {% if lote %}<input type="hidden" name="lote" value="{{ lote }}">{% endif %}

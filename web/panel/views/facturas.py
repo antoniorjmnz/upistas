@@ -119,9 +119,10 @@ def lista(request: HttpRequest) -> HttpResponse:
     pagina = Paginator(qs.order_by("documento__file_id"), POR_PAGINA).get_page(request.GET.get("pagina"))
     filas = list(pagina)
     lecturas = consultas.lecturas_por_sha([d.documento.sha256 for d in filas])
+    por_nif = consultas.nombres_por_nif()
     for d in filas:
         datos = consultas.campos(lecturas.get(d.documento.sha256))
-        d.proveedor = datos.get("proveedor_nombre")
+        d.proveedor = consultas.nombre_proveedor(datos, por_nif)
         d.fecha = _fecha(datos.get("fecha"))
         d.total = datos.get("total")
         d.revision = revisiones.get(d.documento_id)
@@ -223,7 +224,7 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
         "documento": documento,
         "lectura": lectura,
         "ejecucion": ejecucion,
-        "proveedor": leido.get("proveedor_nombre"),
+        "proveedor": consultas.nombre_proveedor(leido),
         "total": leido.get("total"),
         "motivo_corto": consultas.motivo_corto(decision),
         "reglas": reglas,

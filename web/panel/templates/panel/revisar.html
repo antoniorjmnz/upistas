@@ -23,7 +23,7 @@
 </section>
 {% endif %}
 
-{# Formulario normal: proveedor, fechas, estado y lote recargan la página entera; solo el buscador va con htmx. #}
+{% comment %}Formulario normal: proveedor, fechas, estado y lote recargan la página entera; solo el buscador va con htmx.{% endcomment %}
 <form class="barra" method="get" action="{% url 'panel:cola' %}">
   {% if lote %}<input type="hidden" name="lote" value="{{ lote }}">{% endif %}
   <div class="buscador">

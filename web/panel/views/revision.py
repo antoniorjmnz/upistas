@@ -30,6 +30,7 @@ def _ordenadas(decisiones: list[Decision]) -> list[tuple[str, Decision]]:
 def _grupos(motivos: list[tuple[str, Decision]], revisiones: dict[int, RevisionHumana]) -> list[dict]:
     """Las filas de la página, con lo leído de cada factura. Una sola consulta de lecturas."""
     lecturas = consultas.lecturas_por_sha(d.documento.sha256 for _, d in motivos)
+    por_nif = consultas.nombres_por_nif()
     grupos: list[dict] = []
     for motivo, decision in motivos:
         campos = consultas.campos(lecturas.get(decision.documento.sha256))
@@ -38,7 +39,7 @@ def _grupos(motivos: list[tuple[str, Decision]], revisiones: dict[int, RevisionH
         grupos[-1]["filas"].append({
             "decision": decision,
             "revision": revisiones.get(decision.documento_id),
-            "proveedor": campos.get("proveedor_nombre"),
+            "proveedor": consultas.nombre_proveedor(campos, por_nif),
             "total": campos.get("total"),
         })
     return grupos

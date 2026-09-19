@@ -65,9 +65,10 @@ def resumen(request: HttpRequest) -> HttpResponse:
     lecturas = consultas.lecturas_por_sha(d.documento.sha256 for d in decisiones)
     revisiones = consultas.revisiones_por_documento(ejecucion.lote)
     pendientes = list(consultas.pendientes_de_revision(ejecucion))
+    por_nif = consultas.nombres_por_nif()
     for d in pendientes[:EN_PORTADA]:  # quién es y cuánto pide, para que Alberto lo reconozca de un vistazo
         datos = consultas.campos(lecturas.get(d.documento.sha256))
-        d.proveedor, d.total = datos.get("proveedor_nombre"), datos.get("total")
+        d.proveedor, d.total = consultas.nombre_proveedor(datos, por_nif), datos.get("total")
         d.motivo_corto = consultas.motivo_corto(d)
     anterior, cambios = consultas.cambios_respecto_a_la_anterior(ejecucion)
     importes = _importes(decisiones, lecturas)

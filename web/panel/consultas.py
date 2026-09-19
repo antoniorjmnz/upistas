@@ -224,3 +224,24 @@ def filtrar_decisiones(qs: QuerySet[Decision], proveedor: str = "", desde=None, 
             lecturas = lecturas.filter(extraida__campos__fecha__valor__lte=fecha_hasta.isoformat())
         qs = qs.filter(documento__sha256__in=lecturas.values("sha256"))
     return qs
+
+
+# --- El nombre del proveedor: lo que leyó el lector o, si no, el maestro por su NIF ------------
+
+
+def nombres_por_nif() -> dict[str, str]:
+    from web.panel.models import Proveedor
+
+    return dict(Proveedor.objects.values_list("nif", "nombre"))
+
+
+def nombre_proveedor(campos: dict, por_nif: dict[str, str] | None = None) -> str | None:
+    """El nombre leído en la factura; si el lector no lo sacó, el del maestro para ese NIF."""
+    nombre = campos.get("proveedor_nombre")
+    if nombre:
+        return str(nombre)
+    nif = campos.get("nif")
+    if not nif:
+        return None
+    tabla = por_nif if por_nif is not None else nombres_por_nif()
+    return tabla.get(str(nif).upper().replace(" ", ""))
