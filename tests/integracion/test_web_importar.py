@@ -267,6 +267,32 @@ def test_cancelar_no_guarda_nada_y_borra_la_vista_previa(alberto, maestro, almac
     assert not (almacen / "importaciones" / f"{token}.json").exists()
 
 
+def test_si_aplicar_falla_la_vista_previa_sigue_ahi(alberto, maestro, almacen, monkeypatch):
+    token = subir(alberto, fichero("pedidos.csv", CABECERA_PEDIDOS + "PO-2026-0700,P001,B46102331,10.00,ABIERTO,2026-09-01\n"))
+
+    def falla(ficheros):
+        raise RuntimeError("la base de datos no responde")
+
+    monkeypatch.setattr(importaciones, "aplicar", falla)
+    with pytest.raises(RuntimeError):
+        alberto.post(reverse("panel:proveedor_importar_previa", args=[token]), {"accion": "aplicar"})
+
+    assert (almacen / "importaciones" / f"{token}.json").is_file()
+    assert Pedido.objects.count() == 2
+
+
+def test_un_fichero_de_mas_de_10_mb_no_se_lee_y_se_dice_llano(alberto, maestro, almacen):
+    gordo = fichero("enorme.csv", CABECERA_PEDIDOS.encode() + b"x" * (10 * 1024 * 1024))
+    r = alberto.post(reverse("panel:proveedor_importar"), {"ficheros": [gordo]}, follow=True)
+    assert "«enorme.csv» pesa más de 10 MB." in r.content.decode()
+    assert not list(almacen.glob("importaciones/*.json"))
+
+    token = subir(alberto, fichero("enorme.csv", CABECERA_PEDIDOS.encode() + b"x" * (10 * 1024 * 1024)),
+                  fichero("pedidos.csv", CABECERA_PEDIDOS + "PO-2026-0700,P001,B46102331,10.00,ABIERTO,2026-09-01\n"))
+    html = previa(alberto, token)
+    assert "«enorme.csv» pesa más de 10 MB." in html and "<b>1 pedido nuevo, 0 cambian, 0 filas inválidas</b>" in html
+
+
 def test_sin_nada_que_aplicar_el_boton_no_se_puede_pulsar(alberto, maestro, almacen):
     token = subir(alberto, fichero("pedidos.csv", CABECERA_PEDIDOS + "PO-2026-0001,P001,B46102331,2490.00,ABIERTO,2026-01-08\n"))
     html = previa(alberto, token)
