@@ -148,6 +148,15 @@ MOTIVO_CORTO = {
     "R8_importe_anomalo": "Importe fuera de lo habitual",
     "R9_destinatario": "Va dirigida a otro cliente",
     "R10_fichero_sospechoso": "El fichero trae contenido raro",
+    "R0_lectura": "No se ha podido leer bien la factura",
+    "R3_datos_fiscales": "Faltan importes legibles para comprobar el IVA",
+    "R5_hash_previo": "Ya se aprobó antes esta misma factura",
+    "R5_copia_hash": "Es una copia de una factura ya vista",
+    "R5_reenvio": "Es un reenvío de una factura anterior",
+    "R6_evaluacion_disponible": "No se ha podido evaluar la nota que trae",
+    "R6_contenido_oculto": "Trae texto escondido o contenido raro",
+    "R6_proveedor_referencias": "El proveedor del pedido no cuadra entre el Excel y el ERP",
+    "R6_revision_interna": "Trae una nota que pide revisión",
 }
 SIN_LEER = "No se pudo leer la factura"
 
