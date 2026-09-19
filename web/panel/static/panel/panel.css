@@ -313,11 +313,16 @@ details.conversaciones[open] summary svg { transform: rotate(180deg); }
   .insignia { margin-left: 0; }
   .estado-erp { justify-content: center; padding: 10px; }
 }
+/* En móvil la barra lateral pasa a ser una barra superior de dos filas: arriba la marca y «Subir facturas», debajo todas las
+   secciones a la vista (sin scroll escondido). Las filas de la rejilla van auto + 1fr para que la barra no crezca en pantallas cortas. */
 @media (max-width: 640px) {
-  .app { grid-template-columns: 1fr; }
-  .lado { position: static; height: auto; flex-direction: row; align-items: center; gap: 4px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--linea); overflow-x: auto; }
-  .lado nav { flex-direction: row; }
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .lado { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 4px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--linea); overflow: visible; }
+  .marca { padding: 4px 6px 4px 0; }
+  aside.lado .subir-facturas { width: auto; margin: 0 0 0 auto; }
+  .lado > nav { flex-direction: row; flex: 1 1 calc(100% - 140px); }
   .lado .abajo { margin-top: 0; padding-top: 0; border-top: 0; flex-direction: row; }
+  .lado .abajo nav { flex-direction: row; }
   .persona, .estado-erp { display: none; }
   main { padding: 20px 16px 40px; }
   h1 { font-size: 24px; }
