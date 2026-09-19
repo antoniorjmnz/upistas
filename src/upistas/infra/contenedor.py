@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import date
 from functools import cache
@@ -38,6 +39,20 @@ def inspector() -> Inspector:
     return InspectorPdf()
 
 
+def _ocr() -> Callable[[bytes], str] | None:
+    """El proveedor de OCR para escaneados: fal (extra ocr) o firecrawl (httpx, sin extra)."""
+    if not settings.usar_ocr:
+        return None
+    if settings.ocr_provider == "firecrawl":
+        from upistas.adaptadores.lectores.firecrawl_ocr import FirecrawlOCR
+
+        return FirecrawlOCR(settings.firecrawl_api_key, settings.firecrawl_base_url,
+                            cerrojo=settings.outputs_dir / ".firecrawl.lock")
+    if settings.ocr_provider == "fal":
+        return FalOCR()
+    raise ValueError(f"OCR_PROVIDER desconocido: {settings.ocr_provider!r} (usa 'fal' o 'firecrawl')")
+
+
 @cache
 def lectores() -> tuple[LectorPdfUnificado, ...]:
     # Del más barato al más caro: texto determinista → LLM texto → LLM visión.
@@ -47,7 +62,7 @@ def lectores() -> tuple[LectorPdfUnificado, ...]:
         settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_vision,
     ) if settings.usar_ocr and settings.helmcode_api_key else None
     return (LectorPdfUnificado(
-        ocr=FalOCR() if settings.usar_ocr else None,
+        ocr=_ocr(),
         vision=vision,
         cache_dir=settings.outputs_dir / "extracciones",
     ),)
@@ -171,7 +186,7 @@ def configurar(nuevos: Settings) -> None:
 
 @cache
 def huella_lectores() -> str:
-    codigo = hashlib.sha256(f"{VERSION}:{settings.usar_ocr}:{settings.lectura_timeout_s}".encode())
+    codigo = hashlib.sha256(f"{VERSION}:{settings.usar_ocr}:{settings.ocr_provider}:{settings.lectura_timeout_s}".encode())
     base = ROOT / "src" / "upistas"
     rutas = list((base / "adaptadores" / "lectores").glob("*.py")) + [
         base / "dominio" / "notas.py", base / "dominio" / "importes.py",

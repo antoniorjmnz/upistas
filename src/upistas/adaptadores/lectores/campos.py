@@ -134,5 +134,11 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
         "notas": notas,
         "checks": {},
         "errores": errores,
-        "coste": {"modelo": "fal-ai/got-ocr/v2"} if any(p["route"] == "fal_ocr" for p in paginas) else None,
+        "coste": _coste(paginas),
     })
+
+
+def _coste(paginas: list[dict]) -> dict | None:
+    """Qué modelo leyó el documento, si se usó OCR. Sale de la traza de la página, no del nombre del adaptador."""
+    modelo = next((p.get("model") for p in paginas if str(p.get("route", "")).endswith("ocr") and p.get("model")), None)
+    return {"modelo": modelo} if modelo else None
