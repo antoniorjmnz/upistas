@@ -59,6 +59,20 @@ Arriba en la barra lateral, las de Alberto:
   siempre y lo vuelca en las tablas (11 proveedores y 516 pedidos); se puede repetir sin duplicar nada
   ni pisar lo que Alberto haya marcado o anotado aquí. Las altas del lote 2 entran con el mismo comando
   y `--proveedores-csv` / `--pedidos-csv` (ver «Cómo entra el lote 2» en [backend.md](backend.md)).
+- **Importar datos** (`/proveedores/importar/`, el botón «Importar fichero» de Proveedores): si a Alberto le
+  mandan un fichero de proveedores o de pedidos como los del lote 2, lo suelta ahí (uno o varios a la vez)
+  y la web reconoce cada uno por sus cabeceras (con coma o punto y coma, con o sin BOM; lo que no se
+  reconoce se rechaza diciéndolo). Antes de guardar nada enseña una vista previa con cada fila clasificada
+  contra el maestro: nuevo, ya está igual, cambia (qué campo, antes y después) o inválido (NIF raro,
+  IBAN que no lo es, importe que no es un número, fecha o estado que no se entienden, pedido de un
+  proveedor que no está ni viene en el mismo envío, fila repetida, mismo NIF con dos códigos), con el
+  recuento arriba. «Aplicar» entra solo lo válido por el mismo `MaestroDjango.importar` del comando, así
+  que repetirlo no duplica nada, un proveedor que cambia solo actualiza los campos que trae el fichero y
+  lo que Alberto marcó o anotó en un pedido no se toca; «Cancelar» no guarda nada. Entre los dos pasos lo
+  parseado espera en `almacen/importaciones/<token>.json` (no en la sesión; los de más de un día se
+  borran) y cada aplicación queda apuntada en `Importacion`, que es la lista «Últimas importaciones» al
+  pie de la pantalla. La lectura y la clasificación están en `web/panel/importaciones.py`, sobre
+  `csv_altas.py` y `filas.py`.
 - **Para revisar**: la cola de lo escalado, agrupada por motivo. Alberto decide Pagar o No pagar con un
   comentario. Queda guardado aparte (`RevisionHumana`), no toca lo que calculó el sistema, y si dice
   Pagar ese pedido y ese documento cuentan como pagados para los lotes siguientes. Repasar otra vez el
