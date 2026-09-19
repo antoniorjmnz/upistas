@@ -116,3 +116,17 @@ def test_filtrar_por_proveedor_e_importe(lote_de_prueba):
     assert {d.documento.file_id for d in consultas.filtrar_decisiones(todas, desde=Decimal("2000"), hasta=Decimal("3000"))} == {"2026-01-08_P001.pdf"}
     assert consultas.filtrar_decisiones(todas, hasta=Decimal("400")).count() == 1  # FA-1016, 318,40 €
     assert consultas.importe_o_nada("1.200,50") == Decimal("1200.50") and consultas.importe_o_nada(" ") is None and consultas.importe_o_nada("abc") is None
+
+
+def test_los_hosts_permitidos_se_leen_del_entorno(monkeypatch):
+    """Por defecto los dos locales; con DJANGO_ALLOWED_HOSTS, lo que diga (túnel, dominio de la demo...)."""
+    import runpy
+    from pathlib import Path
+
+    import web
+
+    settings_py = str(Path(web.__file__).parent / "settings.py")
+    monkeypatch.delenv("DJANGO_ALLOWED_HOSTS", raising=False)
+    assert runpy.run_path(settings_py)["ALLOWED_HOSTS"] == ["127.0.0.1", "localhost"]
+    monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1, pagos.ejemplo.com,")
+    assert runpy.run_path(settings_py)["ALLOWED_HOSTS"] == ["127.0.0.1", "pagos.ejemplo.com"]

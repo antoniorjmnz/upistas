@@ -410,6 +410,16 @@ def test_la_respuesta_sale_sin_markdown_y_escapada(alberto, lote_asistente, monk
     assert "Resumen<br>Se paga una factura &lt;b&gt;hoy&lt;/b&gt;" in html  # texto llano, con saltos y sin HTML colado
 
 
+def test_las_preguntas_se_ven_en_el_admin():
+    """Cada pregunta con su coste está en el admin, que es donde se mira lo de #31."""
+    from django.contrib import admin
+
+    from web.panel.models import Pregunta
+
+    assert Pregunta in admin.site._registry
+    assert "tokens_in" in admin.site._registry[Pregunta].list_display
+
+
 def test_la_conversacion_se_queda_en_la_sesion(alberto, lote_asistente, monkeypatch):
     monkeypatch.setattr("web.panel.asistente.helmcode.completar", _texto("respuesta"))
     alberto.post(reverse("panel:preguntar"), {"pregunta": "una cosa"})

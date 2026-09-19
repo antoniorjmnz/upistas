@@ -26,7 +26,8 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "solo-desarrollo-no-usar-en-producci
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# Desde dónde se puede abrir la web: los dos locales, o lo que diga el entorno (lista separada por comas).
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
 
 # Orígenes extra de confianza (túnel de Cloudflare, previews...): lista separada por comas.
 CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
