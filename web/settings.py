@@ -33,6 +33,13 @@ ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1
 # Orígenes de confianza para los formularios cuando la web se sirve desde un dominio (Cloudflare, previews...).
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 
+# Detrás de Cloudflare (o cualquier proxy que termine el TLS) la petición llega por http con esta cabecera:
+# sin esto Django cree que la web va sin https y rechaza los formularios por CSRF.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -125,7 +132,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"  # donde deja los ficheros `collectstatic`; no se sube a git
+STATIC_ROOT = Path(os.getenv("STATIC_ROOT", BASE_DIR / "staticfiles"))  # donde deja los ficheros `collectstatic`; no se sube a git
 try:
     STATIC_ROOT.mkdir(exist_ok=True)  # WhiteNoise avisa si la carpeta no existe; en un disco de solo lectura ya la creó el build
 except OSError:
@@ -155,7 +162,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "SAMEORIGIN"  # el visor carga el PDF en un marco de la misma web
-SILENCED_SYSTEM_CHECKS = ["security.W019"]  # ese aviso pide DENY; SAMEORIGIN es a propósito, por el visor
+SILENCED_SYSTEM_CHECKS = ["security.W019", "mail.E001"]  # W019 pide DENY y SAMEORIGIN es a propósito (visor); la web no manda correos
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
@@ -169,3 +176,9 @@ if HTTPS:
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+MAILERS = {
+    "default": {
+        "BACKEND": "django.core.mail.backends.console.EmailBackend",
+    },
+}
