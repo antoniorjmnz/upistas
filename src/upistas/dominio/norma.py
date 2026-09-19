@@ -42,8 +42,9 @@ class Norma:
         for regla_activa, c in zip(self.reglas, comprobaciones):
             if not c.ok:
                 motivos.append(c.detalle or regla_activa.nombre)
-                if GRAVEDAD[regla_activa.si_falla] > GRAVEDAD[resultado]:
-                    resultado = regla_activa.si_falla
+                consecuencia = c.sugerido or regla_activa.si_falla
+                if GRAVEDAD[consecuencia] > GRAVEDAD[resultado]:
+                    resultado = consecuencia
         return Decision(
             file_id=factura.file_id,
             resultado=resultado,

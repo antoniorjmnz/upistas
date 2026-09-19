@@ -1,6 +1,7 @@
 # ADR-002: Criterio de decisión PAGAR / NO_PAGAR / ESCALAR
 
-- **Estado**: aceptado en lo principal; hay puntos abiertos al final
+- **Estado**: aceptado. Implementado en `src/upistas/dominio/reglas/norma_v3.py` y `normas/v3.toml`
+  (reglas de Pablo en #59 adaptadas a este criterio).
 - **Fecha**: 2026-09-19
 - **Issue**: #27
 
@@ -78,15 +79,24 @@ La norma v3:
 | Nota que pide pagar algo que incumple la norma | 1–5 | NO_PAGAR | `2026-06-04_P006`, `factura_5911` y el resto de la tabla de trampas |
 | Factura que no es para Banco Miralmar | 6 | ESCALAR | ninguna en la Caja |
 
-## Abierto (a decidir)
-- **`pendiente_revisar` del Excel**: Alberto marcó a mano PO-2026-0007 (`FA-8488_transportes`) y
-  PO-2026-0141 (`2026-79712_limpiezas`). Cumplen todas las reglas. Propuesta: ESCALAR, porque la
-  marca es del propio Alberto (fuente de confianza, no del proveedor).
-- **Importe anómalo**: `2026-07-01_P009` (PO-0497) son 84.700 €, siete veces la siguiente factura
-  más cara, con "PAGO INMEDIATO REQUERIDO". Cumple todo. Propuesta: ESCALAR por la regla 6.
-  Puede que la regla nueva del sábado sea un límite de importe.
-- **"Pedido anulado"** (`2026-23904_construcciones`, `FA-3388`): por el punto 3 salen ESCALAR.
-  Confirmar que es lo que queremos.
+## Cómo está implementado
+Cada regla devuelve si se cumple y, cuando no puede saberlo (dato ilegible, fuentes que se
+contradicen), sugiere ESCALAR; la consecuencia de un incumplimiento seguro la pone `normas/v3.toml`.
+Así el mismo código sirve para la v4: cambian consecuencias y umbrales, no reglas.
+
+- R1 a R5: la norma tal cual (NIF e IBAN, pedido e importe, IVA, fecha, estado en el ERP y reenvíos).
+- R6: cualquier nota que intente influir (dirigida al sistema, pide saltarse algo, afirma un hecho
+  de negocio, mete prisa) → ESCALAR si la factura cumple lo demás.
+- R7: lo que Alberto apuntó en `pendiente_revisar` (PO-2026-0007, PO-2026-0141) → ESCALAR. La marca
+  es del propio Alberto, no del proveedor.
+- R8: importe por encima de 20.000 € (`2026-07-01_P009`, 84.700 €) → ESCALAR. El umbral está en la
+  norma por si la regla nueva del sábado es un límite de importe.
+- R9: factura dirigida a otro CIF → ESCALAR. R10: PDF con JavaScript, ficheros incrustados o
+  contenido activo → ESCALAR.
+- "Pedido anulado" (`2026-23904_construcciones`, `FA-3388`) sale ESCALAR por R6, como dice el punto 3.
+
+Sobre La Caja (lote 1, sin OCR): 425 PAGAR, 37 NO_PAGAR, 38 ESCALAR, de los que 29 son los
+escaneados sin leer. Los 37 NO_PAGAR son exactamente los casos de la tabla de trampas.
 
 ## Alternativas consideradas
 | Opción | Por qué no |

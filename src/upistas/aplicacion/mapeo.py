@@ -41,6 +41,7 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         iban=normaliza_iban(valores["iban"]),
         pedido=valores["pedido"],
         fecha=parse_fecha(valores["fecha"] or "") if valores["fecha"] else None,
+        fecha_texto=valores["fecha"] if valores["fecha"] and parse_fecha(valores["fecha"]) is None else None,
         base=dec("base"),
         iva_pct=dec("iva_pct"),
         iva=dec("iva"),

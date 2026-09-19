@@ -1,15 +1,56 @@
-# Norma de pagos v3 (hoja Norma_Pagos_v3 del Excel de Alberto).
-# Cada regla: qué resultado provoca si falla. Si fallan varias, gana la más restrictiva
-# (NO_PAGAR > ESCALAR > PAGAR). Las reglas viven en src/upistas/dominio/reglas/.
+# Norma de pagos v3 (hoja Norma_Pagos_v3 del Excel de Alberto) más nuestro criterio (ADR-002).
+#
+# `si_falla` es la consecuencia cuando la regla falla con seguridad. Si una regla no puede decidir
+# (dato ilegible, fuentes que se contradicen, algo que solo Alberto puede confirmar) sugiere ESCALAR
+# por su cuenta. Si fallan varias, gana la más restrictiva: NO_PAGAR > ESCALAR > PAGAR.
+# Las reglas viven en src/upistas/dominio/reglas/norma_v3.py.
 version = "v3"
 
-# 4. La fecha debe ser válida y no futura.
+# 1. NIF en el maestro y el IBAN de la factura igual al del maestro.
+[reglas.R1_nif_iban]
+si_falla = "NO_PAGAR"
+
+# 2. El pedido existe en el ERP, es del proveedor y el importe coincide (±0,01 €).
+#    Si el Excel y el ERP se contradicen sobre el pedido, se revisa.
+[reglas.R2_pedido_importe]
+si_falla = "NO_PAGAR"
+[reglas.R2_pedido_importe.params]
+tolerancia = "0.01"
+
+# 3. IVA bien calculado con un tipo que exista y total = base + IVA (±0,01 €).
+[reglas.R3_iva_total]
+si_falla = "NO_PAGAR"
+[reglas.R3_iva_total.params]
+tolerancia = "0.01"
+tipos_iva = [21, 10, 4, 0]
+
+# 4. Fecha válida y no futura.
 [reglas.R4_fecha]
+si_falla = "NO_PAGAR"
+
+# 5. Pedido PENDIENTE en el ERP y no aprobado ya en otro lote.
+[reglas.R5_erp_pendiente]
+si_falla = "NO_PAGAR"
+
+# 5b. Nunca pagar dos veces dentro del lote: la misma factura reenviada se paga una sola vez.
+[reglas.R5_duplicado]
+si_falla = "NO_PAGAR"
+
+# 6. Ante duda razonable, revisar (regla 6 de la norma): texto que intenta influir, marcas de
+#    Alberto, importes fuera de lo habitual, otro destinatario, ficheros con contenido activo.
+[reglas.R6_notas]
 si_falla = "ESCALAR"
 
-# Pendientes de implementar (issue del motor de reglas):
-# 1. NIF en el maestro y IBAN coincide            → R1_nif_iban
-# 2. Pedido existe, es del proveedor, importe ±0,01 → R2_pedido_importe
-# 3. IVA bien calculado y total = base + IVA       → R3_iva_total
-# 5. Pedido PENDIENTE en ERP, nunca pagar dos veces → R5_erp_pendiente
-# 6. Ante duda razonable, ESCALAR                 → implícito: lectura dudosa = ESCALAR
+[reglas.R7_marcado_por_alberto]
+si_falla = "ESCALAR"
+
+[reglas.R8_importe_anomalo]
+si_falla = "ESCALAR"
+[reglas.R8_importe_anomalo.params]
+umbral = "20000"
+
+[reglas.R9_destinatario]
+si_falla = "ESCALAR"
+
+[reglas.R10_fichero_sospechoso]
+si_falla = "ESCALAR"

@@ -45,4 +45,4 @@ def parse_fecha(texto: str) -> date | None:
 
 
 def normaliza_iban(texto: str | None) -> str | None:
-    return re.sub(r"\s", "", texto).upper() if texto else None
+    return re.sub(r"[\s.\-]", "", texto).upper() if texto else None  # espacios, puntos y guiones fuera

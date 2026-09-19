@@ -69,10 +69,13 @@ Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X"
 
 ## Estado actual
 El backend funciona de punta a punta ([backend.md](backend.md)): sincroniza el ERP (copia local
-versionada, [ADR-003](adr/003-erp-copia-local.md)), lee cada documento de forma duradera, decide
-el lote con la norma, guarda todo con su traza y genera `outputs/outcomes.jsonl`. Pero todavía
-**todas salen ESCALAR**, porque faltan los lectores de PDF (#23, #24) y casi todas las reglas (#27).
-Eso es el milestone **Lote 1**. Lo que hay pendiente está en el
+versionada, [ADR-003](adr/003-erp-copia-local.md)), lee cada documento de forma duradera (parser de
+texto para 471 de los 500; OCR con fal.ai para los 29 escaneados si hay `FAL_KEY`), decide con la
+norma v3 completa ([ADR-002](adr/002-criterio.md), `dominio/reglas/norma_v3.py`), guarda todo con
+su traza y genera `outputs/outcomes.jsonl`. Sobre La Caja, sin OCR: **425 PAGAR, 37 NO_PAGAR,
+38 ESCALAR** (29 son los escaneados) en unos 40 segundos.
+Falta: lector con IA para lo que el OCR no saque (#24), pantallas de Facturas y Para revisar
+(#32, #37), modo caos para la demo (#33), lote 2 y norma v4 el sábado (#29). Está en el
 [tablero](https://github.com/users/antoniorjmnz/projects/2), agrupado por milestone.
 
 ## Cómo trabajar

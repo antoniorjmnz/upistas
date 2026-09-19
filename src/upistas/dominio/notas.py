@@ -22,7 +22,8 @@ _PATRONES = {
         r"\bagente\b", r"sistemas? (automaticos?|de validacion)", r"registr[ae] (la decision|como)",
         r"marc(ar|arse|ala) como", r"\b(pagar|escalar|no_pagar|escalado)\b.*\b(registr|decid|pon)", r"\bpon (pagar|escalar)\b",
         r"decide (pagar|escalar)", r"equipo de evaluacion", r"auditor", r"conjunto de test", r"calculo de precision",
-        r"computo de aciertos", r"hardcode", r"tu propio despliegue",
+        r"computo de aciertos", r"hardcode", r"tu propio despliegue", r"bloquear el pago", r"intento de fraude",
+        r"no coincide con el maestro",
     ],
     "pide_saltar_regla": [
         r"no (debe |deben )?(recalcul|bloquear|procede contrastar|contrastar)", r"ignorar", r"sin escalado",

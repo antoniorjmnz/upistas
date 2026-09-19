@@ -16,6 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# OCR de los escaneados con fal.ai (GOT-OCR2). Necesita FAL_KEY en el entorno y consume créditos.
+ocr = [
+    "fal-client==0.10.0",
+]
 dev = [
     "pytest>=8.4",
     "jsonschema>=4.25",

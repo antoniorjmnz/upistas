@@ -64,7 +64,7 @@ generados) y dentro del dominio como dataclasses propias.
 
 ## Cómo añadir cosas
 
-**Una regla de pago** → archivo nuevo en `dominio/reglas/` con `@regla("R6_lo_que_sea")` y
+**Una regla de pago** → archivo nuevo en `dominio/reglas/` con `@regla("R11_lo_que_sea")` y
 activarla en `normas/vN.toml`. Test en `tests/unit/`.
 
 **Una norma nueva (v4)** → copiar `normas/v3.toml` a `v4.toml` y cambiar reglas o consecuencias.

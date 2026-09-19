@@ -90,9 +90,10 @@ class Factura:
     notas: tuple[Nota, ...] = ()
     alertas: tuple[str, ...] = ()  # del fichero: estructura reparada, JavaScript, caracteres invisibles...
     tipo_documento: str = "texto"  # texto | escaneado | blanco | roto | cifrado | otro
-    metodo: str = "texto_determinista"  # texto_determinista | texto_llm | vision_llm | ninguno
+    metodo: str = "texto_determinista"  # texto_determinista | ocr_determinista | texto_llm | vision_llm
     ausentes: frozenset[str] = frozenset()
     no_leidos: frozenset[str] = frozenset()
+    fecha_texto: str | None = None  # la fecha tal cual venía cuando no es una fecha válida ("31/02/2026")
 
     def dudoso(self, campo: str) -> bool:
         return campo in self.no_leidos
@@ -128,6 +129,9 @@ class Comprobacion:
     regla: str
     ok: bool
     detalle: str = ""
+    # Si la regla no puede decidir con seguridad (dato ilegible, fuentes que se contradicen), sugiere
+    # ESCALAR y la norma respeta esa sugerencia en vez de aplicar su consecuencia por defecto.
+    sugerido: Resultado | None = None
 
 
 @dataclass(frozen=True)

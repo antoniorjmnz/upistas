@@ -97,14 +97,16 @@ class Documento(models.Model):
 
 
 class Lectura(models.Model):
-    """Qué se sacó de un contenido (por huella) y cómo. Una por contenido: no se lee dos veces lo mismo."""
+    """Qué se sacó de un contenido (por huella) y cómo. Una por contenido y versión de los lectores:
+    no se lee dos veces lo mismo, salvo que los lectores hayan cambiado."""
 
-    sha256 = models.CharField(max_length=64, unique=True)
+    sha256 = models.CharField(max_length=64, db_index=True)
+    version = models.CharField(max_length=8, default="1")  # VERSION_LECTURA con la que se leyó
     file_id = models.CharField(max_length=255)  # el primer nombre con el que se vio
     lote = models.CharField(max_length=40)
     ok = models.BooleanField()
     lector = models.CharField(max_length=40, blank=True)
-    metodo = models.CharField(max_length=20)  # texto_determinista | texto_llm | vision_llm | ninguno
+    metodo = models.CharField(max_length=20)  # texto_determinista | ocr_determinista | texto_llm | vision_llm
     extraida = models.JSONField(null=True, blank=True)  # el contrato factura_extraida
     intentos = models.JSONField(default=list, blank=True)  # [(lector, por qué no pudo)]
     segundos = models.FloatField(default=0)
@@ -116,6 +118,7 @@ class Lectura(models.Model):
 
     class Meta:
         ordering = ["-creada"]
+        constraints = [models.UniqueConstraint(fields=["sha256", "version"], name="lectura_por_contenido_y_version")]
 
     def __str__(self) -> str:
         return f"{self.file_id} · {self.metodo}"

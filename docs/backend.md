@@ -10,7 +10,8 @@ de cada una, con su porqué". La web solo enseña lo que el backend guarda.
    la última copia buena y lo dice.
 2. Lee cada documento de forma duradera: cada fichero es un workflow que queda apuntado. Si el
    proceso se cae, al arrancar sigue por donde iba sin repetir lo hecho. Un contenido ya leído
-   (misma huella sha256) no se vuelve a leer aunque llegue con otro nombre o en otro lote.
+   (misma huella sha256) no se vuelve a leer aunque llegue con otro nombre o en otro lote. Si cambian
+   los lectores se sube `VERSION_LECTURA` en `infra/pipeline.py` y se relee todo, conservando lo anterior.
 3. Monta las referencias una vez: proveedores y pedidos del Excel, asientos de la copia del ERP,
    lo que Alberto marcó a mano para revisar, las facturas del propio lote agrupadas por pedido
    (para ver duplicados) y los pedidos ya aprobados en lotes anteriores.
@@ -71,7 +72,8 @@ datos de la app viven juntos.
 euros por lectura, hardware de la máquina: quedan en cada ejecución para poder defender las cifras.
 
 ## Lo que falta (y de quién es)
-- Lectores de PDF: el de texto (#23, hay una propuesta en la PR #58) y los de IA para escaneados (#24). Equipo de lectura.
-- Las reglas de la norma (#27): Pablo, sobre `docs/adr/002-criterio.md`.
+- Lector con IA para lo que el OCR no saque (#24). Equipo de lectura. El parser de texto (#23) y el
+  OCR de escaneados (fal.ai: `uv sync --extra ocr` y `FAL_KEY` en `.env`) ya están.
+- La norma v4 del sábado (#29): otro fichero en `normas/`, y reglas nuevas solo si hacen falta.
 - Pantallas de Facturas, Para revisar y Resumen (#32, #37): sobre lo que ya guarda el backend.
 - Modo de fallos para la demo (#33): timeouts, límites y respuestas inválidas de la IA a voluntad.

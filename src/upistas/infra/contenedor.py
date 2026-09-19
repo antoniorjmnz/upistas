@@ -11,7 +11,9 @@ from upistas.adaptadores.fuentes.erp_copia import ErpDesdeCopia
 from upistas.adaptadores.fuentes.erp_http import ClienteErpHttp
 from upistas.adaptadores.fuentes.excel import MaestroExcel
 from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
+from upistas.adaptadores.lectores.fal_ocr import FalOCR
 from upistas.adaptadores.lectores.pdf import InspectorPdf
+from upistas.adaptadores.lectores.pdf_ocr import LectorPdfOcr
 from upistas.adaptadores.lectores.pdf_texto import LectorPdfTexto
 from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
@@ -31,8 +33,11 @@ def inspector() -> Inspector:
 
 @cache
 def lectores() -> tuple[LectorDocumento, ...]:
-    # Del más barato al más caro: texto determinista → LLM texto → LLM visión.
-    return (LectorPdfTexto(),)
+    # Del más barato al más caro: texto determinista → OCR de escaneados → LLM (#24).
+    lista: list[LectorDocumento] = [LectorPdfTexto()]
+    if settings.fal_key:
+        lista.append(LectorPdfOcr(FalOCR()))
+    return tuple(lista)
 
 
 @cache

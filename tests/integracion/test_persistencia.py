@@ -21,15 +21,16 @@ def extraida(file_id):
 
 def registro(lote, file_id, ext, sha="a" * 64):
     return RegistroLectura(lote=lote, file_id=file_id, ruta=f"/x/{file_id}", sha256=sha, bytes=99, tipo="escaneado", paginas=1,
-                           alertas=("caracteres invisibles en el texto",), extraida=ext, segundos=2.5, tokens_in=900, tokens_out=120, modelo="qwen3.6")
+                           alertas=("caracteres invisibles en el texto",), extraida=ext, segundos=2.5, tokens_in=900, tokens_out=120, modelo="qwen3.6",
+                           version="1")
 
 
 def test_guarda_y_recupera_una_lectura_con_su_coste():
     repo = RepositorioLecturasDjango()
     repo.guardar(registro("lote1", "scan_001.pdf", extraida("scan_001.pdf")))
-    r = repo.por_sha("a" * 64)
+    r = repo.por_sha("a" * 64, "1")
     assert r.leida and r.metodo == "vision_llm" and r.tokens_in == 900 and r.alertas == ("caracteres invisibles en el texto",)
-    assert r.extraida.campos.total.valor == 1.21
+    assert r.extraida.campos.total.valor == 1.21 and r.version == "1"
     assert [x.file_id for x in repo.del_lote("lote1")] == ["scan_001.pdf"]
 
 
@@ -37,8 +38,18 @@ def test_el_mismo_contenido_con_otro_nombre_en_otro_lote_se_reconoce():
     repo = RepositorioLecturasDjango()
     repo.guardar(registro("lote1", "scan_001.pdf", extraida("scan_001.pdf")))
     repo.guardar(registro("lote2", "reenvio.pdf", extraida("reenvio.pdf")))
-    assert repo.por_sha("a" * 64) is not None
+    assert repo.por_sha("a" * 64, "1") is not None
     assert {x.file_id for x in repo.del_lote("lote2")} == {"reenvio.pdf"}
+
+
+def test_si_cambian_los_lectores_se_vuelve_a_leer_y_se_conserva_la_lectura_vieja():
+    repo = RepositorioLecturasDjango()
+    repo.guardar(registro("lote1", "scan_001.pdf", extraida("scan_001.pdf")))
+    assert repo.por_sha("a" * 64, "2") is None  # con otra versión de lectores no vale la de antes
+    nueva = registro("lote1", "scan_001.pdf", extraida("scan_001.pdf"))
+    repo.guardar(RegistroLectura(**{**nueva.__dict__, "version": "2", "segundos": 9.0}))
+    assert repo.por_sha("a" * 64, "1").segundos == 2.5 and repo.por_sha("a" * 64, "2").segundos == 9.0
+    assert repo.del_lote("lote1", "2")[0].segundos == 9.0 and repo.del_lote("lote1")[0].segundos == 9.0
 
 
 def test_una_lectura_fallida_tambien_se_guarda_con_el_motivo():

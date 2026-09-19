@@ -42,3 +42,9 @@ def test_la_norma_v3_del_repo_carga():
     from upistas.config import ROOT
 
     assert Norma.desde_toml(ROOT / "normas" / "v3.toml").version == "v3"
+
+
+def test_una_regla_puede_sugerir_escalar_aunque_la_norma_diga_no_pagar(tmp_path):
+    n = norma(tmp_path, 'version = "t"\n[reglas.R4_fecha]\nsi_falla = "NO_PAGAR"\n')
+    d = n.evaluar(Factura("a.pdf", no_leidos=frozenset({"fecha"})), REFS)
+    assert d.resultado is Resultado.ESCALAR and "ilegible" in d.motivo

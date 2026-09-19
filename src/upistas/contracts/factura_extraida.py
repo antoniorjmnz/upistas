@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class Metodo(Enum):
     texto_determinista = 'texto_determinista'
+    ocr_determinista = 'ocr_determinista'
     texto_llm = 'texto_llm'
     vision_llm = 'vision_llm'
 
@@ -124,7 +125,12 @@ class FacturaExtraida(BaseModel):
         extra='forbid',
     )
     file_id: Annotated[str, Field(description='Nombre del PDF tal cual en La Caja')]
-    metodo: Annotated[Metodo, Field(description='Cómo se obtuvo la mayoría de campos')]
+    metodo: Annotated[
+        Metodo,
+        Field(
+            description='Cómo se obtuvo la mayoría de campos: texto del PDF, OCR, o un modelo de lenguaje'
+        ),
+    ]
     lector: Annotated[
         str | None, Field(description='Nombre del lector que lo produjo')
     ] = None

@@ -44,3 +44,8 @@ def test_parse_fecha_invalida(texto):
 
 def test_normaliza_iban():
     assert normaliza_iban("es21 0049 1500") == "ES2100491500"
+
+
+@pytest.mark.parametrize("texto", ["es12 1234 1234 1234 1234 1234", "ES12-1234-1234-1234-1234-1234", "ES12.1234.1234.1234.1234.1234"])
+def test_normaliza_iban_quita_separadores(texto):
+    assert normaliza_iban(texto) == "ES1212341234123412341234"

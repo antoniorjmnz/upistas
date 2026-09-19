@@ -8,13 +8,17 @@ import pymupdf
 import pytest
 from dbos import DBOS
 
+from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.aplicacion.sincronizar_erp import sincronizar_erp
-from upistas.dominio.modelos import Asiento
+from upistas.dominio.modelos import Asiento, Proveedor
 from upistas.infra import django_setup, pipeline
 from upistas.puertos import DescargaERP, EstadisticasDescarga
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+ASIENTO = Asiento("AS-00001", "PO-2026-0001", "P001", "B46102331", Decimal("121.00"), date(2026, 1, 8), "PENDIENTE")
+MAESTRO = MaestroEnMemoria([Proveedor("P001", "Demo SL", "B46102331", "ES1212341234123412341234")])
 
 
 class ClienteFalso:
@@ -43,7 +47,8 @@ def carpeta(tmp_path):
         doc.save(tmp_path / nombre)
         doc.close()
 
-    pdf("con_texto.pdf", "FACTURA 2026/0001 Pedido: PO-2026-0001 NIF: B46102331 TOTAL: 121,00")
+    pdf("con_texto.pdf", "FACTURA\nFactura Nº: 2026/0001\nFecha: 08/01/2026\nNIF: B46102331\nIBAN: ES12 1234 1234 1234 1234 1234\n"
+        "Pedido: PO-2026-0001\nBase imponible: 100,00\nIVA (21%): 21,00\nTotal: 121,00")
     pdf("en_blanco.pdf")
     (tmp_path / "no_es_pdf.txt").write_text("hola", encoding="utf-8")
     return tmp_path
@@ -52,34 +57,34 @@ def carpeta(tmp_path):
 def test_lee_decide_y_guarda_cada_documento(dbos_lanzado, carpeta, monkeypatch):
     from upistas.infra import contenedor
 
-    monkeypatch.setattr(contenedor, "cliente_erp", lambda: ClienteFalso((
-        Asiento("AS-00001", "PO-2026-0001", "P001", "B46102331", Decimal("121.00"), date(2026, 1, 8), "PENDIENTE"),
-    )))
+    monkeypatch.setattr(contenedor, "cliente_erp", lambda: ClienteFalso((ASIENTO,)))
+    monkeypatch.setattr(contenedor, "maestro", lambda: MAESTRO)
     rutas = sorted(p for p in carpeta.iterdir())
     inf = pipeline.procesar_lote("test", rutas, "v3", sincronizar=True)
 
     por = {d.file_id: d for d in inf.decisiones}
     assert set(por) == {"con_texto.pdf", "en_blanco.pdf", "no_es_pdf.txt"}
-    # El lector de texto es todavía un hueco (#23): con texto acaba en ESCALAR explicando por qué.
-    assert por["con_texto.pdf"].resultado == "ESCALAR" and "pendiente" in por["con_texto.pdf"].motivo
+    assert por["con_texto.pdf"].resultado == "PAGAR" and por["con_texto.pdf"].pedido == "PO-2026-0001"
     assert por["en_blanco.pdf"].resultado == "ESCALAR" and "blanco" in por["en_blanco.pdf"].motivo
+    assert por["no_es_pdf.txt"].resultado == "ESCALAR"
     assert inf.ejecucion.estado == "terminada" and inf.ejecucion.version_erp
-    assert inf.ejecucion.resumen["documentos"] == 3 and inf.ejecucion.resumen["ESCALAR"] == 3
+    assert inf.ejecucion.resumen["documentos"] == 3 and inf.ejecucion.resumen["ESCALAR"] == 2 and inf.ejecucion.resumen["PAGAR"] == 1
     assert inf.sincronizacion is not None and inf.sincronizacion.ok
 
     # Todo queda en la base de datos: documentos, lecturas (también las fallidas) y decisiones.
     from web.panel.models import Decision, Documento, Lectura
 
     assert Documento.objects.filter(lote="test").count() == 3
-    assert Lectura.objects.filter(lote="test").count() == 3 and not Lectura.objects.filter(ok=True).exists()
+    assert Lectura.objects.filter(lote="test").count() == 3 and Lectura.objects.filter(ok=True).count() == 1
     assert Decision.objects.filter(ejecucion_id=inf.ejecucion.id).count() == 3
 
 
 def test_repetir_el_lote_no_relee_y_compara_con_la_pasada_anterior(dbos_lanzado, carpeta, monkeypatch):
     from upistas.infra import contenedor
 
-    asiento = Asiento("AS-00001", "PO-2026-0001", "P001", "B46102331", Decimal("121.00"), date(2026, 1, 8), "PENDIENTE")
+    asiento = ASIENTO
     monkeypatch.setattr(contenedor, "cliente_erp", lambda: ClienteFalso((asiento,)))
+    monkeypatch.setattr(contenedor, "maestro", lambda: MAESTRO)
     rutas = sorted(p for p in carpeta.iterdir())
     primera = pipeline.procesar_lote("test", rutas, "v3")
     segunda = pipeline.procesar_lote("test", rutas, "v3", sincronizar=False)
@@ -93,3 +98,4 @@ def test_repetir_el_lote_no_relee_y_compara_con_la_pasada_anterior(dbos_lanzado,
     tercera = pipeline.procesar_lote("test", rutas, "v3")
     assert tercera.ejecucion.version_erp != segunda.ejecucion.version_erp
     assert tercera.sincronizacion.modificados == 1
+    assert len(tercera.cambios) == 1 and tercera.ejecucion.resumen["NO_PAGAR"] == 1, (tercera.decisiones, tercera.ejecucion.resumen, tercera.anterior)  # la factura de ese pedido cambia de resultado

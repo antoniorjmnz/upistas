@@ -19,32 +19,35 @@ class RepositorioLecturasDjango:
             if not r.sha256:  # sin contenido que identificar (no existe, vacío): solo el documento
                 return
             Lectura.objects.update_or_create(
-                sha256=r.sha256,
+                sha256=r.sha256, version=r.version,
                 defaults={
                     "file_id": r.file_id, "lote": r.lote, "ok": r.leida,
                     "lector": r.extraida.lector or "" if r.extraida else "",
                     "metodo": r.metodo,
-                    "extraida": r.extraida.model_dump(mode="json", exclude_none=True) if r.extraida else None,
+                    "extraida": r.extraida.model_dump(mode="json") if r.extraida else None,  # con los null: "valor" es obligatorio
                     "intentos": [list(i) for i in r.intentos],
                     "segundos": r.segundos, "tokens_in": r.tokens_in, "tokens_out": r.tokens_out,
                     "coste_eur": r.coste_eur, "modelo": r.modelo,
                 },
             )
 
-    def por_sha(self, sha256: str) -> RegistroLectura | None:
+    def por_sha(self, sha256: str, version: str) -> RegistroLectura | None:
         from web.panel.models import Documento, Lectura
 
-        lectura = Lectura.objects.filter(sha256=sha256).first()
+        lectura = Lectura.objects.filter(sha256=sha256, version=version).first()
         if lectura is None:
             return None
         doc = Documento.objects.filter(sha256=sha256).order_by("primera_vez").first()
         return self._registro(doc, lectura)
 
-    def del_lote(self, lote: str) -> list[RegistroLectura]:
+    def del_lote(self, lote: str, version: str | None = None) -> list[RegistroLectura]:
         from web.panel.models import Documento, Lectura
 
         docs = list(Documento.objects.filter(lote=lote))
-        lecturas = {l.sha256: l for l in Lectura.objects.filter(sha256__in={d.sha256 for d in docs})}
+        qs = Lectura.objects.filter(sha256__in={d.sha256 for d in docs})
+        if version is not None:
+            qs = qs.filter(version=version)
+        lecturas = {l.sha256: l for l in qs.order_by("creada")}  # si hay varias versiones, se queda la más reciente
         return [self._registro(d, lecturas.get(d.sha256)) for d in docs]
 
     @staticmethod
@@ -69,4 +72,5 @@ class RepositorioLecturasDjango:
             coste_eur=lectura.coste_eur if lectura else 0.0,
             modelo=lectura.modelo if lectura else "",
             cuando=lectura.creada if lectura else None,
+            version=lectura.version if lectura else "",
         )

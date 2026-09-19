@@ -175,6 +175,7 @@ class RegistroLectura:
     coste_eur: float = 0.0
     modelo: str = ""
     cuando: datetime | None = None
+    version: str = ""  # versión de los lectores con la que se leyó; si cambia, se vuelve a leer
 
     @property
     def leida(self) -> bool:
@@ -191,11 +192,13 @@ class RegistroLectura:
 class RepositorioLecturas(Protocol):
     def guardar(self, registro: RegistroLectura) -> None: ...
 
-    def por_sha(self, sha256: str) -> RegistroLectura | None:
-        """La lectura de ese contenido, venga del lote que venga: no se lee dos veces lo mismo."""
+    def por_sha(self, sha256: str, version: str) -> RegistroLectura | None:
+        """La lectura de ese contenido con esa versión de lectores, venga del lote que venga."""
         ...
 
-    def del_lote(self, lote: str) -> list[RegistroLectura]: ...
+    def del_lote(self, lote: str, version: str | None = None) -> list[RegistroLectura]:
+        """Los documentos del lote con su lectura (la de esa versión, o la más reciente)."""
+        ...
 
 
 @dataclass(frozen=True)

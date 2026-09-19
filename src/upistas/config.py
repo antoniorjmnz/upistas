@@ -70,6 +70,7 @@ class Settings:
     erp_password: str = os.getenv("ERP_PASSWORD", "FACTURAS2009")
     helmcode_api_key: str = os.getenv("HELMCODE_API_KEY", "")
     helmcode_base_url: str = os.getenv("HELMCODE_BASE_URL", "https://api.helmcode.com/v1")
+    fal_key: str = os.getenv("FAL_KEY", "")  # OCR de escaneados (fal.ai); sin clave no hay lector de escaneados
     modelo_vision: str = os.getenv("MODELO_VISION", "qwen3.6")
     modelo_vision_respaldo: str = os.getenv("MODELO_VISION_RESPALDO", "gemma4")
     modelo_texto: str = os.getenv("MODELO_TEXTO", "glm5.3")

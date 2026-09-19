@@ -28,7 +28,7 @@ from upistas.infra import contenedor, django_setup
 from upistas.puertos import DecisionGuardada, Ejecucion, RegistroLectura, Sincronizacion
 
 COLA = "lecturas"
-VERSION_LECTURA = "1"  # súbelo cuando cambien los lectores y haya que volver a leer todo
+VERSION_LECTURA = "2"  # súbelo cuando cambien los lectores y haya que volver a leer todo
 
 _config: DBOSConfig = {"name": "upistas", "system_database_url": settings.dbos_url}
 DBOS(config=_config)
@@ -49,12 +49,13 @@ def _leer_y_guardar(lote: str, file_id: str, ruta: str) -> dict:
     t0 = time.perf_counter()
     repo = contenedor.lecturas()
     doc = contenedor.inspector().inspeccionar(Path(ruta))
-    previa = repo.por_sha(doc.sha256) if doc.sha256 else None
-    if previa is not None and previa.leida:  # mismo contenido ya leído: se reutiliza
+    previa = repo.por_sha(doc.sha256, VERSION_LECTURA) if doc.sha256 else None
+    if previa is not None and previa.leida:  # mismo contenido ya leído con estos lectores: se reutiliza
         registro = RegistroLectura(
             lote=lote, file_id=file_id, ruta=ruta, sha256=doc.sha256, bytes=doc.bytes, tipo=doc.tipo, paginas=doc.paginas,
             alertas=doc.alertas, extraida=previa.extraida.model_copy(update={"file_id": file_id}), intentos=previa.intentos,
             segundos=previa.segundos, tokens_in=previa.tokens_in, tokens_out=previa.tokens_out, coste_eur=previa.coste_eur, modelo=previa.modelo,
+            version=VERSION_LECTURA,
         )
         repo.guardar(registro)
         return {"file_id": file_id, "leida": True, "metodo": registro.metodo, "cache": True, "segundos": round(time.perf_counter() - t0, 3)}
@@ -67,6 +68,7 @@ def _leer_y_guardar(lote: str, file_id: str, ruta: str) -> dict:
         extraida=lectura.extraida, intentos=lectura.intentos, segundos=round(time.perf_counter() - t0, 3),
         tokens_in=(coste.tokens_in or 0) if coste else 0, tokens_out=(coste.tokens_out or 0) if coste else 0,
         coste_eur=(coste.eur or 0.0) if coste else 0.0, modelo=(coste.modelo or "") if coste else "",
+        version=VERSION_LECTURA,
     )
     repo.guardar(registro)
     return {"file_id": file_id, "leida": registro.leida, "metodo": registro.metodo, "cache": False, "segundos": registro.segundos}
@@ -83,11 +85,13 @@ def iniciar() -> None:
     DBOS.register_queue(COLA, global_concurrency=settings.concurrencia)
 
 
-def encolar_lecturas(lote: str, rutas: Sequence[Path]) -> list[WorkflowHandle]:
+def encolar_lecturas(lote: str, rutas: Sequence[Path], ejecucion_id: int) -> list[WorkflowHandle]:
+    """Un workflow por documento y ejecución: si el proceso se cae, DBOS retoma los que faltaban.
+    Que no se lea dos veces el mismo contenido lo garantiza la caché por sha256, no el id."""
     cola = DBOS.retrieve_queue(COLA)
     handles = []
     for ruta in rutas:
-        with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{lote}:{ruta.name}"):
+        with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{lote}:{ejecucion_id}:{ruta.name}"):
             handles.append(cola.enqueue(leer_documento, lote, ruta.name, str(ruta)))
     return handles
 
@@ -130,10 +134,10 @@ def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincroni
     ejecucion = repo_dec.iniciar_ejecucion(lote, version_norma, ultima.version or "", maestro.version, hardware())
 
     t0 = time.perf_counter()
-    resultados = [h.get_result() for h in encolar_lecturas(lote, rutas)]
+    resultados = [h.get_result() for h in encolar_lecturas(lote, rutas, ejecucion.id)]
     segundos_lectura = time.perf_counter() - t0
     nombres = {r.name for r in rutas}
-    lecturas = [r for r in contenedor.lecturas().del_lote(lote) if r.file_id in nombres]
+    lecturas = [r for r in contenedor.lecturas().del_lote(lote, VERSION_LECTURA) if r.file_id in nombres]
 
     t1 = time.perf_counter()
     refs = construir_referencias(
