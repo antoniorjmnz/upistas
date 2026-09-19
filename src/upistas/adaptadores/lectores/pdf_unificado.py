@@ -10,7 +10,7 @@ from tempfile import NamedTemporaryFile
 
 import pymupdf
 
-from upistas.adaptadores.lectores.campos import extraer_campos
+from upistas.adaptadores.lectores.campos import MODELO_OCR, extraer_campos
 from upistas.puertos import DocumentoInspeccionado, LecturaFallida
 
 VERSION = "unificado-4"
@@ -119,6 +119,11 @@ class LectorPdfUnificado:
         except (OSError, ValueError, RuntimeError) as exc:
             raise LecturaFallida(f"No se pudo leer {ruta.name}: {exc}") from exc
 
+    def _ver(self, imagen: bytes) -> tuple[str, dict]:
+        """(texto, uso): un adaptador con `transcribir` informa del modelo y los tokens; un callable simple, solo del texto."""
+        transcribir = getattr(self.vision, "transcribir", None)
+        return transcribir(imagen) if transcribir else (self.vision(imagen), {})
+
     def texto_extraido(self, ruta: Path) -> str:
         if self.cache_dir is None:
             return ""
@@ -149,7 +154,7 @@ class LectorPdfUnificado:
                         if pagina.rect.width * pagina.rect.height * (200 / 72) ** 2 > 16_000_000:
                             raise LecturaFallida("Página demasiado grande para OCR")
                         imagen = pagina.get_pixmap(dpi=200, alpha=False).tobytes("png")
-                        traza["model"] = "fal-ai/got-ocr/v2"
+                        traza["model"] = MODELO_OCR
                         texto_ocr = ocr_previo.get(indice) or self.ocr(imagen)
                         if not isinstance(texto_ocr, str) or not texto_ocr.strip():
                             raise LecturaFallida("OCR sin texto")
@@ -157,13 +162,15 @@ class LectorPdfUnificado:
                         traza["text_ocr"] = texto_ocr
                         if self.vision is not None and _campos_insuficientes(traza):
                             try:
-                                texto_vision = self.vision(imagen)
+                                texto_vision, uso = self._ver(imagen)
                                 if not isinstance(texto_vision, str) or not texto_vision.strip():
                                     raise LecturaFallida("Visión sin texto")
                                 traza["text_vision"] = texto_vision
                                 traza["text"] = texto_vision
                                 traza["route"] = "vision_llm"
-                                traza["model"] = getattr(self.vision, "version", None)
+                                traza["model"] = uso.get("modelo") or getattr(self.vision, "version", None)
+                                traza["tokens_in"] = uso.get("tokens_in") or 0
+                                traza["tokens_out"] = uso.get("tokens_out") or 0
                             except LecturaFallida as exc:
                                 traza["vision_error"] = str(exc)
                             except Exception:

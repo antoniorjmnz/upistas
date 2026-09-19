@@ -349,6 +349,33 @@ def test_fallo_pasajero_de_vision_no_se_cachea_y_conserva_el_ocr(tmp_path):
     assert cliente.chat.completions.create.call_count == 2
 
 
+def test_coste_acumula_ocr_y_vision_con_los_tokens_de_la_api(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    vision = VisionHelmcode("k", URL, "qwen3.6", cliente=cliente_vision(respuesta_vision(tokens_in=1200, tokens_out=300)))
+    factura = LectorPdfUnificado(ocr=lambda imagen: "FACTURA ILEGIBLE\nTOTAL 121,00 EUR", vision=vision).leer(ruta)
+    assert factura.metodo.value == "vision_llm"
+    assert factura.coste.modelo == "fal-ai/got-ocr/v2 + qwen3.6"
+    assert (factura.coste.tokens_in, factura.coste.tokens_out) == (1200, 300)
+
+
+def test_coste_suma_los_tokens_de_todas_las_paginas():
+    factura = extraer_campos("a.pdf", [
+        {"page": 1, "route": "vision_llm", "text": TEXTO, "model": "qwen3.6", "tokens_in": 1000, "tokens_out": 200},
+        {"page": 2, "route": "vision_llm", "text": "Página 2 de 3", "model": "qwen3.6", "tokens_in": 500, "tokens_out": 100},
+        {"page": 3, "route": "fal_ocr", "text": "Página 3 de 3", "model": "fal-ai/got-ocr/v2"},
+    ])
+    assert factura.coste.modelo == "fal-ai/got-ocr/v2 + qwen3.6"
+    assert (factura.coste.tokens_in, factura.coste.tokens_out) == (1500, 300)
+
+
+def test_coste_solo_ocr_no_inventa_tokens_y_sin_ia_no_hay_coste():
+    ocr = extraer_campos("a.pdf", [{"page": 1, "route": "fal_ocr", "text": TEXTO, "model": "fal-ai/got-ocr/v2"}])
+    assert ocr.coste.modelo == "fal-ai/got-ocr/v2"
+    assert (ocr.coste.tokens_in, ocr.coste.tokens_out) == (0, 0)
+    assert extraer().coste is None
+
+
 def test_discrepancia_ocr_vision_no_elige_por_conveniencia(tmp_path):
     ruta = tmp_path / "scan.pdf"
     crear_pdf(ruta, None)

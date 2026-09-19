@@ -24,6 +24,10 @@ class VisionHelmcode:
         self.cliente = cliente or (OpenAI(api_key=api_key, base_url=base_url, timeout=timeout, max_retries=0) if api_key else None)
 
     def __call__(self, imagen: bytes) -> str:
+        return self.transcribir(imagen)[0]
+
+    def transcribir(self, imagen: bytes) -> tuple[str, dict]:
+        """Devuelve (texto, uso). `uso` trae modelo, tokens_in y tokens_out, como el evaluador de notas."""
         if self.cliente is None:
             raise LecturaFallida("Lectura visual no disponible: falta HELMCODE_API_KEY")
         try:
@@ -51,4 +55,6 @@ class VisionHelmcode:
         texto = (eleccion.message.content or "").strip()
         if not texto:
             raise LecturaFallida("Visión sin texto")
-        return texto
+        uso = getattr(salida, "usage", None)
+        return texto, {"modelo": self.modelo, "tokens_in": getattr(uso, "prompt_tokens", 0) or 0,
+                       "tokens_out": getattr(uso, "completion_tokens", 0) or 0}

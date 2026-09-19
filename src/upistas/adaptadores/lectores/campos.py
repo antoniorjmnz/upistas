@@ -16,6 +16,24 @@ FECHA = r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{1,2} de [a-z]+ de \
 CAMPOS = ("numero_factura", "nif", "iban", "pedido", "fecha", "base", "iva_pct", "iva", "total")
 SEPARADOR = r"[\s.:=#·…]*"
 ETIQUETA_IVA = r"(?<!\w)I[ \t.]*V[ \t.]*A\.?(?!\w)"
+MODELO_OCR = "fal-ai/got-ocr/v2"
+
+
+def coste_de(paginas: list[dict]) -> dict | None:
+    """Lo que costó leer: cada página escaneada pasa por el OCR y, si hizo falta, por la visión (que suma tokens)."""
+    modelos = []
+    for pagina in paginas:
+        if pagina.get("route") in ("fal_ocr", "vision_llm"):
+            modelos.append(MODELO_OCR)
+        if pagina.get("route") == "vision_llm" and pagina.get("model"):
+            modelos.append(pagina["model"])
+    if not modelos:
+        return None
+    return {
+        "modelo": " + ".join(dict.fromkeys(modelos)),
+        "tokens_in": sum(p.get("tokens_in") or 0 for p in paginas),
+        "tokens_out": sum(p.get("tokens_out") or 0 for p in paginas),
+    }
 
 
 def etiqueta(palabra: str) -> str:
@@ -134,5 +152,5 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
         "notas": notas,
         "checks": {},
         "errores": errores,
-        "coste": {"modelo": "fal-ai/got-ocr/v2"} if any(p["route"] == "fal_ocr" for p in paginas) else None,
+        "coste": coste_de(paginas),
     })
