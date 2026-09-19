@@ -66,26 +66,40 @@ class AltasCSV:
 
 def filas_csv(ruta: Path, obligatorias: set[str], avisos: list[str]) -> Iterator[Fila]:
     """Filas del CSV como dict {cabecera normalizada: valor}. Coma o punto y coma, UTF-8 o Windows."""
-    lineas = _lineas(ruta)
-    if not lineas:
-        avisos.append(f"{ruta.name}: está vacío")
+    nombres, filas = tabla_csv(ruta.name, ruta.read_bytes(), avisos)
+    if nombres and not es_cabecera(nombres, obligatorias):
+        avisos.append(f"{ruta.name}: no tiene las columnas esperadas ({', '.join(sorted(obligatorias))})")
         return
+    yield from filas
+
+
+def tabla_csv(nombre: str, datos: bytes, avisos: list[str]) -> tuple[list[str], list[Fila]]:
+    """Las cabeceras normalizadas y las filas con contenido de un CSV ya en memoria (subido por la web)."""
+    lineas = _lineas(datos)
+    if not lineas:
+        avisos.append(f"{nombre}: está vacío")
+        return [], []
     separador = ";" if lineas[0].count(";") > lineas[0].count(",") else ","
     lector = csv.reader(lineas, delimiter=separador)
     nombres = [cabecera(c) for c in next(lector)]
-    if not es_cabecera(nombres, obligatorias):
-        avisos.append(f"{ruta.name}: no tiene las columnas esperadas ({', '.join(sorted(obligatorias))})")
-        return
-    for fila in lector:
-        if not any(c.strip() for c in fila):
-            continue
-        yield {n: v for n, v in zip(nombres, fila) if n}
+    filas = [{n: v for n, v in zip(nombres, fila) if n} for fila in lector if any(c.strip() for c in fila)]
+    return nombres, filas
 
 
-def _lineas(ruta: Path) -> list[str]:
-    datos = ruta.read_bytes()
+def tipo_de_fichero(nombres: list[str]) -> str | None:
+    """Por las cabeceras: «proveedores» (ID, Razon Social, NIF, IBAN…), «pedidos» (pedido, proveedor_id,
+    importe_total…) o None si no es ni lo uno ni lo otro."""
+    columnas = set(nombres)
+    if CABECERAS_PROVEEDOR <= columnas:
+        return "proveedores"
+    if {"pedido", "proveedorid"} <= columnas and columnas & {"importe", "importetotal"}:
+        return "pedidos"
+    return None
+
+
+def _lineas(datos: bytes) -> list[str]:
     try:
         texto = datos.decode("utf-8-sig")
     except UnicodeDecodeError:
-        texto = datos.decode("cp1252")
+        texto = datos.decode("cp1252", errors="replace")
     return texto.splitlines()
