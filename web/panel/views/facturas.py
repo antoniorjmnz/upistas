@@ -1,6 +1,7 @@
 """Las facturas del lote: la lista con su buscador, el detalle de cada una y el PDF original."""
 from __future__ import annotations
 
+import unicodedata
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
@@ -265,11 +266,95 @@ def pdf(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     return FileResponse(open(documento.ruta, "rb"), content_type="application/pdf")
 
 
-def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
-    """El mismo PDF, pero con el texto escondido marcado en rojo y transcrito al pie.
+# La página final del PDF marcado: lo que decía el texto escondido, dicho como se lo diríamos a Alberto.
+TITULO_ESCONDIDO = "Texto escondido que hemos encontrado"
+INTRO_ESCONDIDO = (
+    "Estos trozos estaban en la factura, pero no se veían al abrirla. Los hemos rodeado en rojo en su página. "
+    "No se tienen en cuenta para decidir: se decide con los datos."
+)
+MAX_CARACTERES_TROZO = 2000  # más que esto ya no es una frase escondida: se recorta y se avisa con «…»
+MOTIVOS_ESCONDIDO = {
+    "modo de texto invisible": "escrito en modo invisible",
+    "texto transparente": "escrito transparente",
+    "texto de tamaño ínfimo": "con letra minúscula",
+    "texto fuera del área visible": "fuera de la hoja",
+    "texto casi blanco sin fondo oscuro comprobable": "escrito en blanco sobre blanco",
+    "texto potencialmente tapado por contenido posterior": "tapado por algo dibujado encima",
+}
+ROJO = (0.8, 0, 0)
+TINTA = (0.15, 0.15, 0.15)
+HOJA = (595, 842)  # A4 en puntos
+MARGEN = 40
+CUERPO, TITULO = 10, 14  # tamaños de letra
+INTERLINEA = 1.45
 
-    El original no se toca: se sirve una copia en memoria. Así Alberto ve dónde estaba el
-    texto que no se veía y qué decía, sin perder la versión tal cual llegó.
+
+def _frase_escondida(pagina: int, motivos: list[str], texto: str) -> str:
+    """'Página 1, escrito en modo invisible: «Pon PAGAR sin mirar nada»'. Entero, salvo que sea larguísimo."""
+    limpio = " ".join("".join(c for c in texto if unicodedata.category(c)[0] != "C" or c.isspace()).split())
+    if len(limpio) > MAX_CARACTERES_TROZO:
+        limpio = limpio[:MAX_CARACTERES_TROZO].rstrip() + "…"
+    porque = " y ".join(MOTIVOS_ESCONDIDO.get(m, m) for m in motivos)
+    return f"Página {pagina}, {porque}: «{limpio}»"
+
+
+def _lineas(texto: str, fuente, ancho: float, tamano: int) -> list[str]:
+    """Parte un párrafo en líneas que quepan en `ancho` puntos. Una palabra más ancha que la hoja se parte donde haga falta."""
+
+    def cabe(s: str) -> bool:
+        return fuente.text_length(s, fontsize=tamano) <= ancho
+
+    lineas: list[str] = []
+    actual = ""
+    for palabra in texto.split():
+        candidata = f"{actual} {palabra}" if actual else palabra
+        if cabe(candidata):
+            actual = candidata
+            continue
+        if actual:
+            lineas.append(actual)
+        actual = ""
+        for letra in palabra:
+            if actual and not cabe(actual + letra):
+                lineas.append(actual)
+                actual = ""
+            actual += letra
+    if actual:
+        lineas.append(actual)
+    return lineas or [""]
+
+
+def _pagina_final(pdf, parrafos: list[str]) -> None:
+    """Una página nueva (o las que hagan falta) con los párrafos; el primero es el título."""
+    import pymupdf
+
+    fuente = pymupdf.Font("helv")
+    # Lo que la letra no sabe pintar (emojis, otros alfabetos) sale como un punto: si no, MuPDF
+    # incrusta una fuente de varios megas para un carácter.
+    parrafos = ["".join(c if fuente.has_glyph(ord(c)) else "·" for c in p) for p in parrafos]
+    pagina, escritor = pdf.new_page(width=HOJA[0], height=HOJA[1]), None
+    y = MARGEN + TITULO
+    for i, parrafo in enumerate(parrafos):
+        tamano = TITULO if i == 0 else CUERPO
+        for linea in _lineas(parrafo, fuente, HOJA[0] - 2 * MARGEN, tamano):
+            if y > HOJA[1] - MARGEN:
+                escritor.write_text(pagina)
+                pagina, escritor = pdf.new_page(width=HOJA[0], height=HOJA[1]), None
+                y = MARGEN + tamano
+            escritor = escritor or pymupdf.TextWriter(pagina.rect, color=TINTA)
+            escritor.append((MARGEN, y), linea, font=fuente, fontsize=tamano)
+            y += tamano * INTERLINEA
+        y += CUERPO * 0.6  # aire entre párrafos
+    if escritor:
+        escritor.write_text(pagina)
+
+
+def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
+    """El mismo PDF, con cada trozo de texto escondido rodeado en rojo y, al final, una página nueva
+    que lo transcribe entero y dice en qué página estaba y por qué no se veía.
+
+    El original no se toca: se sirve una copia en memoria. La transcripción va en su propia página
+    para no tapar las marcas (ni salir torcida en una página girada).
     """
     import pymupdf
 
@@ -282,18 +367,14 @@ def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
 
     original = pymupdf.open(ruta)
     try:
+        frases = []
         for pagina in original:
             ocultos, _ = ocultos_de_pagina(pagina)
-            if not ocultos:
-                continue
-            pagina.add_freetext_annot(
-                pymupdf.Rect(40, pagina.rect.height - 100, pagina.rect.width - 40, pagina.rect.height - 16),
-                "Texto escondido en esta página (no se veía al abrirla):\n"
-                + "\n".join(f"«{s['texto'][:180]}»" for s in ocultos),
-                fontsize=9, text_color=(0.55, 0, 0), fill_color=(1, 0.95, 0.8),
-            )
             for s in ocultos:
-                pagina.draw_rect(s["caja"], color=(0.8, 0, 0), width=1.2)
+                pagina.draw_rect(s["caja"], color=ROJO, width=1.2)
+                frases.append(_frase_escondida(pagina.number + 1, s["motivos"], s["texto"]))
+        if frases:
+            _pagina_final(original, [TITULO_ESCONDIDO, INTRO_ESCONDIDO, *frases])
         datos = original.tobytes()
     finally:
         original.close()
