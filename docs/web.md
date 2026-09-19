@@ -25,6 +25,8 @@ en el repo.
 - **Para revisar**: la cola de lo escalado, agrupada por motivo. Alberto decide Pagar o No pagar con un
   comentario. Queda guardado aparte (`RevisionHumana`), no toca lo que calculó el sistema, y si dice
   Pagar el pedido cuenta como pagado para los lotes siguientes.
+- **Preguntar**: Alberto pregunta en su idioma y la web contesta con los datos que tiene, con enlace a la
+  pantalla donde está la respuesta. Lo hace Fran (#39); el diseño está en [asistente.md](asistente.md).
 - **Ejecuciones**: cada pasada por un lote con sus cifras, con qué datos se decidió, qué cambió respecto
   a la anterior y la descarga del `outcomes.jsonl` (el fichero de la entrega, línea a línea tal cual).
 - **Asientos del ERP** y **Conexión con el ERP**: la copia con la que se decide, su historial y qué cambió

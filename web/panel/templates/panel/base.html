@@ -17,6 +17,7 @@
       <a href="{% url 'panel:inicio' %}" class="{% if pagina_actual == 'inicio' %}activa{% endif %}">Resumen</a>
       <a href="{% url 'panel:facturas' %}" class="{% if pagina_actual == 'facturas' or pagina_actual == 'factura' %}activa{% endif %}">Facturas</a>
       <a href="{% url 'panel:cola' %}" class="{% if pagina_actual == 'cola' %}activa{% endif %}">Para revisar{% if pendientes_revision %} <span class="insignia" title="Pendientes de revisar">{{ pendientes_revision }}</span>{% endif %}</a>
+      <a href="{% url 'panel:preguntar' %}" class="{% if pagina_actual == 'preguntar' %}activa{% endif %}">Preguntar</a>
       <a href="{% url 'panel:ejecuciones' %}" class="{% if pagina_actual == 'ejecuciones' or pagina_actual == 'ejecucion' %}activa{% endif %}">Ejecuciones</a>
       <a href="{% url 'panel:asientos' %}" class="{% if pagina_actual == 'asientos' %}activa{% endif %}">Asientos del ERP</a>
       <a href="{% url 'panel:conexion' %}" class="{% if pagina_actual == 'conexion' or pagina_actual == 'cambios' %}activa{% endif %}">Conexión con el ERP</a>

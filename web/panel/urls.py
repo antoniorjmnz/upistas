@@ -1,6 +1,6 @@
 from django.urls import path
 
-from web.panel.views import cuenta, ejecuciones, erp, facturas, resumen, revision
+from web.panel.views import chat, cuenta, ejecuciones, erp, facturas, resumen, revision
 
 app_name = "panel"
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path("facturas/<str:lote>/<str:file_id>/pdf/", facturas.pdf, name="factura_pdf"),
     path("facturas/<str:lote>/<str:file_id>/revisar/", revision.revisar, name="revisar"),
     path("revisar/", revision.cola, name="cola"),
+    path("preguntar/", chat.preguntar, name="preguntar"),
     path("ejecuciones/", ejecuciones.lista, name="ejecuciones"),
     path("ejecuciones/<int:id>/", ejecuciones.detalle, name="ejecucion"),
     path("ejecuciones/<int:id>/outcomes.jsonl", ejecuciones.outcomes, name="outcomes"),
