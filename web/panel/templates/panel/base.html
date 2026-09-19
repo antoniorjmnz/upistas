@@ -43,7 +43,6 @@
       </main>
     </div>
   </div>
-  {% endwith %}
   <dialog id="visor" class="visor" aria-label="Factura">
     <div class="visor-cab">
       {% icono "doc" 18 %}<b class="visor-titulo">Factura</b>
@@ -52,6 +51,9 @@
     </div>
     <iframe title="Factura original" src="about:blank"></iframe>
   </dialog>
+  {% if pagina_actual != "preguntar" %}{# la pantalla Preguntar ya es la conversación: sin panel encima #}
   {% include "panel/_asistente.html" %}
+  {% endif %}
+  {% endwith %}
 </body>
 </html>

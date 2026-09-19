@@ -16,7 +16,7 @@
   --sombra: 0 1px 2px rgba(16, 24, 40, .05); --sombra-2: 0 6px 16px rgba(16, 24, 40, .10);
   --f-ui: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --f-titulo: "Sora", "Inter", "Segoe UI", system-ui, sans-serif;
-  --ancho: 1120px; --lado: 252px;
+  --ancho: 1120px; --lado: 252px; --asistente: 420px;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -246,13 +246,14 @@ button.chip { font: inherit; }
 
 /* El panel «Preguntar» de la barra lateral: un diálogo no modal pegado a la derecha, en todas las pantallas */
 .lado nav a[data-abrir-asistente][aria-expanded="true"] { background: var(--marca-claro); color: var(--marca-osc); }
-dialog.asistente { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(420px, 100vw); max-width: 100vw; height: 100vh; max-height: 100vh; padding: 0; border: 0; border-left: 1px solid var(--linea); background: var(--panel); color: var(--tinta); box-shadow: -12px 0 40px rgba(17, 24, 39, .12); display: none; flex-direction: column; z-index: 20; }
+dialog.asistente { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(var(--asistente), 100vw); max-width: 100vw; height: 100vh; max-height: 100vh; padding: 0; border: 0; border-left: 1px solid var(--linea); background: var(--panel); color: var(--tinta); box-shadow: -12px 0 40px rgba(17, 24, 39, .12); display: none; flex-direction: column; z-index: 20; }
 dialog.asistente[open] { display: flex; }
 .asistente-cab { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 14px; border-bottom: 1px solid var(--linea); }
 .asistente-cab .logo { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--marca-claro); color: var(--marca-osc); flex: 0 0 auto; }
 .asistente-cab > div { flex: 1; min-width: 0; }
 .asistente-cab b { display: block; font: 600 16px/1.3 var(--f-titulo); }
 .asistente-cab small { display: block; font-size: 12.5px; color: var(--suave); line-height: 1.35; }
+.asistente-completa { display: inline-block; margin-top: 4px; font-size: 12.5px; color: var(--marca-osc); }
 .asistente-chat { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; }
 .asistente-chat .mensaje { max-width: 100%; font-size: 15px; }
 .asistente-form { padding: 12px 16px 0; }
@@ -264,6 +265,8 @@ dialog.asistente .htmx-indicator { margin: 8px 16px 0; font-size: 14px; }
 .asistente-ejemplos .ejemplo { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--linea); background: var(--panel); color: var(--tinta-2); font: 500 13px/1.3 var(--f-ui); cursor: pointer; }
 .asistente-ejemplos .ejemplo:hover { background: var(--hover); color: var(--tinta); }
 @media (max-width: 640px) { dialog.asistente { width: 100vw; border-left: 0; } }
+/* Con el panel abierto, en pantallas anchas el contenido le deja sitio (ancho del panel + margen); en móvil el panel lo tapa todo y no hace falta */
+@media (min-width: 1001px) { body.con-asistente .contenido { padding-right: calc(var(--asistente) + 24px); transition: padding-right 220ms ease-out; } }
 
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
@@ -405,7 +408,7 @@ dialog.asistente[open] { transform: translateX(0); opacity: 1; transition: trans
 /* Quien pide menos movimiento no ve ninguno de estos toques (ni el girando ni los KPI) */
 @media (prefers-reduced-motion: reduce) {
   main, .rosquilla-arco, .girando { animation: none; }
-  .factura-cola, .fila-factura, .fila, .chip, .kpi, dialog.visor[open], dialog.visor[open]::backdrop, dialog.asistente[open] { transition: none; }
+  .factura-cola, .fila-factura, .fila, .chip, .kpi, dialog.visor[open], dialog.visor[open]::backdrop, dialog.asistente[open], body.con-asistente .contenido { transition: none; }
   .factura-cola:hover { transform: none; box-shadow: var(--sombra); }
   .boton:active { transform: none; }
 }
