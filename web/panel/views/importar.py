@@ -41,7 +41,7 @@ def _leer_y_guardar(request: HttpRequest) -> HttpResponse:
     if not subidos:
         messages.error(request, "No ha elegido ningún fichero.", extra_tags="mal")
         return redirect("panel:proveedor_importar")
-    ficheros = [_leer(f) for f in subidos]
+    ficheros = [fichero for subido in subidos for fichero in _leer(subido)]
     if all(f.tipo is None for f in ficheros):
         for f in ficheros:
             messages.error(request, f.aviso, extra_tags="mal")
@@ -51,12 +51,12 @@ def _leer_y_guardar(request: HttpRequest) -> HttpResponse:
     return respuesta
 
 
-def _leer(subido) -> importaciones.Fichero:
+def _leer(subido) -> list[importaciones.Fichero]:
     if subido.size > TOPE_BYTES:
-        return importaciones.Fichero(subido.name, None, aviso=(
+        return [importaciones.Fichero(subido.name, None, aviso=(
             f"«{subido.name}» pesa más de 10 MB. Un fichero de proveedores o de pedidos no llega ni a 1 MB: "
-            "compruebe que es el fichero correcto."))
-    return importaciones.leer(subido.name, subido.read())
+            "compruebe que es el fichero correcto."))]
+    return importaciones.leer_varios(subido.name, subido.read())
 
 
 def _resultado(hecho) -> str:

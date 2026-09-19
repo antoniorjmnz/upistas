@@ -168,6 +168,63 @@ def leer(nombre: str, datos: bytes) -> Fichero:
     return Fichero(nombre, tipo, columnas, filas, aviso)
 
 
+def leer_varios(nombre: str, datos: bytes) -> list[Fichero]:
+    """Un fichero subido puede traer varias cosas: el Excel de Alberto trae proveedores y pedidos a la vez."""
+    if nombre.lower().endswith((".xlsx", ".xlsm")):
+        return _leer_excel(nombre, datos)
+    return [leer(nombre, datos)]
+
+
+def _leer_excel(nombre: str, datos: bytes) -> list[Fichero]:
+    """El Excel del maestro (hojas Proveedores y Pedidos_2026) como dos ficheros: así entra por la misma
+    vista previa que los CSV de altas, fila a fila, sin pisar lo que Alberto marcó."""
+    import io
+    from datetime import date, datetime
+
+    import openpyxl
+
+    try:
+        libro = openpyxl.load_workbook(io.BytesIO(datos), read_only=True, data_only=True)
+    except Exception:  # openpyxl lanza tipos distintos según el fallo
+        return [Fichero(nombre, None, aviso=f"«{nombre}» no se puede abrir como un Excel.")]
+    hojas = {ws.title.strip().lower(): ws for ws in libro.worksheets}
+
+    def celda(valor) -> str:
+        if valor is None:
+            return ""
+        if isinstance(valor, datetime):
+            return valor.date().isoformat()
+        if isinstance(valor, date):
+            return valor.isoformat()
+        return str(valor).strip()
+
+    def tabla(ws) -> tuple[list[str], list[dict]]:
+        filas = ws.iter_rows(values_only=True)
+        cabecera = next(filas, None) or ()
+        columnas = [re.sub(r"[\s_]+", "", celda(c)).lower() for c in cabecera]
+        contenido = []
+        for fila in filas:
+            datos_fila = {col: celda(v) for col, v in zip(columnas, fila) if col}
+            if any(datos_fila.values()):
+                contenido.append(datos_fila)
+        return [c for c in columnas if c], contenido
+
+    ficheros: list[Fichero] = []
+    for titulo, hoja, tipo in (("Proveedores", hojas.get("proveedores"), "proveedores"),
+                               ("Pedidos_2026", hojas.get("pedidos_2026"), "pedidos")):
+        if hoja is None:
+            continue
+        columnas, filas = tabla(hoja)
+        if tipo_de_fichero(columnas) != tipo:
+            ficheros.append(Fichero(f"{nombre} · {titulo}", None, columnas,
+                                    aviso=f"La hoja {titulo} de «{nombre}» no tiene las columnas esperadas."))
+            continue
+        ficheros.append(Fichero(f"{nombre} · {titulo}", tipo, columnas, filas))
+    if not ficheros:
+        return [Fichero(nombre, None, aviso=f"«{nombre}» no tiene las hojas Proveedores ni Pedidos_2026.")]
+    return ficheros
+
+
 def guardar(ficheros: list[Fichero]) -> str:
     """Deja lo parseado esperando a que Alberto lo vea y decida. Devuelve el token de la vista previa."""
     carpeta = _carpeta()

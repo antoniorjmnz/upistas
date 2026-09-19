@@ -369,3 +369,60 @@ def test_leer_reconoce_el_tipo_por_las_cabeceras():
     assert vacio.tipo is None and vacio.aviso == "«c.csv» está vacío."
     solo_cabecera = importaciones.leer("d.csv", CABECERA_PEDIDOS.encode())
     assert solo_cabecera.tipo is None and "solo trae la cabecera" in solo_cabecera.aviso
+
+
+def _excel(proveedores: list[tuple], pedidos: list[tuple]) -> bytes:
+    """Un Excel como el de Alberto, en memoria: hojas Proveedores y Pedidos_2026 con sus cabeceras."""
+    import io
+
+    import openpyxl
+
+    libro = openpyxl.Workbook()
+    hoja = libro.active
+    hoja.title = "Proveedores"
+    hoja.append(["ID", "Razon Social", "NIF", "IBAN", "Ciudad", "Condiciones"])
+    for fila in proveedores:
+        hoja.append(list(fila))
+    otra = libro.create_sheet("Pedidos_2026")
+    otra.append(["Pedido", "ProveedorID", "NIF", "Importe_Total", "Estado", "Fecha_Pedido"])
+    for fila in pedidos:
+        otra.append(list(fila))
+    salida = io.BytesIO()
+    libro.save(salida)
+    return salida.getvalue()
+
+
+def test_con_el_maestro_vacio_se_puede_empezar_por_el_excel_de_alberto(alberto, almacen):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from web.panel.models import Pedido, Proveedor
+
+    assert Proveedor.objects.count() == 0
+    excel = _excel(
+        [("P001", "Suministros Levante S.L.", "B46102331", "ES21 0049 1500 0512 3456 7890", "Valencia", "60 dias"),
+         ("P002", "Transportes Guadaira S.A.", "A41220987", "ES76 2100 0813 6101 2345 6789", "Sevilla", "45 dias")],
+        [("PO-2026-0001", "P001", "B46102331", 1210.5, "ABIERTO", "2026-01-31"),
+         ("PO-2026-0002", "P002", "A41220987", 99, "ABIERTO", "2026-02-01")],
+    )
+    token = subir(alberto, SimpleUploadedFile("FINAL_v7.xlsx", excel))
+    html = alberto.get(reverse("panel:proveedor_importar_previa", args=[token])).content.decode()
+    assert "2 proveedores nuevos" in html and "2 pedidos nuevos" in html and "0 filas inválidas" in html
+    assert "FINAL_v7.xlsx · Proveedores" in html and "FINAL_v7.xlsx · Pedidos_2026" in html
+    alberto.post(reverse("panel:proveedor_importar_previa", args=[token]), {"accion": "aplicar"}, follow=True)
+    assert Proveedor.objects.count() == 2 and Pedido.objects.count() == 2
+    assert Pedido.objects.get(numero="PO-2026-0001").proveedor.codigo == "P001"
+
+
+def test_un_excel_sin_las_hojas_del_maestro_se_rechaza_llano(alberto, almacen):
+    import io
+
+    import openpyxl
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    libro = openpyxl.Workbook()
+    libro.active.title = "Otra cosa"
+    libro.active.append(["a", "b"])
+    salida = io.BytesIO()
+    libro.save(salida)
+    respuesta = alberto.post(reverse("panel:proveedor_importar"), {"ficheros": [SimpleUploadedFile("raro.xlsx", salida.getvalue())]}, follow=True)
+    assert "no tiene las hojas Proveedores ni Pedidos_2026" in respuesta.content.decode()
