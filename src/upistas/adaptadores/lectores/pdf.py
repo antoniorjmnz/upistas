@@ -18,7 +18,7 @@ from upistas.puertos import DocumentoInspeccionado
 MAX_PAGINAS = 50
 MAX_BYTES = 25 * 1024 * 1024
 MIN_TEXTO = 30  # menos caracteres que esto = no hay capa de texto
-INVISIBLES = re.compile(r"[​-‏⁠﻿­]")
+INVISIBLES = re.compile(r"[\u200b-\u200f\u2060\ufeff\u00ad]")
 ACTIVO = re.compile(rb"/(JavaScript|JS|Launch|OpenAction|AA|EmbeddedFile|RichMedia)\b")
 
 
@@ -50,7 +50,6 @@ class InspectorPdf:
             alertas.append(f"extensión {ruta.suffix or 'sin extensión'}")
 
         pymupdf.TOOLS.mupdf_display_errors(False)
-        pymupdf.TOOLS.reset_mupdf_warnings()
         try:
             pdf = pymupdf.open(ruta)
         except Exception as exc:  # pymupdf lanza tipos distintos según el fallo
@@ -59,7 +58,7 @@ class InspectorPdf:
         with pdf:
             if pdf.needs_pass:
                 return doc("cifrado", extra=["protegido con contraseña"])
-            if "repair" in pymupdf.TOOLS.mupdf_warnings():
+            if pdf.is_repaired:
                 alertas.append("estructura reparada al abrir")
             if not pdf.is_pdf:
                 alertas.append(f"no es un PDF: {pdf.metadata.get('format', '?')}")
