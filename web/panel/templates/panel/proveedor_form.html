@@ -1,0 +1,38 @@
+{% extends "panel/base.html" %}
+{% load panel_extras %}
+{% block titulo %}{% if proveedor %}Editar {{ proveedor.nombre }}{% else %}Nuevo proveedor{% endif %} · Pagos de Alberto{% endblock %}
+{% block contenido %}
+
+<section class="hero">
+  {% if proveedor %}
+    <a class="volver" href="{% url 'panel:proveedor' proveedor.id %}">Volver a {{ proveedor.nombre }}</a>
+    <h1>Editar proveedor</h1>
+    <p class="lead">Corrija lo que haya cambiado. Si cambia la cuenta, las facturas que traigan la
+      cuenta vieja dejarán de pagarse solas.</p>
+  {% else %}
+    <a class="volver" href="{% url 'panel:proveedores' %}">Volver a proveedores</a>
+    <h1>Nuevo proveedor</h1>
+    <p class="lead">Con el nombre, el NIF y la cuenta, el sistema ya puede comprobar sus facturas.
+      Lo demás puede rellenarlo más adelante.</p>
+  {% endif %}
+</section>
+
+<section class="tarjeta">
+  <form class="formulario" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="campo ancho"><span class="error">{{ form.non_field_errors.0 }}</span></div>
+    {% endif %}
+    {% include "panel/_campo.html" with campo=form.nombre ancho=True %}
+    {% include "panel/_campo.html" with campo=form.nif %}
+    {% include "panel/_campo.html" with campo=form.codigo %}
+    {% include "panel/_campo.html" with campo=form.iban ancho=True %}
+    {% include "panel/_campo.html" with campo=form.ciudad %}
+    {% include "panel/_campo.html" with campo=form.condiciones_dias %}
+    <div class="pie-formulario">
+      <button class="boton grande" type="submit">{% icono "check" 18 %}Guardar</button>
+      <a class="boton suave" href="{% if proveedor %}{% url 'panel:proveedor' proveedor.id %}{% else %}{% url 'panel:proveedores' %}{% endif %}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}
