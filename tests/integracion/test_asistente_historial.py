@@ -46,7 +46,7 @@ def test_la_primera_pregunta_crea_la_conversacion_y_le_da_titulo(alberto, ia):
     larga = "¿Por qué no se paga la factura FA-1016 de Papelería Cervantes que llegó la semana pasada con el pedido 474?"
     _pregunta(alberto, larga)
     c = Conversacion.objects.get()
-    assert c.titulo == larga[:60] and len(c.titulo) == 60
+    assert len(c.titulo) <= 60 and c.titulo.endswith("…") and larga.startswith(c.titulo[:-1].rstrip())  # corta por palabra, no a mitad
     assert alberto.session["conversacion"] == c.pk
     p = Pregunta.objects.get()
     assert p.conversacion == c and p.texto == larga and p.respuesta == "vale" and p.modelo == "glm5.3"
