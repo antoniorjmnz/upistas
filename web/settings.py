@@ -118,6 +118,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Los PDF que suben por la web, guardados por su huella. Nunca se sube a git.
+MEDIA_ROOT = Path(os.getenv("ALMACEN_DIR", BASE_DIR / "almacen"))
+MEDIA_URL = "almacen/"
+DATA_UPLOAD_MAX_NUMBER_FILES = 1000
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

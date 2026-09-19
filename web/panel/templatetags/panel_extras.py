@@ -89,6 +89,11 @@ _ICONOS = {
     "erp": '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
     "lista": '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
     "externo": '<path d="M14 4h6v6M20 4l-9 9"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>',
+    "subir": '<path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/>',
+    "proveedores": '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M17 3.5a4 4 0 0 1 0 9M22 21a7 7 0 0 0-5-6.7"/>',
+    "mas": '<path d="M12 5v14M5 12h14"/>',
+    "editar": '<path d="M4 20h4l11-11-4-4L4 16z"/><path d="M13 7l4 4"/>',
+    "papelera": '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
 }
 
 

@@ -37,3 +37,6 @@ caja/
 
 # Worktrees temporales de los agentes de Claude Code
 .claude/worktrees/
+
+# PDF subidos por la web
+almacen/
