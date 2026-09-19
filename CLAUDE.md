@@ -17,6 +17,7 @@ cruzando un Excel y un ERP de 2009. Equipo de 4, cada uno con su propio Claude.
 - `uv run python manage.py runserver` — la web de Alberto en http://127.0.0.1:8000. Ver [docs/web.md](docs/web.md)
 - `uv run upistas run [--lote lote1] [--norma v3] [--carpeta ../caja/facturas] [--limit N] [--sin-sync]` — sincroniza el ERP, lee y decide un lote → `outputs/outcomes.jsonl`. Ver [docs/backend.md](docs/backend.md).
 - `uv run python scripts/gen_contracts.py` — tras cambiar `contracts/*.schema.json`
+- `uv run python scripts/entrega.py [--git]` — comprueba los outcomes contra La Caja y monta `../la-caja-outcomes` con los tres ficheros de la entrega (con `--git`, además el commit local; el push es a mano)
 - `/tarea N` empieza la issue N · `/pr` cierra el trabajo y abre la PR
 
 ## Reglas del código

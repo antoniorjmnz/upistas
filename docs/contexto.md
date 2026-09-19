@@ -27,6 +27,8 @@ El domingo, además, cambiarán un dato de La Caja para comprobar que la demo es
 Un repo público **aparte** con solo `outcomes.jsonl`, `outcomes_lote2.jsonl` y `albertitos_plan.pdf`.
 Para optar al premio tiene que haber exactamente un resultado por factura y coincidir con la
 referencia privada de Maisa. El código se enseña en la defensa, no se entrega.
+`uv run python scripts/entrega.py --git` comprueba que cada outcomes cuadra con su carpeta de La Caja
+y deja los tres ficheros en `../la-caja-outcomes` con un commit local; subirlo es a mano.
 
 Rúbrica (110 puntos): producto, arquitectura y ADRs 35 · escala y coste 25 · trazabilidad 20 ·
 resiliencia 10 · calidad 10 · bonus 10. El bonus es una mejora extra para Alberto que no sea
