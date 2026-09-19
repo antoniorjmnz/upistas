@@ -62,11 +62,14 @@ Arriba en la barra lateral, las de Alberto:
 - **Importar datos** (`/proveedores/importar/`, el botón «Importar fichero» de Proveedores): si a Alberto le
   mandan un fichero de proveedores o de pedidos como los del lote 2, lo suelta ahí (uno o varios a la vez)
   y la web reconoce cada uno por sus cabeceras (con coma o punto y coma, con o sin BOM; lo que no se
-  reconoce se rechaza diciéndolo). Antes de guardar nada enseña una vista previa con cada fila clasificada
+  reconoce o pesa más de 10 MB se rechaza diciéndolo; si trae bytes que no son de ninguna codificación se
+  lee igual y avisa arriba). Antes de guardar nada enseña una vista previa con cada fila clasificada
   contra el maestro: nuevo, ya está igual, cambia (qué campo, antes y después) o inválido (NIF raro,
-  IBAN que no lo es, importe que no es un número, fecha o estado que no se entienden, pedido de un
-  proveedor que no está ni viene en el mismo envío, fila repetida, mismo NIF con dos códigos), con el
-  recuento arriba. «Aplicar» entra solo lo válido por el mismo `MaestroDjango.importar` del comando, así
+  IBAN que no lo es, campo más largo que su columna, importe que no es un número, fecha que no se
+  entiende, pedido de un proveedor que no está ni viene en el mismo envío, fila repetida, mismo NIF con
+  dos códigos, otro número de pedido donde iba el estado), con el recuento arriba. Un estado desconocido
+  o un NIF que no es el del proveedor no impiden importar (el pedido no guarda ni estado ni NIF): la fila
+  entra con un aviso en naranja. «Aplicar» entra solo lo válido por el mismo `MaestroDjango.importar` del comando, así
   que repetirlo no duplica nada, un proveedor que cambia solo actualiza los campos que trae el fichero y
   lo que Alberto marcó o anotó en un pedido no se toca; «Cancelar» no guarda nada. Entre los dos pasos lo
   parseado espera en `almacen/importaciones/<token>.json` (no en la sesión; los de más de un día se
