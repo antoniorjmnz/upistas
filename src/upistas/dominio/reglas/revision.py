@@ -2,7 +2,7 @@ import re
 
 from upistas.dominio.importes import normaliza_iban
 from upistas.dominio.modelos import Comprobacion
-from upistas.dominio.notas import clasificar, normalizar
+from upistas.dominio.notas import clasificar, controles_invisibles, normalizar
 from upistas.dominio.reglas import regla
 
 
@@ -50,9 +50,20 @@ def revision_interna(factura, refs, params):
 @regla("R6_notas")
 def notas_requieren_revision(factura, refs, params):
     nombre = "R6_notas"
+    notas = tuple(n for n in factura.notas if n.texto.strip())
+    if not notas:
+        return Comprobacion(nombre, True)
+    evaluacion = factura.evaluacion_notas
+    if evaluacion is None:
+        return Comprobacion(nombre, False, "Notas sin evaluación: requieren revisión humana")
+    if evaluacion.error or evaluacion.requiere_revision:
+        detalle = f"Evaluación de notas [{evaluacion.modelo or 'no disponible'}; {evaluacion.version_prompt}]: {evaluacion.motivo}"
+        if evaluacion.evidencia:
+            detalle += f" | Evidencia: {evaluacion.evidencia}"
+        return Comprobacion(nombre, False, detalle)
     asiento = refs.asientos.get(factura.pedido)
     proveedor = refs.proveedores.get(factura.nif)
-    for nota in factura.notas:
+    for nota in notas:
         if len(nota.texto) > 16384:
             return Comprobacion(nombre, False, "Nota demasiado extensa para validarla automáticamente")
         texto = normalizar(nota.texto)
@@ -72,9 +83,22 @@ def notas_requieren_revision(factura, refs, params):
             r"\biban\b.{0,50}\bno coincide\b", texto
         ):
             motivo = "La nota afirma que el IBAN no coincide, pero coincide con el maestro"
+        if not motivo and (clasificar(nota.texto) != ("otra",) or re.search(
+            r"\b(?:pagos?|vencimientos?|importe|iva|iban|nif|erp|anulacion|cancelacion|aprobacion)\b", texto
+        )):
+            motivo = "La nota contiene información operativa o instrucciones; no es inequívocamente irrelevante"
         if motivo:
             return Comprobacion(nombre, False, f"{motivo}: {nota.texto[:400]}")
     return Comprobacion(nombre, True)
+
+
+@regla("R6_contenido_oculto")
+def contenido_oculto(factura, refs, params):
+    avisos = [a for a in factura.alertas if a.startswith(("texto potencialmente oculto:", "visibilidad del texto no verificable:"))]
+    codigos = sorted({c for n in factura.notas for c in controles_invisibles(n.texto)})
+    if codigos:
+        avisos.append("Caracteres de control o invisibles en notas: " + ", ".join(codigos))
+    return Comprobacion("R6_contenido_oculto", not avisos, "; ".join(avisos))
 
 
 @regla("R5_hash_previo")

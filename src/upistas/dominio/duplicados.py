@@ -22,6 +22,8 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
                 "R5_no_pagada", "R5_hash_previo", "R5_copia_hash", "R5_reenvio",
             ) for c in actual.comprobaciones):
                 resultado = Resultado.NO_PAGAR
+        if any(not c.ok and c.regla in ("R0_lectura", "R6_notas", "R6_contenido_oculto") for c in actual.comprobaciones):
+            resultado = Resultado.ESCALAR
         motivo = detalle if actual.resultado == Resultado.PAGAR else f"{actual.motivo}; {detalle}"
         salida[file_id] = replace(actual, resultado=resultado, motivo=motivo,
                                  comprobaciones=actual.comprobaciones + (Comprobacion(regla, False, detalle),))

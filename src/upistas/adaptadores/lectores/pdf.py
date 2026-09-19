@@ -75,6 +75,7 @@ class InspectorPdf:
                 try:
                     paginas.append(pagina.get_text())
                     imagenes += len(pagina.get_images(full=False))
+                    alertas.extend(_visibilidad_texto(pagina))
                 except Exception as exc:
                     alertas.append(f"página {pagina.number + 1} ilegible: {type(exc).__name__}")
                     paginas.append("")
@@ -82,6 +83,7 @@ class InspectorPdf:
         texto = "".join(paginas)
         if INVISIBLES.search(texto):
             alertas.append("caracteres invisibles en el texto")
+        alertas.extend(_controles_fuera_de_campos(texto))
         raros = sum(1 for c in texto if unicodedata.category(c) in ("Cf", "Co", "Cs"))
         if raros > 20:
             alertas.append(f"{raros} caracteres de control o privados")
@@ -91,6 +93,69 @@ class InspectorPdf:
         if imagenes:
             return doc("escaneado", n_paginas, tuple(paginas))
         return doc("blanco", n_paginas, tuple(paginas), extra=["sin texto ni imágenes"])
+
+
+def _controles_fuera_de_campos(texto: str) -> list[str]:
+    for linea in texto.splitlines():
+        controles = {c for c in linea if unicodedata.category(c) in ("Cf", "Cc") and c != "\t"}
+        if not controles:
+            continue
+        limpia = "".join(c for c in linea if c not in controles).strip()
+        iban = re.fullmatch(r"(?:IBAN|CUENTA (?:DE ABONO|BANCARIA)(?:\s*\(IBAN\))?)\s*[:.]?\s*ES[\d\s.-]+", limpia, re.I)
+        importe = re.fullmatch(
+            r"(?:TOTAL(?: FACTURA| A PAGAR)?|BASE(?: IMPONIBLE)?|IVA(?:\s*\(?\s*\d+(?:[.,]\d+)?\s*%\s*\)?)?)"
+            r"[\s.:]*(?:EUR|€)?\s*[+-]?\d[\d\s.,]*\s*(?:EUR|€)?", limpia, re.I,
+        )
+        if controles <= {"\u200b", "\ufeff", "\u00ad"} and (iban or importe):
+            continue
+        codigos = ", ".join(sorted(f"U+{ord(c):04X}" for c in controles))
+        return [f"texto potencialmente oculto: controles Unicode fuera de campos numéricos ({codigos}); muestra={ascii(linea[:120])}"]
+    return []
+
+
+def _visibilidad_texto(pagina) -> list[str]:
+    try:
+        spans = pagina.get_texttrace()
+        dibujos = pagina.get_drawings()
+        if len(spans) > 10000 or len(dibujos) > 2000:
+            return [f"visibilidad del texto no verificable: página {pagina.number + 1}, estructura demasiado compleja"]
+        opacos = [d for d in dibujos if d.get("fill") is not None and d.get("fill_opacity", 1) >= 0.99
+                  and len(d.get("items", [])) == 1 and d["items"][0][0] == "re"]
+        imagenes = [(i, pymupdf.Rect(b)) for i, (tipo, b) in enumerate(pagina.get_bboxlog()) if tipo == "fill-image"]
+        visible = pymupdf.Rect(0, 0, pagina.cropbox.width, pagina.cropbox.height)
+        encontrados = {}
+        for span in spans:
+            texto = "".join(chr(c[0]) for c in span.get("chars", ()) if 0 <= c[0] <= 0x10FFFF).strip()
+            if not texto:
+                continue
+            caja = pymupdf.Rect(span["bbox"])
+            orden = span.get("seqno", -1)
+            motivos = []
+            if span.get("type") == 3:
+                motivos.append("modo de texto invisible")
+            if span.get("opacity", 1) <= 0.05:
+                motivos.append("texto transparente")
+            if span.get("size", 10) <= 2:
+                motivos.append("texto de tamaño ínfimo")
+            if not visible.intersects(caja):
+                motivos.append("texto fuera del área visible")
+            fondos = [d for d in opacos if d.get("seqno", -1) < orden and d["rect"].contains(caja)]
+            fondo = max(fondos, key=lambda d: d.get("seqno", -1), default=None)
+            color = span.get("color", ())
+            rgb = fondo["fill"] if fondo else (1, 1, 1)
+            luminosidad = sum(c * p for c, p in zip(rgb, (0.2126, 0.7152, 0.0722))) if len(rgb) == 3 else rgb[0]
+            if color and min(color) >= 0.95 and luminosidad >= 0.85:
+                motivos.append("texto casi blanco sin fondo oscuro comprobable")
+            if any(d.get("seqno", -1) > orden and d["rect"].contains(caja) for d in opacos) or any(
+                i > orden and r.contains(caja) for i, r in imagenes
+            ):
+                motivos.append("texto potencialmente tapado por contenido posterior")
+            for motivo in motivos:
+                encontrados.setdefault(motivo, ascii(texto[:120]))
+        return [f"texto potencialmente oculto: página {pagina.number + 1}; {motivo}; muestra={muestra}"
+                for motivo, muestra in encontrados.items()]
+    except Exception as exc:
+        return [f"visibilidad del texto no verificable: página {pagina.number + 1} ({type(exc).__name__})"]
 
 
 def _contenido_activo(pdf: pymupdf.Document) -> list[str]:

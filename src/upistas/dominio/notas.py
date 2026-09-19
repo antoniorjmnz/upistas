@@ -54,6 +54,11 @@ def normalizar(texto: str) -> str:
     return re.sub(r"\s+", " ", sin_tildes).strip().lower()
 
 
+def controles_invisibles(texto: str) -> tuple[str, ...]:
+    return tuple(sorted({f"U+{ord(c):04X}" for c in texto
+                         if unicodedata.category(c) in ("Cf", "Cc") and c not in "\n\r\t"}))
+
+
 def clasificar(texto: str) -> tuple[str, ...]:
     t = normalizar(texto)
     categorias = tuple(cat for cat, pats in _COMPILADOS.items() if any(p.search(t) for p in pats))

@@ -73,6 +73,8 @@ class Settings:
     modelo_vision: str = os.getenv("MODELO_VISION", "qwen3.6")
     modelo_vision_respaldo: str = os.getenv("MODELO_VISION_RESPALDO", "gemma4")
     modelo_texto: str = os.getenv("MODELO_TEXTO", "glm5.3")
+    modelo_notas: str = os.getenv("MODELO_NOTAS", os.getenv("MODELO_TEXTO", "glm5.3"))
+    notas_timeout_s: float = float(os.getenv("NOTAS_TIMEOUT_S", "30"))
     concurrencia: int = int(os.getenv("CONCURRENCIA", "16"))
     outputs_dir: Path = ROOT / "outputs"
     excel_path: Path | None = Path(os.environ["EXCEL_PATH"]) if os.getenv("EXCEL_PATH") else None

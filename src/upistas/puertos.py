@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Protocol
 
 from upistas.contracts.factura_extraida import FacturaExtraida
-from upistas.dominio.modelos import Asiento, Pedido, Proveedor
+from upistas.dominio.modelos import Asiento, EvaluacionNotas, Factura, Pedido, Proveedor, Referencias
 
 # --- Documentos -----------------------------------------------------------------------------------
 
@@ -136,6 +136,10 @@ class AlmacenERP(Protocol):
 
 
 # --- IA ---------------------------------------------------------------------------------------
+
+
+class EvaluadorNotas(Protocol):
+    def evaluar(self, factura: Factura, refs: Referencias) -> EvaluacionNotas: ...
 
 
 class RespuestaInvalida(Exception):

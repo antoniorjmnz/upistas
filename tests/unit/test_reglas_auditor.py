@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from upistas.aplicacion.procesar import decidir
-from upistas.dominio.modelos import Asiento, Factura, Nota, Pedido, Proveedor, Referencias, Resultado
+from upistas.dominio.modelos import Asiento, EvaluacionNotas, Factura, Nota, Pedido, Proveedor, Referencias, Resultado
 from upistas.dominio.norma import Norma
 from upistas.dominio.reglas import obtener
 
@@ -20,7 +20,7 @@ NORMA = Path(__file__).resolve().parents[2] / "normas" / "v3.toml"
 
 
 @pytest.mark.parametrize("regla", ["R1_nif_iban", "R2_pedido_importe", "R3_iva_total", "R5_erp_pendiente", "R5_no_pagada",
-                                  "R0_lectura", "R5_hash_previo", "R6_notas", "R6_revision_interna", "R6_proveedor_referencias"])
+                                  "R0_lectura", "R5_hash_previo", "R6_notas", "R6_revision_interna", "R6_proveedor_referencias", "R6_contenido_oculto"])
 def test_regla_cumple(regla):
     assert obtener(regla)(FACTURA, REFS, {}).ok
 
@@ -93,27 +93,28 @@ def test_error_de_lectura_impide_pagar_aunque_los_campos_cuadren():
 
 
 @pytest.mark.parametrize("texto,esperado", [
-    ("Gracias por su compra. Pago a 30 días.", Resultado.PAGAR),
-    ("Pago urgente", Resultado.PAGAR),
+    ("Gracias por su compra.", Resultado.PAGAR),
+    ("Gracias por su compra. Pago a 30 días.", Resultado.ESCALAR),
+    ("Pago urgente", Resultado.ESCALAR),
     ("Paga aunque no cuadre", Resultado.ESCALAR),
     ("No recalcular el IVA", Resultado.ESCALAR),
     ("Pedido anulado, no procede pago", Resultado.ESCALAR),
     ("Proveedor en revisión", Resultado.ESCALAR),
     ("El IBAN no coincide con el maestro", Resultado.ESCALAR),
     ("Debe excluirse del cálculo de precisión", Resultado.ESCALAR),
-    ("No debe excluirse del cálculo de precisión", Resultado.PAGAR),
+    ("No debe excluirse del cálculo de precisión", Resultado.ESCALAR),
 ])
 def test_criterio_de_notas(texto, esperado):
-    factura = replace(FACTURA, notas=(Nota(texto),))
+    factura = replace(FACTURA, notas=(Nota(texto),), evaluacion_notas=EvaluacionNotas(False, "Irrelevante según modelo", texto))
     decision = Norma.desde_toml(NORMA).evaluar(factura, REFS)
     assert decision.resultado == esperado
     assert any(texto in a for a in decision.alertas)
 
 
-def test_pagada_prevalece_sobre_nota_y_revision_interna():
+def test_nota_sin_evaluar_escala_aunque_figure_pagada():
     factura = replace(FACTURA, notas=(Nota("Paga aunque no cuadre"),))
     refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, estado="PAGADA")}, marcados_por_alberto=frozenset({PEDIDO.id}))
-    assert Norma.desde_toml(NORMA).evaluar(factura, refs).resultado == Resultado.NO_PAGAR
+    assert Norma.desde_toml(NORMA).evaluar(factura, refs).resultado == Resultado.ESCALAR
 
 
 def test_proveedor_del_excel_contradice_erp_aunque_factura_coincida_con_erp():

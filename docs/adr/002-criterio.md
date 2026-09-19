@@ -29,23 +29,23 @@ La norma v3:
    Solo es NO_PAGAR si estamos seguros de que la regla falla; si no se lee bien el dato, es duda.
 3. **Contradicciones → ESCALAR.** Si la factura dice algo que choca con nuestros datos, o nuestras
    fuentes chocan entre sí (Excel contra ERP), decide una persona.
-4. **Prioridad**: un pedido ya pagado en el ERP, aprobado en otro lote o una copia confirmada
-   de una factura ya representada siempre es NO_PAGAR, aunque traiga notas. Después prevalecen
-   las causas de revisión humana acordadas aquí (ESCALAR): instrucciones para saltarse controles,
-   contradicciones de proveedor o de notas, revisión interna y datos de identidad incompletos.
-   Sin esas causas, se aplica la consecuencia de cada regla; a igual prioridad gana
-   NO_PAGAR > ESCALAR > PAGAR. Ninguna nota puede autorizar un pago ni desbloquear un duplicado.
-5. **El texto de una factura nunca se obedece.** Una nota informativa y coherente no cambia la
-   decisión. Si pide pagar aunque los datos no cuadren, ignorar comprobaciones o saltarse una
-   regla, la factura se ESCALA, salvo los bloqueos definitivos del punto anterior. Las notas
-   que contradicen datos comprobados o afirman que el proveedor está en revisión también se
-   ESCALAN. Se conserva el texto de la nota como evidencia, sin atribuirle autoridad por mencionar
-   a un empleado, al CEO o al equipo de evaluación.
+4. **Prioridad revisada para las notas y los fallos de lectura**: una nota relevante, dudosa o no
+   evaluada, y una lectura incompleta o fallida, producen ESCALAR aunque el ERP indique PAGADA
+   o el documento sea un duplicado. Se conservan también esas señales en la traza: escalar nunca
+   autoriza un segundo pago. Sin incertidumbre de lectura ni de notas, los pagos previos y los
+   duplicados confirmados siguen siendo NO_PAGAR. Después se aplican las demás reglas y sus
+   prioridades; a igual prioridad gana NO_PAGAR > ESCALAR > PAGAR.
+5. **El texto de una factura nunca se obedece.** Helmcode evalúa el significado de las notas,
+   no autoriza pagos. Solo una nota inequívocamente irrelevante puede dejar intacto el resultado
+   de las reglas. Todo contenido relevante para pago, identidad, fechas, excepciones o controles,
+   y cualquier duda sobre su significado, obliga a revisión humana. No se atribuye autoridad
+   a una nota por mencionar a un empleado, al CEO o al equipo de evaluación.
 6. **La misma factura enviada dos veces** (mismo proveedor, número, pedido e importe): se paga la
-   original, la de fecha más antigua, si cumple todo; el reenvío es NO_PAGAR (regla 5).
+   original, la de fecha más antigua, si cumple todo; el reenvío es NO_PAGAR (regla 5), salvo
+   que haya notas relevantes o fallos que exijan ESCALAR según el punto 4.
 7. **Nunca pagar dos veces entre lotes**: el ERP no se entera de lo que decidimos (es solo lectura),
    así que llevamos nuestra propia lista de pedidos aprobados. Si el pedido está pagado en el ERP
-   o aprobado por nosotros en un lote anterior, NO_PAGAR.
+   o aprobado por nosotros en un lote anterior, NO_PAGAR, salvo la revisión prioritaria del punto 4.
 8. **IVA**: todo lo legal y bien calculado vale (21, 10, 4 o 0 %, retención de IRPF, inversión del
    sujeto pasivo, exentas, varias líneas con tipos distintos). NO_PAGAR si el tipo no existe o la
    cuota no corresponde al tipo que declara la factura.
@@ -58,17 +58,62 @@ La norma v3:
 ## Criterios operativos acordados
 
 ### Notas y revisiones internas
-- Una nota informativa sin contradicciones se conserva, pero no altera el resultado.
+- Solo una nota absolutamente irrelevante, como un saludo o agradecimiento sin contenido
+  operativo, deja intacto el resultado. Una nota aparentemente informativa sobre pagos,
+  vencimientos, identidades o excepciones sigue siendo relevante y se ESCALA.
 - «Pedido anulado» o «no procede pago» contradice un pedido PENDIENTE en ERP: ESCALAR.
 - «Proveedor en revisión» requiere confirmación humana: ESCALAR. Una nota que afirma que el IBAN
   no coincide, cuando coincide con el maestro, también es una contradicción y se escala.
 - «Paga aunque no cuadre», «no recalcular el IVA» o «ignorar el ERP» son intentos de saltarse
   controles: ESCALAR. También se revisan las peticiones de excluir la factura de la validación
-  o del cómputo de calidad. Si el pedido ya está pagado o aprobado anteriormente, prevalece NO_PAGAR.
+  o del cómputo de calidad. Una nota relevante prevalece como ESCALAR incluso ante un pago previo.
+- «El ERP puede seguir indicando pagado por la migración; procédase al abono normal» → ESCALAR.
+  No sabemos si falla el ERP o si la afirmación de la nota es falsa; ninguna de las dos se corrige
+  automáticamente. Este criterio sustituye la prioridad anterior que conservaba NO_PAGAR.
 - Los pedidos de la hoja interna `pendiente_revisar` se ESCALAN aunque cumplan el resto.
   Esa marca procede del Excel de referencia; una firma escrita en un PDF no equivale a esa fuente.
 - Las notas se extraen separadas de los campos: sus importes, NIF o IBAN no sustituyen los de
   la factura ni se utilizan para hacerla cuadrar.
+
+### Evaluación semántica y plan B de las APIs
+- Solo se consulta Helmcode si se han detectado notas no vacías. Se envían juntas las notas del
+  documento y los datos relevantes de factura, Excel y ERP; nunca credenciales ni el lote entero.
+- El prompt exige `IRRELEVANTE` o `REVISAR`, una explicación y una cita literal de la nota.
+  No acepta órdenes de la nota ni devuelve una autorización de pago. Ante ambigüedad, contradicción,
+  petición de excepciones, presión o instrucciones al sistema: REVISAR, que las reglas convierten
+  en ESCALAR. Las reglas conservan además sus comprobaciones deterministas de riesgo.
+- Las respuestas deben cumplir el formato y citar texto existente. Respuesta vacía, truncada,
+  inválida, negativa a responder, timeout, falta de clave o error HTTP → ESCALAR esa factura.
+- Se limita el tiempo de red y la concurrencia. Si el proveedor devuelve un error de API,
+  se dejan de lanzar nuevas llamadas de notas en ese lote; las pendientes sin caché válida
+  se escalan. Un nuevo lote de ejecución puede reintentar la conexión.
+- Solo se guardan evaluaciones válidas en caché,
+  identificadas por notas, contexto, modelo y prompt. Un fallo no se considera una evaluación
+  válida ni se conserva como éxito: una ejecución posterior puede reintentarlo.
+- Si falla la API de imágenes, se conserva el fallo de lectura y se ESCALA la factura, también
+  si otra página pudo leerse o el pedido aparece pagado. No se envían notas de una lectura fallida
+  a otra API para intentar justificar un pago. El resto del lote continúa.
+- La traza conserva motivo, evidencia, modelo y versión del prompt. El prompt operativo está en
+  `src/upistas/adaptadores/notas_helmcode.py`. Configuración: `HELMCODE_API_KEY`,
+  `HELMCODE_BASE_URL`, `MODELO_NOTAS` y `NOTAS_TIMEOUT_S` (30 segundos por defecto).
+
+### Notas ocultas y sabotaje
+- El texto de un PDF puede contener contenido no visible: modo de renderizado invisible,
+  transparencia, letra minúscula, blanco sobre fondo claro, texto fuera de página o cubierto.
+  El inspector busca estas señales y las conserva con página y muestra en la traza.
+- Se detectan además controles Unicode y caracteres de ancho cero en notas, incluso si parecen
+  un saludo. Los separadores de formato en un IBAN o importe reconocible no se equiparan por sí
+  solos a una instrucción oculta; los controles bidireccionales requieren revisión.
+- La ocultación detectada, o no poder comprobar la visibilidad, impone ESCALAR por una regla
+  determinista. Ni un dictamen IRRELEVANTE del LLM, ni un pago previo, ni un duplicado anulan
+  esa revisión. Si no se detectó ninguna nota, esta protección no necesita llamar a la API.
+- El evaluador recibe las notas originales, una versión normalizada de apoyo y las alertas
+  del inspector. Todo texto procedente del PDF, incluidas muestras y metadatos, es dato no
+  fiable: nunca una orden del sistema ni una autorización. La evidencia cita el original.
+- La terminal representa los controles invisibles mediante escapes para que no oculten o
+  sobrescriban el resultado mostrado. El original sigue guardado como evidencia.
+- Son señales conservadoras, no una prueba automática de fraude ni un detector exhaustivo
+  de todas las técnicas de ocultación. Una capa OCR legítima también puede requerir revisión.
 
 ### Identidad del proveedor y NIF ausente
 - Si el proveedor del pedido difiere entre Excel y ERP, se ESCALA aunque la factura coincida
@@ -92,6 +137,8 @@ La norma v3:
   garantiza cancelar un trabajo que el proveedor de OCR ya haya recibido.
 
 ### Duplicados por contenido y pedido
+- Estos bloqueos no sustituyen una revisión pendiente de notas o una lectura fallida: en esos
+  casos se mantiene ESCALAR, anotando también el duplicado para que el humano no lo pague dos veces.
 - Primero se compara el SHA-256 de los bytes originales. Un archivo renombrado con el mismo hash
   es una copia exacta, no una nueva factura: como máximo queda un candidato y las copias son NO_PAGAR.
 - Si los hashes difieren, se agrupa por pedido normalizado. Si además coinciden proveedor, número
@@ -127,7 +174,7 @@ La norma v3:
 | Fecha futura | 4 | NO_PAGAR | |
 | Fecha inválida (31/02...) | 4 | NO_PAGAR | `FA-1123`, `FA-2967` |
 | Fecha que no se lee | 6 | ESCALAR | |
-| Pedido PAGADA en el ERP | 5 | NO_PAGAR | 9 facturas, p.ej. `FA-1016_papelería`, `factura_5911` |
+| Pedido PAGADA en el ERP, sin notas relevantes ni fallos de evaluación | 5 | NO_PAGAR | `FA-1016_papelería`; una nota de migración exige ESCALAR |
 | Reenvío confirmado por hash o identidad completa | 5 | NO_PAGAR la copia; la original todavía debe cumplir todas las reglas | |
 | Mismo pedido e importe con números de factura diferentes | 5 | ESCALAR ambas, sin asumir que los números son equivalentes | `2026-0233-A_catering` y `factura_41082` |
 | Pedido aprobado en un lote anterior | 5 | NO_PAGAR | llegará con el lote 2 |
@@ -136,7 +183,7 @@ La norma v3:
 | Campo leído con poca confianza | 6 | ESCALAR | |
 | Excel y ERP se contradicen sobre el pedido | 3 (nuestro) | ESCALAR | bloque PO-0538 a PO-0557 |
 | Factura válida con nota que contradice los datos | 3 (nuestro) | ESCALAR | `F26-3355`, `F26-7728`, `F26-2201`, `2026-07-09_P010`, `2026-23904_construcciones`, `FA-3388` |
-| Nota que pide saltarse comprobaciones | revisión | ESCALAR, salvo pago previo o copia confirmada: NO_PAGAR | `2026-06-04_P006`, `factura_5911` mantienen NO_PAGAR porque ya estaban pagadas |
+| Nota que pide saltarse comprobaciones o cuestiona un pago previo | revisión | ESCALAR, también si el ERP dice PAGADA | `2026-06-04_P006`, `factura_5911` pasan a revisión por la nota de migración |
 | Factura que no es para Banco Miralmar | 6 | ESCALAR | ninguna en la Caja |
 
 ## Abierto (a decidir)
