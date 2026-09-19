@@ -21,10 +21,12 @@ from upistas.adaptadores.fuentes.snapshot import ErpSnapshot
 from upistas.adaptadores.lectores.fal_ocr import FalOCR
 from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnificado
+from upistas.adaptadores.pdf_marcado import MarcadorPdfMuPDF
 from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.adaptadores.persistencia.django_lecturas import RepositorioLecturasDjango
 from upistas.adaptadores.persistencia.django_maestro import MaestroDjango
+from upistas.aplicacion.marcar_pdf import MarcadorPdf
 from upistas.config import ROOT, Settings, settings
 from upistas.dominio.modelos import Referencias, asientos_por_pedido
 from upistas.dominio.norma import Norma
@@ -36,6 +38,12 @@ from upistas.puertos import AlmacenERP, ClienteERP, EvaluadorNotas, FuenteERP, F
 @cache
 def inspector() -> Inspector:
     return InspectorPdf()
+
+
+@cache
+def marcador_pdf() -> MarcadorPdf:
+    """Para la web: el PDF con el texto escondido rodeado en rojo (caso de uso `marcar_pdf`)."""
+    return MarcadorPdfMuPDF()
 
 
 @cache

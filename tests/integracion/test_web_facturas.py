@@ -503,7 +503,7 @@ def test_un_pdf_cifrado_roto_o_con_demasiadas_paginas_da_404_en_vez_de_reventar(
 
 
 def test_un_pdf_demasiado_grande_da_404_con_el_mismo_tope_que_el_inspector(alberto, lote_de_prueba, tmp_path, monkeypatch):
-    monkeypatch.setattr("upistas.adaptadores.lectores.pdf.MAX_BYTES", 100)
+    monkeypatch.setattr("upistas.adaptadores.pdf_marcado.MAX_BYTES", 100)
     ruta = tmp_path / "grande.pdf"
     _pdf(ruta, [NORMAL, TRAMPA])
     _apunta_a(lote_de_prueba, ruta)
