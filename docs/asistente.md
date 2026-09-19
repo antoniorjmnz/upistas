@@ -70,6 +70,36 @@ las fixtures `alberto` y `lote_de_prueba` de
 - si el modelo lanza timeout, la pantalla devuelve 200 con un aviso y la conversación sigue;
 - nunca se llama a nada de escritura (los tests comprueban que no hay `RevisionHumana` nuevas).
 
+## Las herramientas que tiene (lo que hay hoy en `asistente/herramientas.py`)
+Todas de solo lectura sobre nuestra base de datos, en JSON compacto: la cuenta bancaria solo por sus
+cuatro últimas cifras y el texto que trae una factura siempre en `texto_de_la_factura_no_fiable`.
+- `resumen_lote()`: cuántas se pagan, no se pagan y se revisan en el último repaso, y cuánto suman.
+- `buscar_facturas(texto, limite=10)`: por fichero, número de factura, pedido, NIF o proveedor.
+- `detalle_factura(file_id)`: lo leído, las reglas aplicadas y la revisión de Alberto si la hay.
+- `pendientes_revision(limite=15)`: escaladas que nadie ha revisado todavía.
+- `estado_pedido(pedido)`, `cambios_erp()`, `estado_sincronizacion()`: la copia del ERP.
+- `proveedor(codigo_o_nif_o_nombre)`: la ficha del maestro: nombre, código, NIF, cuenta enmascarada, días
+  de pago, cuántos pedidos tiene y cuáles apuntó Alberto para revisar con qué nota.
+- `decisiones_de_alberto(lote?, limite=15)`: lo que decidió a mano (factura, pagar o no, comentario, cuándo).
+- `repasos(limite=10)`: el registro de repasos: cuándo, lote, norma, cuánto tardó, cuántas de cada y qué
+  facturas cambiaron de resultado respecto al repaso anterior (una consulta ligera, no la comparación entera).
+- `importaciones(limite=10)`: cada fichero de proveedores o pedidos aplicado desde «Importar datos».
+- `explicar_regla(id_o_nombre)`: qué comprueba una regla, qué pasa si falla y por qué, en llano
+  (`consultas.EXPLICACION_REGLA`, alineado con `normas/v3.toml` y [flujo_decision.md](flujo_decision.md));
+  acepta el id, el número («regla 1») o una palabra («iban»). Sin argumento, la lista y el flujo entero.
+- `ir_a(pantalla, filtros)` y `proponer_accion(tipo, datos)`: ver los dos apartados de abajo.
+
+**Listas acotadas.** Las que devuelven filas (`buscar_facturas`, `pendientes_revision`,
+`decisiones_de_alberto`, `repasos`, `importaciones`) aceptan `limite` (hasta 100, `consultas.LIMITE_MAXIMO`)
+y dicen `total` y `mas` (cuántas quedan sin enseñar). El mensaje de sistema le pide al modelo que, si
+quedan más, lo diga y ofrezca la pantalla filtrada con `ir_a`, y que solo suba el límite cuando Alberto
+pida más («todas», «las 40», «enséñame más»).
+
+**El porqué sin una factura delante.** El mensaje de sistema lleva el flujo de decisión resumido en cinco
+frases (`consultas.RESUMEN_FLUJO`, menos de 120 palabras para no disparar el coste) y, para una regla
+concreta, el modelo llama a `explicar_regla`. Así contesta «¿qué pasa si el IBAN es distinto?» sin buscar
+ninguna factura.
+
 ## Cómo se comporta (lo que se afinó tras la primera versión)
 - **Enlaces**: cada herramienta deja su pantalla en la línea «De:» de la respuesta: la factura
   (`detalle_factura`, y cada encontrada en `buscar_facturas`, hasta cinco), «Para revisar»
@@ -110,9 +140,10 @@ son los que tiene delante.
 Herramienta de solo lectura (`asistente/navegacion.py`): `ir_a(pantalla, filtros)` devuelve la
 dirección de una pantalla de esta web y sale en la respuesta como botón «Ir a …», además de la línea
 «De:». Pantallas: `inicio`, `facturas` y `revisar` (con `resultado`, `proveedor` del maestro por
-código, NIF o nombre, `desde`/`hasta`, `texto`), `factura` (`file_id`), `proveedores`, `proveedor`,
-`ejecuciones`, `erp` y `asientos` (`pedido`). Las direcciones salen siempre de `reverse` y los
-filtros se comprueban uno a uno (los que no valen se avisan y se quitan): nunca una URL externa.
+código, NIF o nombre, `desde`/`hasta`, `texto` y `lote`), `factura` (`file_id`), `proveedores`,
+`proveedor`, `ejecuciones`, `erp`, `asientos` (`pedido`) e `importar` (Importar datos). Las direcciones
+salen siempre de `reverse` y los filtros se comprueban uno a uno (los que no valen se avisan y se
+quitan; un lote que no está decidido también): nunca una URL externa.
 
 ## Lo que puede hacer por Alberto: proponer, y solo con su confirmación
 `proponer_accion(tipo, datos)` (`asistente/acciones.py`) admite solo estos tipos (lista blanca):
