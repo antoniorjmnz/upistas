@@ -170,7 +170,8 @@ td { padding: 11px 12px; border-bottom: 1px solid var(--linea-2); vertical-align
 tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: var(--hover); }
 td.num, th.num { text-align: right; }
-td.mono, td .mono, td.entero { white-space: nowrap; } /* códigos, fechas y cifras no se parten en dos líneas; la tabla desplaza dentro de su caja */
+td.mono, td > .mono { white-space: nowrap; } /* los códigos no se parten en dos líneas */
+@media (min-width: 1400px) { td.entero { white-space: nowrap; } } /* fechas y lotes en una línea solo cuando sobra sitio: si no, la última columna se saldría */
 tr.raro td { background: #FFFBEB; }
 td .quien { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 td .quien small { display: block; font-weight: 400; color: var(--suave); font-size: 12px; }
@@ -310,6 +311,7 @@ details.conversaciones[open] summary svg { transform: rotate(180deg); }
 .girando { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: girar .8s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (max-width: 900px) {
+  .lado nav .recientes { display: none; } /* en el carril de iconos no caben las conversaciones recientes */
   .app { grid-template-columns: 76px 1fr; }
   .lado { padding: 16px 10px; }
   .lado nav a span, .marca span, .persona div, .estado-erp div, .lado .abajo nav a span { display: none; }

@@ -7,6 +7,8 @@ la conversación sigue ahí al cambiar de pantalla y se puede volver a una de ot
 """
 from __future__ import annotations
 
+import textwrap
+
 from django.core import signing
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -166,7 +168,7 @@ def preguntar(request: HttpRequest) -> HttpResponse:
         contexto = contexto_de(request.POST.get("ruta"))
         salida = responder(texto, historial, helmcode.completar, contexto)
         if conversacion is None:
-            conversacion = Conversacion.objects.create(titulo=texto[:Conversacion.TITULO_MAX])
+            conversacion = Conversacion.objects.create(titulo=textwrap.shorten(texto, Conversacion.TITULO_MAX, placeholder="…"))
             abrir_conversacion(request, conversacion)
         else:
             conversacion.save(update_fields=["actualizada"])
