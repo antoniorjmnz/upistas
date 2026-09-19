@@ -9,12 +9,11 @@
   <p class="lead">Escribirá con sus palabras y la web le contestará con sus datos y le llevará a la pantalla donde está la respuesta.</p>
 </section>
 
-<div class="buscador grande">
-  {% icono "buscar" 22 %}
-  <input type="search" disabled placeholder="Muy pronto: ¿cuánto vamos a pagar este mes?" aria-label="Preguntar">
-</div>
-
-<section class="tarjeta">
+<section class="tarjeta preguntar">
+  <div class="buscador grande">
+    {% icono "buscar" 22 %}
+    <input type="search" disabled placeholder="Muy pronto: ¿cuánto vamos a pagar este mes?" aria-label="Preguntar">
+  </div>
   <h2>Esto es lo que le podrá preguntar</h2>
   <div class="chips ejemplos">
     <span class="chip">¿Por qué no se paga la FA-1016?</span>
@@ -22,6 +21,6 @@
     <span class="chip">¿Qué ha cambiado desde la última vez?</span>
     <span class="chip">¿Está pagado el pedido PO-2026-0474?</span>
   </div>
-  <p class="suave" style="margin: 18px 0 0;">Lo está preparando Fran; estará listo para el domingo.</p>
+  <p class="suave">Lo está preparando Fran; estará listo para el domingo.</p>
 </section>
 {% endblock %}

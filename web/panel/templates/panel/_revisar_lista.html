@@ -10,27 +10,29 @@
   </section>
 {% else %}
   {% for g in grupos %}
-  <section class="tarjeta">
-    <h2>{{ g.titulo }}</h2>
-    <p class="suave cuantas">{{ g.filas|length }} factura{{ g.filas|length|pluralize }}</p>
-    <ul class="lista">
-      {% for f in g.filas %}
-      {% with doc=f.decision.documento %}
-      <li>
-        <div class="fila-factura">
-          <span class="quien"><a href="{% url 'panel:factura' doc.lote doc.file_id %}">{{ f.proveedor|default:doc.file_id }}</a></span>
-          <span class="suave fichero">{% if f.proveedor %}· {{ doc.file_id }}{% endif %}</span>
-          <span class="importe">{{ f.total|euros }}</span>
-        </div>
-        {% include "panel/_revisar_form.html" with decision=f.decision revision=f.revision %}
-        <p class="enlaces">
-          <a href="{% url 'panel:factura' doc.lote doc.file_id %}">Ver la factura</a>
-          <a href="{% url 'panel:factura_pdf' doc.lote doc.file_id %}" target="_blank" rel="noopener">{% icono "doc" 15 %}Ver el PDF</a>
-        </p>
-      </li>
-      {% endwith %}
-      {% endfor %}
-    </ul>
+  <section class="tarjeta grupo-cola">
+    <div class="cabecera-tarjeta">
+      <h2>{{ g.titulo }}</h2>
+      <span class="suave">{{ g.filas|length }} factura{{ g.filas|length|pluralize }}</span>
+    </div>
+    {% for f in g.filas %}
+    {% with d=f.decision doc=f.decision.documento %}
+    <article class="factura-cola">
+      <div class="fila tres">
+        <span class="av {{ f.proveedor|color_avatar }}">{{ f.proveedor|iniciales }}</span>
+        <span class="quien"><a href="{% url 'panel:factura' doc.lote doc.file_id %}">{{ f.proveedor|default:doc.file_id }}</a>
+          {% if f.proveedor or d.pedido %}<small>{% if f.proveedor %}{{ doc.file_id }}{% endif %}{% if d.pedido %} · pedido {{ d.pedido }}{% endif %}</small>{% endif %}</span>
+        <span class="importe">{{ f.total|euros }}</span>
+        <span class="porque">{{ g.titulo }}</span>
+      </div>
+      {% include "panel/_revisar_form.html" with decision=d revision=f.revision %}
+      <p class="enlaces">
+        <a href="{% url 'panel:factura' doc.lote doc.file_id %}">Ver la factura</a>
+        {% include "panel/_previsualizar.html" with documento=doc %}
+      </p>
+    </article>
+    {% endwith %}
+    {% endfor %}
   </section>
   {% endfor %}
 {% endif %}

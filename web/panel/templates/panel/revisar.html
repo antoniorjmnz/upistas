@@ -11,13 +11,17 @@
   {% else %}
     <p class="lead">No hay nada esperando su decisión. Aquí solo le llegan las facturas que el sistema no puede resolver con seguridad.</p>
   {% endif %}
-  {% if n_escaladas %}
-  <div class="avance">
-    <div class="progreso" role="img" aria-label="{{ n_decididas }} de {{ n_escaladas }} decididas"><i style="width: {{ avance }}%"></i></div>
-    <p class="suave">{{ n_decididas }} de {{ n_escaladas }} decididas</p>
-  </div>
-  {% endif %}
 </section>
+
+{% if n_escaladas %}
+<section class="tarjeta ajustada">
+  <div class="cabecera-tarjeta">
+    <b>{{ n_decididas }} de {{ n_escaladas }} decididas</b>
+    {% if n_pendientes %}<span class="suave">le queda{{ n_pendientes|pluralize:"n" }} {{ n_pendientes }}</span>{% else %}<span class="suave">ya están todas</span>{% endif %}
+  </div>
+  <div class="progreso" role="img" aria-label="{{ n_decididas }} de {{ n_escaladas }} decididas"><i style="width: {{ avance }}%"></i></div>
+</section>
+{% endif %}
 
 <form class="barra" method="get" action="{% url 'panel:cola' %}"
       hx-get="{% url 'panel:cola' %}" hx-target="#lista" hx-push-url="true"

@@ -1,20 +1,16 @@
 /* Lo poco que «Para revisar» y «Preguntar» necesitan y no está en panel.css. */
 
-/* La cola: un montón de facturas por motivo, y debajo de cada una lo que Alberto decide. */
+/* La cola: un montón de facturas por cada motivo, uno debajo de otro. */
 .cola { display: flex; flex-direction: column; gap: 18px; }
-.cola h2 { margin-bottom: 4px; }
-.cola .cuantas { margin: 0 0 18px; font-size: 15px; }
-.avance { display: flex; flex-direction: column; gap: 6px; max-width: 420px; margin-top: 8px; }
-.avance p { margin: 0; font-size: 15px; }
-.elegir-lote { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 
-.cola .lista > li { padding: 18px 0; }
-.cola .decidir { margin-top: 12px; }
-.cola .enlaces { display: flex; gap: 20px; flex-wrap: wrap; margin: 12px 0 0; font-size: 15px; }
-.cola .enlaces a { display: inline-flex; align-items: center; gap: 6px; }
+/* Con varios lotes, elegir cuál se mira. */
+.elegir-lote { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 
 /* Preguntar: el asistente todavía no está, pero la pantalla ya se entiende. */
-.buscador.grande input { min-height: 64px; font-size: 19px; }
+.preguntar { display: flex; flex-direction: column; gap: 16px; }
+.preguntar p { margin: 0; }
+.buscador.grande input { min-height: 58px; padding-left: 52px; font-size: 18px; }
+.buscador.grande svg { left: 18px; }
 .buscador input[disabled] { background: var(--linea-2); color: var(--suave); cursor: not-allowed; }
 .chips.ejemplos .chip { cursor: default; }
-.chips.ejemplos .chip:hover { background: #fff; color: var(--tinta-2); }
+.chips.ejemplos .chip:hover { background: var(--panel); color: var(--tinta-2); }

@@ -24,28 +24,33 @@ def decidir(alberto, file_id: str, resultado: str, comentario: str = "", **extra
     return alberto.post(url_revisar(file_id), {"resultado": resultado, "comentario": comentario}, **extra)
 
 
+def chip(nombre: str, cuantas: int) -> str:
+    return f'{nombre} <span class="cuenta">({cuantas})</span>'
+
+
 def test_dice_cuantas_esperan_y_cuanto_lleva_decidido(alberto, lote_de_prueba):
     html = cola(alberto)
     assert "2 facturas esperan su decisión" in html
     assert "Solo le pasamos las que el sistema no puede resolver con seguridad" in html
-    assert "0 de 2 decididas" in html
-    assert "Pendientes (2)" in html and "Decididas (0)" in html
+    assert "0 de 2 decididas" in html and "le quedan 2" in html
+    assert chip("Pendientes", 2) in html and chip("Decididas", 0) in html
 
 
 def test_las_agrupa_por_el_motivo_dicho_en_palabras(alberto, lote_de_prueba):
     html = cola(alberto)
     assert f"<h2>{NOTAS}</h2>" in html and f"<h2>{SIN_LEER}</h2>" in html
     assert "Construcciones Benimaclet S.A." in html and "84.700,00 €" in html
+    assert 'class="av ' in html and ">CB</span>" in html  # se reconoce al proveedor por sus iniciales
     assert "FA-1016" not in html  # lo que el sistema ya decidió no le molesta
     assert "R6_notas" not in html and "umbral" not in html  # ni ids ni jerga
 
 
-def test_cada_factura_lleva_a_su_detalle_y_a_su_pdf(alberto, lote_de_prueba):
+def test_cada_factura_lleva_a_su_detalle_y_se_puede_previsualizar(alberto, lote_de_prueba):
     html = cola(alberto)
-    assert "Ver la factura" in html and "Ver el PDF" in html
+    assert "Ver la factura" in html and "Previsualizar" in html and "Ver el PDF" not in html
     assert reverse("panel:factura", args=["lote1", ESCALADA]) in html
-    assert reverse("panel:factura_pdf", args=["lote1", ESCALADA]) in html
-    assert reverse("panel:factura_pdf", args=["lote1", ESCANEADA]) in html
+    assert f'data-pdf="{reverse("panel:factura_pdf", args=["lote1", ESCALADA])}"' in html
+    assert f'data-pdf="{reverse("panel:factura_pdf", args=["lote1", ESCANEADA])}"' in html
 
 
 def test_los_chips_separan_lo_pendiente_de_lo_ya_decidido(alberto, lote_de_prueba):
@@ -54,7 +59,7 @@ def test_los_chips_separan_lo_pendiente_de_lo_ya_decidido(alberto, lote_de_prueb
 
     pendientes = cola(alberto)
     assert ESCANEADA in pendientes and ESCALADA not in pendientes
-    assert "Pendientes (1)" in pendientes and "Decididas (1)" in pendientes and "1 de 2 decididas" in pendientes
+    assert chip("Pendientes", 1) in pendientes and chip("Decididas", 1) in pendientes and "1 de 2 decididas" in pendientes
     decididas = cola(alberto, estado="decididas")
     assert ESCALADA in decididas and ESCANEADA not in decididas
     assert '<a class="chip activa" href="?estado=decididas' in decididas  # se ve cuál está mirando
@@ -101,7 +106,7 @@ def test_con_htmx_la_decision_vuelve_con_la_pildora_grande(alberto, lote_de_prue
 def test_lo_que_acaba_de_decidir_sigue_a_la_vista_hasta_que_recarga(alberto, lote_de_prueba):
     trozo = decidir(alberto, ESCALADA, "PAGAR", HTTP_HX_REQUEST="true").content.decode()
     assert "Lo decidió usted" in trozo
-    assert "<li>" not in trozo and NOTAS not in trozo  # solo cambia ese trozo: la factura se queda en la lista
+    assert "factura-cola" not in trozo and NOTAS not in trozo  # solo cambia ese trozo: la factura se queda en la lista
     assert ESCALADA not in cola(alberto)  # al recargar ya no le vuelve a salir
 
 
