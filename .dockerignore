@@ -1,0 +1,39 @@
+# Lo que no entra en la imagen: secretos, datos de La Caja, lo que genera el programa y lo del portátil.
+.git
+.github
+.githooks
+.claude
+.omc
+.venv*
+.uvcache
+uvtmp
+__pycache__
+*.pyc
+.pytest_cache
+
+# Secretos
+.env
+.env.*
+!.env.example
+*.key
+
+# Datos de La Caja y lo que genera el programa
+caja
+data
+outputs
+almacen
+staticfiles
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.pdf
+*.xlsx
+FINAL_v7_DEFINITIVO_ahorasi.xlsx
+r282.html
+
+# No hacen falta para servir la web
+tests
+docs
+Dockerfile
+docker-compose.yml
+.dockerignore
