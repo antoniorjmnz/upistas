@@ -1,0 +1,47 @@
+{% extends "panel/base.html" %}
+{% load static %}
+{% block titulo %}Facturas · Pagos de Alberto{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'panel/facturas.css' %}">{% endblock %}
+{% block contenido %}
+<div>
+  <h1>Facturas</h1>
+  <p class="intro">Lo que hemos decidido sobre cada factura del lote, con el porqué. Pinche en el nombre de una
+    factura para ver de dónde sale su resultado. Puede buscar por el nombre del fichero, el proveedor, el número
+    de pedido o el motivo.</p>
+</div>
+
+<form class="filtros tarjeta" method="get" action="{% url 'panel:facturas' %}"
+      hx-get="{% url 'panel:facturas' %}" hx-target="#tabla" hx-push-url="true"
+      hx-trigger="input changed delay:300ms from:#buscar, change from:select, submit">
+  <label for="buscar">Buscar
+    <input id="buscar" type="search" name="q" value="{{ q }}" placeholder="Papelería Cervantes, PO-2026-0474, ya pagado…" autocomplete="off">
+  </label>
+  <label for="resultado">Resultado
+    <select id="resultado" name="resultado">
+      <option value="" {% if not resultado %}selected{% endif %}>Todos</option>
+      <option value="PAGAR" {% if resultado == "PAGAR" %}selected{% endif %}>Pagar</option>
+      <option value="NO_PAGAR" {% if resultado == "NO_PAGAR" %}selected{% endif %}>No pagar</option>
+      <option value="ESCALAR" {% if resultado == "ESCALAR" %}selected{% endif %}>Revisar</option>
+    </select>
+  </label>
+  <label for="revision">Su revisión
+    <select id="revision" name="revision">
+      <option value="" {% if not revision %}selected{% endif %}>Todas</option>
+      <option value="pendientes" {% if revision == "pendientes" %}selected{% endif %}>Pendientes de revisar</option>
+      <option value="revisadas" {% if revision == "revisadas" %}selected{% endif %}>Ya revisadas por usted</option>
+    </select>
+  </label>
+  <label for="lote">Lote
+    <select id="lote" name="lote">
+      {% for l in lotes %}
+        <option value="{{ l }}" {% if l == lote %}selected{% endif %}>{{ l }}</option>
+      {% empty %}<option value="">Sin lotes todavía</option>{% endfor %}
+    </select>
+  </label>
+  <noscript><button class="boton" type="submit">Buscar</button></noscript>
+</form>
+
+<section id="tabla">
+  {% include "panel/_facturas_tabla.html" %}
+</section>
+{% endblock %}
