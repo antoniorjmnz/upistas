@@ -14,7 +14,7 @@ def nif_iban(factura, refs, params):
     contrastar (ficha sin NIF o sin IBAN), no se da por probado: lo escala R6_proveedor_referencias."""
     proveedor = refs.proveedores.get(factura.nif)
     if proveedor is None:
-        pedido = refs.asientos.get(factura.pedido) or refs.pedidos.get(factura.pedido)
+        pedido = refs.asiento(factura.pedido) or refs.pedidos.get(factura.pedido)
         del_pedido = refs.proveedores_por_id.get(pedido.proveedor_id) if pedido else None
         if del_pedido is not None and not del_pedido.nif:
             return Comprobacion("R1_nif_iban", True, "El maestro no tiene NIF del proveedor del pedido: no se contrasta aquí")
