@@ -46,6 +46,10 @@ limítate a explicarlas con su motivo. Nunca digas que vas a pagar, modificar o 
 nada: este sistema es de solo lectura."""
 
 
+class SinCliente(Exception):
+    """No hay clave de Helmcode configurada: la IA no está disponible. No tiene sentido reintentar."""
+
+
 @dataclass(frozen=True)
 class Llamada:
     id: str
@@ -119,13 +123,15 @@ def responder(pregunta: str, historial: list[dict], completar: Completar) -> Res
     t0 = time.monotonic()
     try:
         for _ in range(MAX_RONDAS):
-            try:
-                respuesta = completar(mensajes, HERRAMIENTAS)
-            except Exception:
-                if REINTENTOS:
-                    respuesta = completar(mensajes, HERRAMIENTAS)  # un reintento y luego aviso
-                else:
-                    raise
+            for intento in range(REINTENTOS + 1):  # si la IA falla por red o por tiempo, se insiste una vez
+                try:
+                    respuesta = completar(mensajes, HERRAMIENTAS)
+                    break
+                except SinCliente:
+                    raise  # sin clave no hay nada que reintentar
+                except Exception:
+                    if intento == REINTENTOS:
+                        raise
             salida.tokens_in += respuesta.tokens_in
             salida.tokens_out += respuesta.tokens_out
             if not respuesta.llamadas:
@@ -150,6 +156,10 @@ def responder(pregunta: str, historial: list[dict], completar: Completar) -> Res
                 mensajes.append({"role": "tool", "tool_call_id": ll.id,
                                  "content": json.dumps(resultado, ensure_ascii=False, default=str)})
         salida.texto = "Me he liado consultando los datos. Prueba a preguntarlo de otra forma."
+    except SinCliente as e:  # falta la clave: es configuración, no un fallo pasajero
+        salida.ok = False
+        salida.error = str(e)
+        salida.texto = "La IA no está configurada todavía: falta la clave de Helmcode. El resto de la aplicación sigue funcionando."
     except Exception as e:  # la IA caída no rompe la web
         salida.ok = False
         salida.error = str(e)

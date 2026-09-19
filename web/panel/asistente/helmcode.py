@@ -3,20 +3,19 @@ from __future__ import annotations
 
 from functools import cache
 
-from web.panel.asistente.agente import Llamada, RespuestaModelo
+from web.panel.asistente.agente import Llamada, RespuestaModelo, SinCliente
 
-TIMEOUT_SEGUNDOS = 20  # la web no puede quedarse colgada esperando a la IA
+TIMEOUT_SEGUNDOS = 15  # la web no puede quedarse colgada esperando a la IA
 
-
-class SinCliente(Exception):
-    """No hay clave de Helmcode configurada: la IA no está disponible."""
+__all__ = ["SinCliente", "TIMEOUT_SEGUNDOS", "completar"]
 
 
 @cache
 def _cliente(api_key: str, base_url: str):
     from openai import OpenAI
 
-    return OpenAI(api_key=api_key, base_url=base_url, timeout=TIMEOUT_SEGUNDOS)
+    # Sin reintentos del SDK: los reintentos los decide agente.responder (uno), no la librería (dos más).
+    return OpenAI(api_key=api_key, base_url=base_url, timeout=TIMEOUT_SEGUNDOS, max_retries=0)
 
 
 def completar(mensajes: list[dict], herramientas: list[dict]) -> RespuestaModelo:

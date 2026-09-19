@@ -10,7 +10,9 @@ import pytest
 from django.urls import reverse
 
 from tests.integracion.conftest import ASIENTOS, ClienteFalso
-from web.panel.asistente.agente import MENSAJE_FUERA_DE_TEMA, SISTEMA, Llamada, RespuestaModelo, responder
+from web.panel.asistente.agente import (
+    MENSAJE_FUERA_DE_TEMA, REINTENTOS, SISTEMA, Llamada, RespuestaModelo, SinCliente, responder,
+)
 from web.panel.asistente.herramientas import ejecutar
 from web.panel import consultas
 from web.panel.models import RevisionHumana
@@ -155,6 +157,51 @@ def test_si_la_ia_falla_la_web_sigue(lote_asistente):
 
     r = responder("algo", [], rota)
     assert not r.ok and "no responde" in r.texto
+
+
+def test_si_la_ia_falla_se_insiste_una_sola_vez(lote_asistente):
+    """Un reintento y aviso: ni uno más, que Alberto no puede esperar dos minutos."""
+    llamadas = []
+
+    def rota(mensajes, herramientas):
+        llamadas.append(1)
+        raise TimeoutError("Helmcode tarda demasiado")
+
+    r = responder("algo", [], rota)
+    assert not r.ok and len(llamadas) == REINTENTOS + 1 == 2
+
+
+def test_si_el_reintento_va_bien_responde(lote_asistente):
+    turnos = [ConnectionError("un corte"), RespuestaModelo(texto="vale", tokens_in=5)]
+
+    def a_la_segunda(mensajes, herramientas):
+        turno = turnos.pop(0)
+        if isinstance(turno, Exception):
+            raise turno
+        return turno
+
+    r = responder("algo", [], a_la_segunda)
+    assert r.ok and r.texto == "vale" and r.tokens_in == 5 and not turnos
+
+
+def test_sin_clave_no_se_reintenta_y_se_explica(lote_asistente):
+    llamadas = []
+
+    def sin_clave(mensajes, herramientas):
+        llamadas.append(1)
+        raise SinCliente("falta HELMCODE_API_KEY")
+
+    r = responder("algo", [], sin_clave)
+    assert not r.ok and len(llamadas) == 1
+    assert "falta la clave" in r.texto and r.error == "falta HELMCODE_API_KEY"
+
+
+def test_el_cliente_de_helmcode_no_reintenta_por_su_cuenta():
+    """openai reintenta dos veces por defecto; con el nuestro, una IA colgada bloquea 15 s, no dos minutos."""
+    from web.panel.asistente import helmcode
+
+    cliente = helmcode._cliente("clave-de-prueba", "http://127.0.0.1:9/v1")
+    assert cliente.max_retries == 0 and cliente.timeout == helmcode.TIMEOUT_SEGUNDOS == 15
 
 
 def test_historial_se_pasa_al_modelo(lote_asistente):
