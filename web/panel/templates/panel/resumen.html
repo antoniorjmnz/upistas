@@ -17,7 +17,7 @@
 
 {% if erp_fallo %}
 <div class="aviso ojo" role="status">
-  {% icono "alerta" 20 %}
+  {% icono "alerta" 18 %}
   <div><b>El ERP no respondió</b> en la última conexión ({{ erp_fallo.inicio|date:"H:i" }}).
     {% if erp_copia %}Seguimos con la copia de las {{ erp_copia.fin|date:"H:i" }} del {{ erp_copia.fin|date:"j/n" }}; no se ha perdido nada.{% endif %}</div>
 </div>
@@ -30,60 +30,80 @@
 </section>
 {% else %}
 
-<div class="montones">
-  <a class="monton pagar" href="{% url 'panel:facturas' %}?resultado=PAGAR">
+<div class="kpis">
+  <a class="kpi pagar" href="{% url 'panel:facturas' %}?resultado=PAGAR">
+    <span class="arriba">Se pagan <span class="ic">{% icono "check" 18 %}</span></span>
     <span class="n">{{ cifras.PAGAR }}</span>
-    <span class="icono">{% icono "check" 24 %}</span>
-    <span class="l">se pagan</span>
     <span class="s">{{ a_pagar|euros }} en total</span>
   </a>
-  <a class="monton nopagar" href="{% url 'panel:facturas' %}?resultado=NO_PAGAR">
+  <a class="kpi nopagar" href="{% url 'panel:facturas' %}?resultado=NO_PAGAR">
+    <span class="arriba">No se pagan <span class="ic">{% icono "x" 18 %}</span></span>
     <span class="n">{{ cifras.NO_PAGAR }}</span>
-    <span class="icono">{% icono "x" 24 %}</span>
-    <span class="l">no se pagan</span>
     <span class="s">ya pagadas, importes que no cuadran, proveedores desconocidos</span>
   </a>
-  <a class="monton revisar" href="{% url 'panel:cola' %}">
+  <a class="kpi revisar" href="{% url 'panel:cola' %}">
+    <span class="arriba">Esperan su decisión <span class="ic">{% icono "ojo" 18 %}</span></span>
     <span class="n">{{ por_revisar }}</span>
-    <span class="icono">{% icono "ojo" 24 %}</span>
-    <span class="l">esperan su decisión</span>
     <span class="s">{% if revisadas %}{{ revisadas }} ya decidida{{ revisadas|pluralize }} · {% endif %}{{ en_revision|euros }} en juego</span>
   </a>
+  <div class="tarjeta dona">
+    <svg viewBox="0 0 120 120" role="img" aria-label="Reparto del lote: {{ dona.pct_pagar }} % se pagan, {{ dona.pct_nopagar }} % no, {{ dona.pct_revisar }} % las decide usted">
+      <circle cx="60" cy="60" r="46" fill="none" stroke="#E5E7EB" stroke-width="16"/>
+      <circle cx="60" cy="60" r="46" fill="none" stroke="#12B76A" stroke-width="16" stroke-dasharray="{{ dona.pagar }} 289.03" transform="rotate(-90 60 60)"/>
+      <circle cx="60" cy="60" r="46" fill="none" stroke="#F04438" stroke-width="16" stroke-dasharray="{{ dona.nopagar }} 289.03" stroke-dashoffset="{{ dona.off_nopagar }}" transform="rotate(-90 60 60)"/>
+      <circle cx="60" cy="60" r="46" fill="none" stroke="#F79009" stroke-width="16" stroke-dasharray="{{ dona.revisar }} 289.03" stroke-dashoffset="{{ dona.off_revisar }}" transform="rotate(-90 60 60)"/>
+      <text x="60" y="57" text-anchor="middle" fill="#111827" font-family="Sora, Inter, sans-serif" font-size="22" font-weight="600">{{ cifras.documentos }}</text>
+      <text x="60" y="74" text-anchor="middle" fill="#6B7280" font-family="Inter, sans-serif" font-size="11">facturas</text>
+    </svg>
+    <ul>
+      <li><span class="punto" style="background: #12B76A"></span>{{ dona.pct_pagar }} % se pagan</li>
+      <li><span class="punto" style="background: #F04438"></span>{{ dona.pct_nopagar }} % no</li>
+      <li><span class="punto" style="background: #F79009"></span>{{ dona.pct_revisar }} % las decide usted</li>
+    </ul>
+  </div>
 </div>
 
 <section class="tarjeta">
   {% if not pendientes %}
     <div class="vacio">
-      <div class="icono">{% icono "check" 28 %}</div>
+      <div class="icono">{% icono "check" 26 %}</div>
       <p class="grande">No le queda nada por decidir</p>
       <p class="suave">Todas las facturas que el sistema no supo resolver ya tienen su decisión.</p>
     </div>
   {% else %}
-    <h2>Lo que tiene que mirar</h2>
+    <div class="cabecera-tarjeta">
+      <h2>Lo que tiene que mirar</h2>
+      <a class="boton grande" href="{% url 'panel:cola' %}">Empezar a revisar{% icono "flecha" 16 %}</a>
+    </div>
     <ul class="lista">
       {% for d in pendientes %}
-      <li class="fila-factura">
-        <span class="pildora revisar">{% icono "ojo" 14 %}Decidir</span>
+      <li class="fila">
+        <span class="av {{ d.proveedor|color_avatar }}">{{ d.proveedor|iniciales }}</span>
         <span class="quien"><a href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">{{ d.proveedor|default:d.documento.file_id }}</a>
-          {% if d.proveedor %}<span class="suave"> · {{ d.documento.file_id }}</span>{% endif %}</span>
+          <small>{% if d.proveedor %}{{ d.documento.file_id }}{% endif %}{% if d.pedido %} · pedido {{ d.pedido }}{% endif %}</small></span>
         <span class="importe">{{ d.total|euros }}</span>
+        <span class="accion acciones">
+          {% include "panel/_previsualizar.html" with documento=d.documento %}
+          <a class="boton pequeno" href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">Decidir</a>
+        </span>
         <span class="porque">{{ d.motivo_corto }}</span>
       </li>
       {% endfor %}
     </ul>
-    <p style="margin: 22px 0 0;"><a class="boton grande" href="{% url 'panel:cola' %}">Empezar a revisar{% icono "flecha" 18 %}</a></p>
   {% endif %}
 </section>
 
 {% if cambios %}
 <section class="tarjeta">
-  <h2>Desde el repaso anterior, {{ cambios|length }} factura{{ cambios|length|pluralize }} cambia{{ cambios|length|pluralize:"n" }} de resultado</h2>
+  <div class="cabecera-tarjeta">
+    <h2>Desde el repaso anterior, {{ cambios|length }} factura{{ cambios|length|pluralize }} cambia{{ cambios|length|pluralize:"n" }} de resultado</h2>
+    {% if cambios|length > primeros_cambios|length %}<a href="{% url 'panel:ejecucion' ejecucion.id %}">Ver todas</a>{% endif %}
+  </div>
   {% include "panel/_cambios.html" with cambios=primeros_cambios lote=ejecucion.lote %}
-  {% if cambios|length > primeros_cambios|length %}<p style="margin: 14px 0 0;"><a href="{% url 'panel:ejecucion' ejecucion.id %}">Ver todas</a></p>{% endif %}
 </section>
 {% endif %}
 
-<p class="suave" style="margin: 0; font-size: 15px;">Repasadas el {{ ejecucion.inicio|date:"j \d\e F" }} a las {{ ejecucion.inicio|date:"H:i" }} con la copia del ERP de ese momento y la norma {{ ejecucion.norma }}.
+<p class="suave" style="margin: 0; font-size: 14px;">Repasadas el {{ ejecucion.inicio|date:"j \d\e F" }} a las {{ ejecucion.inicio|date:"H:i" }} con la copia del ERP de ese momento y la norma {{ ejecucion.norma }}.
   <a href="{% url 'panel:ejecucion' ejecucion.id %}">Ver el detalle</a></p>
 
 {% endif %}

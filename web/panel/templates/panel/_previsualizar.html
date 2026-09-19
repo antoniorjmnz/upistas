@@ -1,0 +1,3 @@
+{# El botón que abre el PDF de una factura encima de la página. Espera `documento`; `grande` para el tamaño normal. #}
+{% load panel_extras %}
+<button type="button" class="{% if grande %}boton suave{% else %}boton pequeno suave{% endif %}" data-pdf="{% url 'panel:factura_pdf' documento.lote documento.file_id %}" data-titulo="{{ documento.file_id }}">{% icono "doc" 15 %}Previsualizar</button>

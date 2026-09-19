@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from web.panel import consultas
 from web.panel.models import Decision, Documento, Lectura
@@ -224,6 +225,7 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     })
 
 
+@xframe_options_sameorigin  # el PDF se enseña dentro de nuestra propia página (Previsualizar)
 def pdf(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     """El PDF original, tal cual llegó. La ruta sale de nuestra base de datos, no de la dirección."""
     documento = get_object_or_404(Documento, lote=lote, file_id=file_id)
