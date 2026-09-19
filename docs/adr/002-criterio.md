@@ -145,16 +145,27 @@ La norma v3:
   incompleto nunca acabe en NO_PAGAR; las contradicciones reales entre fuentes son otra regla.
 - Los NIF presentes se contrastan; una discrepancia no se trata como un campo vacío.
 
-### Recuperación de lecturas insuficientes
-- Si Fal devuelve texto pero faltan campos o hay errores de extracción, se permite una segunda
-  lectura visual de la página original con Helmcode. No se envían el maestro ni el ERP a ese lector.
+### Doble lectura de los escaneos
+- Toda página leída por OCR recibe una segunda lectura visual de la página original con Helmcode,
+  también cuando el OCR devolvió todos los campos. No se envían el maestro ni el ERP a ese lector.
+  Por qué: un solo lector no basta para dar por probado un incumplimiento. En La Caja, Firecrawl
+  convierte 5, 6 y 9 en 8 (y la B del NIF en 8) en los escaneos tenues, con todos los campos
+  presentes y un solo dígito mal: `scan_009` (NIF B90233808 leído B86233808), `scan_012`
+  (total 877,63 leído 877,83 y fecha 2026 leída 2028), `scan_015` (IVA 386,90 leído 388,90) y
+  `scan_023` (NIF B96233419 leído B96233418) salían NO_PAGAR firmes siendo facturas correctas
+  según la imagen y el ERP. Y `scan_016` (pedido 0498 leído 0488) creaba un duplicado fantasma
+  con `scan_012`. La visión de Helmcode también se equivoca (`scan_012`: pedido 0488 leído 0468),
+  así que ninguno de los dos manda: coinciden o se escala.
 - El respaldo transcribe, no rellena ni corrige por conveniencia: debe marcar lo ilegible. Se
-  conservan ambas transcripciones y se señalan las discrepancias entre campos ya reconocidos.
-  No se elige una lectura por coincidir mejor con el ERP o por producir PAGAR.
-- Una caída de la API no se oculta con otra lectura: se mantiene ESCALAR. El respaldo se usa para
-  mejorar la calidad de un OCR que sí respondió, no para ignorar un fallo técnico.
+  conservan ambas transcripciones y cualquier discrepancia entre campos reconocidos por ambos es
+  un fallo de lectura (`R0_lectura`, ESCALAR). No se elige una lectura por coincidir mejor con el
+  ERP o por producir PAGAR. Consecuencia asumida: un escaneo con un dígito dudoso acaba en revisión
+  humana en vez de en PAGAR o NO_PAGAR; es lo que dice la regla 6.
+- Una caída de la API no se oculta con otra lectura: se mantiene ESCALAR. Esa caída no es una
+  lectura válida y no se guarda como tal: la siguiente ejecución la reintenta, igual que las notas.
 - Se cachea la segunda lectura por contenido y versión del modelo/prompt; el OCR original se
-  conserva. Las páginas cuya lectura ya es suficiente no generan llamadas de respaldo.
+  conserva. Una traza guardada solo con OCR se completa con la visión sin repetir el OCR, para
+  no volver a introducir la variación del OCR en unos resultados que ya tenemos.
 
 ### Tiempo máximo de lectura
 - Cada documento tiene un presupuesto configurable de lectura, por defecto 300 segundos,

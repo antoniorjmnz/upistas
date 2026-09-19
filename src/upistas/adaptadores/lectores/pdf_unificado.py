@@ -22,14 +22,6 @@ def texto_util(texto: str) -> bool:
     return len(texto.strip()) >= 80 and len(palabras) >= 10 and (etiquetas >= 2 or len(palabras) >= 40)
 
 
-def _campos_insuficientes(pagina: dict) -> bool:
-    extraida = extraer_campos("pagina", [{"page": pagina.get("page", 1), "route": pagina.get("route", "ocr"),
-                                         "text": pagina.get("text", ""), "error": pagina.get("error")}])
-    if extraida.errores:
-        return True
-    return any(getattr(extraida.campos, c).valor is None for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total"))
-
-
 def _discrepancias(pagina: dict) -> list[str]:
     ocr, vision = pagina.get("text_ocr") or "", pagina.get("text_vision") or ""
     if not ocr.strip() or not vision.strip():
@@ -87,14 +79,21 @@ class LectorPdfUnificado:
                         raw = anterior
                 except (ValueError, OSError):
                     pass
+            guardar = False
             if raw is None:
                 raw = self._extraer(contenido, sha)
-                if cache and raw.get("status") != "failed":
-                    cache.parent.mkdir(parents=True, exist_ok=True)
-                    with NamedTemporaryFile(mode="w", encoding="utf-8", dir=cache.parent, suffix=".tmp", delete=False) as f:
-                        json.dump(raw, f, ensure_ascii=False)
-                        temporal = Path(f.name)
-                    temporal.replace(cache)
+                guardar = True
+            if self.vision is not None and any(_sin_vision(p) for p in raw["pages"]):
+                # Toda página OCR se confirma con la segunda lectura. Una traza guardada solo con OCR
+                # (o con una visión que falló) se completa aquí sin repetir el OCR.
+                raw = self._confirmar_con_vision(contenido, raw)
+                guardar = True
+            if cache and guardar and raw.get("status") != "failed":
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                with NamedTemporaryFile(mode="w", encoding="utf-8", dir=cache.parent, suffix=".tmp", delete=False) as f:
+                    json.dump(raw, f, ensure_ascii=False)
+                    temporal = Path(f.name)
+                temporal.replace(cache)
             extraida = extraer_campos(ruta.name, raw["pages"], documento={
                 "sha256": sha,
                 "tipo": inspeccion.tipo if inspeccion else ("escaneado" if any(p["route"].endswith("ocr") or p["route"] == "vision_llm" for p in raw["pages"]) else "texto"),
@@ -151,36 +150,58 @@ class LectorPdfUnificado:
                         traza["text"] = texto_ocr
                         traza["text_ocr"] = texto_ocr
                         traza["route_ocr"] = traza["route"]  # la visión puede sobrescribir route; quién hizo el OCR se conserva
-                        if self.vision is not None and _campos_insuficientes(traza):
-                            try:
-                                texto_vision = self.vision(imagen)
-                                if not isinstance(texto_vision, str) or not texto_vision.strip():
-                                    raise LecturaFallida("Visión sin texto")
-                                traza["text_vision"] = texto_vision
-                                traza["text"] = texto_vision
-                                traza["route"] = "vision_llm"
-                                traza["model"] = getattr(self.vision, "version", None)
-                            except LecturaFallida as exc:
-                                traza["vision_error"] = str(exc)
-                            except Exception:
-                                traza["vision_error"] = "Respaldo visual no disponible"
                 except Exception as exc:
                     traza["error"] = str(exc)
                 traza["latency_ms"] = round((time.perf_counter() - inicio) * 1000)
                 traza["text_chars"] = len(traza["text"])
                 paginas.append(traza)
-        errores = sum(p["error"] is not None for p in paginas)
-        vision_fallida = any(p.get("vision_error") for p in paginas)
-        if errores == len(paginas):
-            estado = "failed"
-        elif errores or vision_fallida:
-            estado = "partial"
-        else:
-            estado = "success"
         return {
             "schema_version": VERSION,
             "sha256": sha,
             "page_count": len(paginas),
             "pages": paginas,
-            "status": estado,
+            "status": _estado(paginas),
         }
+
+    def _confirmar_con_vision(self, contenido: bytes, raw: dict) -> dict:
+        """Segunda lectura de cada página OCR que aún no la tiene. El OCR se conserva y las diferencias se comparan después.
+
+        Una visión que falló no se da por buena: se reintenta en la siguiente lectura.
+        """
+        with pymupdf.open(stream=contenido, filetype="pdf") as pdf:
+            for traza in raw["pages"]:
+                if not _sin_vision(traza):
+                    continue
+                inicio = time.perf_counter()
+                traza.pop("vision_error", None)
+                try:
+                    imagen = pdf[traza["page"] - 1].get_pixmap(dpi=200, alpha=False).tobytes("png")
+                    texto_vision = self.vision(imagen)
+                    if not isinstance(texto_vision, str) or not texto_vision.strip():
+                        raise LecturaFallida("Visión sin texto")
+                    traza["text_vision"] = texto_vision
+                    traza["text"] = texto_vision
+                    traza["route"] = "vision_llm"
+                    traza["model"] = getattr(self.vision, "version", None)
+                    traza["text_chars"] = len(texto_vision)
+                except LecturaFallida as exc:
+                    traza["vision_error"] = str(exc)
+                except Exception:
+                    traza["vision_error"] = "Respaldo visual no disponible"
+                traza["latency_ms"] = traza.get("latency_ms", 0) + round((time.perf_counter() - inicio) * 1000)
+        raw["status"] = _estado(raw["pages"])
+        return raw
+
+
+def _sin_vision(pagina: dict) -> bool:
+    """Página leída por OCR que todavía no tiene una segunda lectura válida."""
+    return bool(pagina.get("text_ocr")) and not pagina.get("text_vision") and pagina.get("error") is None
+
+
+def _estado(paginas: list[dict]) -> str:
+    errores = sum(p["error"] is not None for p in paginas)
+    if errores == len(paginas):
+        return "failed"
+    if errores or any(p.get("vision_error") for p in paginas):
+        return "partial"
+    return "success"
