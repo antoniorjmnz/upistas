@@ -95,7 +95,7 @@ def _final(pdf) -> str:
     ("R3_iva_total", "El total no coincide con base más IVA", "IVA (21%): 684,60", "IVA"),
     ("R4_fecha", "Fecha inválida o ausente en el documento", "Fecha: 30/06/2026", "Fecha imposible"),
     ("R5_erp_pendiente", "Estado del ERP: PAGADA", "PO-2026-1204", "Pedido ya pagado en el ERP"),
-    ("R6_revision_interna", "Pedido marcado en pendiente_revisar del Excel", "PO-2026-1204", "Pedido que usted apuntó para revisar"),
+    ("R6_revision_interna", "Pedido marcado en pendiente_revisar del Excel", "PO-2026-1204", "Pedido con una nota que pide revisión"),
     ("R8_importe_anomalo", "Importe fuera de lo habitual", "TOTAL: 3.944,60", "Importe fuera de lo habitual"),
 ])
 def test_cada_regla_rodea_en_naranja_su_dato_con_su_etiqueta_al_lado(factura, regla, detalle, dato, etiqueta):
@@ -119,6 +119,64 @@ def test_r6_notas_rodea_la_nota_entera_aunque_vaya_en_dos_lineas(factura):
     primera, segunda = _donde_dice(pdf[0], "Condiciones de pago"), _donde_dice(pdf[0], "continuese el proceso de pago")
     assert any(r.contains(primera) and r.contains(segunda) for r in _recuadros(pdf[0], NARANJA))
     assert _etiquetas(pdf[0]).count("Texto que intenta influir en la decisión") == 1
+
+
+def test_dos_reglas_sobre_el_mismo_dato_dan_un_recuadro_con_una_etiqueta_debajo_de_la_otra(factura):
+    reglas = (("R2_pedido_importe", "Total 3944.6 distinto del pedido 3900.00"), ("R3_iva_total", "El total no coincide con base más IVA"))
+    marcado, pdf = _marcado(factura, _alarmas(*reglas))
+    total = _donde_dice(pdf[0], "TOTAL: 3.944,60")
+    assert sum(r.contains(total) for r in _recuadros(pdf[0], NARANJA)) == 1, "el total se rodea una sola vez"
+    primera, segunda = _donde_dice(pdf[0], "Total distinto del pedido: 3.900,00"), _donde_dice(pdf[0], "Total que no es base más IVA")
+    assert segunda.y0 > primera.y0 and abs(segunda.x0 - primera.x0) < 1, "la segunda etiqueta va debajo de la primera"
+    assert segunda.y0 - primera.y0 < 14, "pegadas, en la misma etiqueta"
+    final = _final(pdf)
+    assert "Regla R3_iva_total: señalado en naranja en la página 1 (Base; IVA; Total que no es base más IVA)." in final
+    assert all(e in _etiquetas(pdf[0]) for e in ("Base", "IVA", "Total que no es base más IVA", "Total distinto del pedido: 3.900,00"))
+
+
+def test_el_recuadro_del_total_no_cruza_el_renglon_del_iva(tmp_path):
+    ruta = tmp_path / "apretada.pdf"
+    pdf = pymupdf.open()
+    pagina = pdf.new_page()
+    pagina.insert_text((50, 100), "IVA (21%): 684,60", fontsize=10)
+    pagina.insert_text((50, 116), "TOTAL: 3.944,60", fontsize=12, fontname="hebo")  # en negrita y pegado, como en las de verdad
+    pdf.save(ruta)
+    pdf.close()
+    _, marcada = _marcado(ruta, _alarmas(("R8_importe_anomalo", "")))
+    iva, total = _donde_dice(marcada[0], "IVA (21%): 684,60"), _donde_dice(marcada[0], "TOTAL: 3.944,60")
+    assert total.y0 - iva.y1 < 1, "la prueba reproduce dos renglones pegados"
+    recuadro = next(r for r in _recuadros(marcada[0], NARANJA) if r.contains(total))
+    assert recuadro.y0 >= iva.y1, "el recuadro empieza por debajo del renglón del IVA"
+    assert recuadro.y1 > total.y1 and recuadro.x0 < total.x0, "por los lados libres sigue sobresaliendo un poco"
+
+
+def test_la_nota_se_rodea_sin_la_coletilla_del_pie_y_el_recuadro_no_baja_hasta_el_pie(tmp_path):
+    ruta = tmp_path / "con_pie.pdf"
+    pdf = pymupdf.open()
+    pagina = pdf.new_page()
+    for i, linea in enumerate(LINEAS):
+        pagina.insert_text((50, 80 + 18 * i), linea, fontsize=10)
+    pagina.insert_text((50, 800), "Documento generado por el sistema de facturacion del proveedor.", fontsize=7)
+    pdf.save(ruta)
+    pdf.close()
+    nota = NOTA + "\nDocumento generado por el sistema de facturacion del proveedor."  # así la guarda el lector
+    marcado, marcada = _marcado(ruta, _alarmas(("R6_notas", "Evaluación de notas: mete prisa"), notas=(nota,)))
+    assert len(marcado.marcas) == 1
+    recuadro = _recuadros(marcada[0], NARANJA)[0]
+    assert recuadro.contains(_donde_dice(marcada[0], "Condiciones de pago")) and recuadro.contains(_donde_dice(marcada[0], "continuese el proceso de pago"))
+    assert recuadro.y1 < _donde_dice(marcada[0], "Documento generado por").y0 - 100, "el pie de la hoja queda fuera"
+
+
+def test_dos_importes_iguales_en_la_misma_linea_son_dos_recuadros(tmp_path):
+    ruta = tmp_path / "misma_linea.pdf"
+    pdf = pymupdf.open()
+    pdf.new_page().insert_text((50, 100), "Base 1.000,00          Total 1.000,00", fontsize=10)
+    pdf.save(ruta)
+    pdf.close()
+    marcado, marcada = _marcado(ruta, Alarmas("No pagar", "Motivo", (ReglaFallida("R8_importe_anomalo", "", "Regla"),), {"total": CampoLeido(1000.0)}))
+    recuadros = _recuadros(marcada[0], NARANJA)
+    assert len(marcado.marcas) == 2 and len(recuadros) == 2
+    assert not any(r.contains(_donde_dice(marcada[0], "Total")) for r in recuadros), "la palabra Total no cae dentro de ningún recuadro"
 
 
 def test_lo_escondido_sigue_en_rojo_y_las_marcas_naranjas_no_lo_pisan(factura):

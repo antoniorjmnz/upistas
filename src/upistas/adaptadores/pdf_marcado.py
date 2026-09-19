@@ -26,6 +26,8 @@ HOJA = (595, 842)  # A4 en puntos
 MARGEN = 40
 CUERPO, TITULO, ENCABEZADO, ETIQUETA = 10, 14, 12, 8  # tamaños de letra
 INTERLINEA = 1.45
+HUECO = 6  # puntos: dos recuadros de la misma línea más separados que esto son dos hallazgos distintos
+AIRE = (-2, -1, 2, 1)  # cuánto sobresale el recuadro naranja del dato: a los lados, un poco; arriba y abajo, casi nada
 
 
 class MarcadorPdfMuPDF:
@@ -70,11 +72,17 @@ class MarcadorPdfMuPDF:
 def _agrupadas(cajas: Sequence[pymupdf.Rect]) -> list[pymupdf.Rect]:
     """Un texto partido en varias líneas seguidas es un solo hallazgo: sus recuadros se funden en uno.
     Dos recuadros van seguidos si el segundo empieza donde acaba el primero, a menos de media línea
-    de distancia (las líneas de una factura se tocan o casi), o si están en la misma línea."""
+    de distancia (las líneas de una factura se tocan o casi), o si están en la misma línea y pegados
+    (a menos de HUECO puntos: «Base 1.000,00      Total 1.000,00» son dos hallazgos, no uno)."""
     grupos: list[pymupdf.Rect] = []
     for caja in cajas:
         anterior = grupos[-1] if grupos else None
-        if anterior is not None and (-3 <= caja.y0 - anterior.y1 <= 0.6 * caja.height or abs(caja.y0 - anterior.y0) < 2):
+        if anterior is None:
+            grupos.append(pymupdf.Rect(caja))
+            continue
+        linea_siguiente = -3 <= caja.y0 - anterior.y1 <= 0.6 * caja.height
+        misma_linea = abs(caja.y0 - anterior.y0) < 2 and -3 <= caja.x0 - anterior.x1 < HUECO
+        if linea_siguiente or misma_linea:
             grupos[-1] = anterior | caja
         else:
             grupos.append(pymupdf.Rect(caja))
@@ -110,15 +118,29 @@ def _pintable(texto: str, fuente: pymupdf.Font) -> str:
     return "".join(c if fuente.has_glyph(ord(c)) else "·" for c in texto)
 
 
+def _con_aire(pagina: pymupdf.Page, caja: pymupdf.Rect) -> pymupdf.Rect:
+    """El recuadro sobresale AIRE del dato, salvo por arriba o por abajo cuando el renglón vecino está
+    pegado (el TOTAL en negrita justo debajo del IVA): por ese lado se queda a la altura de la línea."""
+    con_aire = caja + AIRE
+    vecinas = [r for r in (pymupdf.Rect(p[:4]) for p in pagina.get_text("words")) if not r.intersects(caja)]
+    arriba = pymupdf.Rect(caja.x0, con_aire.y0, caja.x1, caja.y0)
+    abajo = pymupdf.Rect(caja.x0, caja.y1, caja.x1, con_aire.y1)
+    y0 = caja.y0 if any(r.intersects(arriba) for r in vecinas) else con_aire.y0
+    y1 = caja.y1 if any(r.intersects(abajo) for r in vecinas) else con_aire.y1
+    return pymupdf.Rect(con_aire.x0, y0, con_aire.x1, y1)
+
+
 def _rodear(pagina: pymupdf.Page, marca: Marca) -> None:
-    """Un recuadro naranja alrededor del dato y su etiqueta al lado: a la derecha, encima o debajo, en el
-    primer hueco sin texto; si no hay ninguno, encima, sobre un fondo claro para que se lea igual."""
+    """Un recuadro naranja alrededor del dato y su etiqueta al lado (una línea por regla que lo señala):
+    a la derecha, encima o debajo, en el primer hueco sin texto; si no hay ninguno, encima, sobre un
+    fondo claro para que se lea igual."""
     fuente = pymupdf.Font("helv")
-    caja = pymupdf.Rect(marca.caja) + (-2, -2, 2, 2)
+    caja = _con_aire(pagina, pymupdf.Rect(marca.caja))
     pagina.draw_rect(caja, color=NARANJA, width=1.2)
-    texto = _pintable(marca.etiqueta, fuente)
-    ancho = fuente.text_length(texto, fontsize=ETIQUETA) + 4
-    alto = ETIQUETA + 3
+    lineas = [_pintable(linea, fuente) for linea in marca.etiqueta.split("\n")]
+    ancho = max(fuente.text_length(linea, fontsize=ETIQUETA) for linea in lineas) + 4
+    paso = ETIQUETA + 3
+    alto = paso * len(lineas)
     hoja = pagina.rect
     x0 = max(0.0, min(caja.x0, hoja.width - ancho))
     huecos = [
@@ -129,7 +151,9 @@ def _rodear(pagina: pymupdf.Page, marca: Marca) -> None:
     libres = [h for h in huecos if hoja.contains(h) and not pagina.get_text("text", clip=h).strip()]
     fondo = libres[0] if libres else huecos[1] if huecos[1].y0 >= 0 else huecos[2]
     pagina.draw_rect(fondo, color=None, fill=NARANJA_CLARO, width=0)
-    pagina.insert_text((fondo.x0 + 2, fondo.y1 - 2.5), texto, fontsize=ETIQUETA, fontname="helv", color=NARANJA, rotate=pagina.rotation)
+    for i, linea in enumerate(lineas):
+        y = fondo.y0 + paso * (i + 1) - 2.5
+        pagina.insert_text((fondo.x0 + 2, y), linea, fontsize=ETIQUETA, fontname="helv", color=NARANJA, rotate=pagina.rotation)
 
 
 def _lineas(texto: str, fuente: pymupdf.Font, ancho: float, tamano: int) -> list[str]:

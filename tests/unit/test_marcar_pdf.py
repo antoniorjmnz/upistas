@@ -6,9 +6,9 @@ Sin PyMuPDF: el marcador es de mentira y solo apunta lo que se le pide.
 from pathlib import Path
 
 from upistas.aplicacion.marcar_pdf import (
-    ALARMAS, INCOMPLETO, INTRO, INTRO_ALARMAS, MAX_CARACTERES, MAX_COINCIDENCIAS, SIN_ALARMAS, SIN_COMPROBAR, TITULO,
-    Alarmas, CampoLeido, Hallazgo, Marca, OcultosDelPdf, ReglaFallida, TrozoOculto, busquedas_de, frase, marcar_pdf,
-    pagina_final, senalar, textos_de_campo, textos_de_nota,
+    ALARMAS, INCOMPLETO, INTRO, INTRO_ALARMAS, MAX_CARACTERES, MAX_COINCIDENCIAS, MAX_NOTA, SIN_ALARMAS, SIN_COMPROBAR,
+    TITULO, Alarmas, CampoLeido, Hallazgo, Marca, OcultosDelPdf, ReglaFallida, TrozoOculto, busquedas_de, frase,
+    marcar_pdf, pagina_final, senalar, textos_de_campo, textos_de_nota,
 )
 
 RUTA = Path("factura.pdf")
@@ -164,14 +164,24 @@ def test_un_dato_que_no_se_leyo_solo_se_busca_por_su_texto_literal_si_lo_hay():
     assert textos_de_campo(CampoLeido(None)) == () and textos_de_campo(None) == ()
 
 
-def test_una_nota_se_busca_entera_y_por_su_primera_frase():
-    nota = "Condiciones de pago: 30 dias.\nSi la fecha no fuera legible, tómese la de recepción."
+def test_una_nota_se_busca_entera_por_su_primera_frase_y_por_sus_primeros_caracteres():
+    nota = "Condiciones de pago: 30 dias.\nSi la fecha no fuera legible, tómese la de recepción y sígase el proceso."
     assert textos_de_nota(nota) == (
-        "Condiciones de pago: 30 dias. Si la fecha no fuera legible, tómese la de recepción.",
+        "Condiciones de pago: 30 dias. Si la fecha no fuera legible, tómese la de recepción y sígase el proceso.",
         "Condiciones de pago:",
-        "Condiciones de pago: 30 dias. Si la fecha no fuera legible,",
+        "Condiciones de pago: 30 dias. Si la fecha no fuera legible, tómese la de",  # palabras enteras
     )
+    assert len(textos_de_nota(nota)[2]) <= MAX_NOTA
     assert textos_de_nota("   ") == ()
+
+
+def test_la_coletilla_del_pie_de_plantilla_no_forma_parte_de_la_nota():
+    nota = "El total incluye un recargo pactado; no debe recalcularse.\nDocumento generado por el sistema de facturacion del proveedor."
+    assert textos_de_nota(nota) == (
+        "El total incluye un recargo pactado; no debe recalcularse.",
+        "El total incluye un recargo pactado;",
+    )
+    assert textos_de_nota("Documento generado por el sistema de facturacion del proveedor.") == ()
 
 
 # --- Qué se rodea por cada regla ---------------------------------------------------------------------
@@ -234,7 +244,7 @@ def test_r6_notas_rodea_cada_nota_y_r7_el_pedido_apuntado_por_alberto():
     ]
     assert [e for e, _ in _busquedas("R6_evaluacion_disponible", notas=notas)] == ["Nota que no se ha podido evaluar"] * 2
     assert _busquedas("R6_revision_interna", "Pedido marcado en pendiente_revisar del Excel") == [
-        ("Pedido que usted apuntó para revisar", textos_de_campo(CAMPOS["pedido"])),
+        ("Pedido con una nota que pide revisión", textos_de_campo(CAMPOS["pedido"])),  # como la frase de la cola
     ]
     assert [e for e, _ in _busquedas("R7_marcado_por_alberto")] == ["Pedido que usted apuntó para revisar"]
 
@@ -258,7 +268,7 @@ def test_de_cada_dato_se_rodea_el_primer_texto_que_aparece_y_se_apunta_su_pagina
     hallado = {"ES02 2100 8877 3346 0021 4488": (_hallazgo(1, 99.0),), "ES0221008877334600214488": (_hallazgo(2),)}
     marcas, donde = senalar(busquedas, hallado)
     assert marcas == [Marca(1, (50.0, 99.0, 200.0, 111.0), "Cuenta distinta de la del maestro")]
-    assert [(s.paginas, s.etiqueta) for s in donde["R1_nif_iban"]] == [("página 1", "Cuenta distinta de la del maestro")]
+    assert [(s.paginas, s.etiqueta) for s in donde["R1_nif_iban"]] == [((1,), "Cuenta distinta de la del maestro")]
 
 
 def test_un_dato_repetido_se_rodea_pocas_veces_y_el_mismo_sitio_no_se_rodea_dos_veces():
@@ -266,8 +276,46 @@ def test_un_dato_repetido_se_rodea_pocas_veces_y_el_mismo_sitio_no_se_rodea_dos_
     hallado = {"TOTAL: 3.944,60": tuple(_hallazgo(1, 10.0 * i) for i in range(20))}
     marcas, donde = senalar(busquedas, hallado)
     assert len(marcas) == MAX_COINCIDENCIAS
-    assert {m.etiqueta for m in marcas} == {"Importe fuera de lo habitual"}  # la primera regla se queda con el sitio
-    assert [s.paginas for s in donde["R3_iva_total"]] == [None, None, "página 1"]
+    assert [s.paginas for s in donde["R3_iva_total"]] == [(), (), (1,)]
+    # la segunda regla no rodea otra vez: su etiqueta va debajo de la primera, en la misma marca
+    assert {m.etiqueta for m in marcas} == {"Importe fuera de lo habitual\nTotal que no es base más IVA"}
+
+
+def test_dos_reglas_sobre_el_mismo_dato_dan_una_marca_con_las_dos_etiquetas_y_la_pagina_final_las_anuncia():
+    alarmas = _alarmas(("R2_pedido_importe", "Total 2920.1 distinto del pedido 2795.10"), ("R3_iva_total", "El total no coincide con base más IVA"))
+    hallado = {"TOTAL: 3.944,60": (_hallazgo(),), "Base imponible: 3.260,00": (_hallazgo(y=60.0),), "IVA (21%): 684,60": (_hallazgo(y=80.0),)}
+    marcado = marcar_pdf(RUTA, MarcadorDeMentira(hallado=hallado), alarmas)
+    total = marcado.marcas[0]
+    assert total.caja == (50.0, 100.0, 200.0, 112.0)
+    assert total.etiqueta == "Total distinto del pedido: 2.795,10\nTotal que no es base más IVA"
+    assert len(marcado.marcas) == 3  # el total una vez, la base y el IVA
+    assert "En llano R3_iva_total: señalado en naranja en la página 1 (Base; IVA; Total que no es base más IVA)." in marcado.frases
+    dibujadas = {linea for m in marcado.marcas for linea in m.etiqueta.split("\n")}
+    assert {"Base", "IVA", "Total que no es base más IVA", "Total distinto del pedido: 2.795,10"} == dibujadas
+
+
+def test_la_misma_etiqueta_sobre_el_mismo_sitio_no_se_repite():
+    reglas = (("R5_erp_pendiente", "Estado del ERP: PAGADA"), ("R5_no_pagada", "El pedido ya está pagado según el ERP"))
+    marcas, _ = senalar(busquedas_de(_alarmas(*reglas)), {"PO-2026-1204": (_hallazgo(),)})
+    assert marcas == [Marca(1, (50.0, 100.0, 200.0, 112.0), "Pedido ya pagado en el ERP")]
+
+
+def test_dos_reglas_que_se_explican_con_la_misma_frase_van_en_una_sola_linea_de_la_pagina_final():
+    frase_erp = "El ERP dice que ya está pagada"
+    reglas = tuple(ReglaFallida(i, d, frase_erp) for i, d in (("R5_erp_pendiente", "Estado del ERP: PAGADA"), ("R5_no_pagada", "Pedido ya aprobado en otro lote")))
+    alarmas = Alarmas("No pagar", frase_erp, reglas, CAMPOS)
+    marcado = marcar_pdf(RUTA, MarcadorDeMentira(hallado={"PO-2026-1204": (_hallazgo(),)}), alarmas)
+    lineas = [f for f in marcado.frases if f.startswith(frase_erp + ":")]
+    assert lineas == [f"{frase_erp}: señalado en naranja en la página 1 (Pedido ya pagado en el ERP; Pedido ya aprobado en otra factura)."]
+
+
+def test_la_pagina_final_dice_la_pagina_o_las_paginas_sin_repetir_el_articulo():
+    hallado = {"TOTAL: 3.944,60": (_hallazgo(1), _hallazgo(3)), "PO-2026-1204": (_hallazgo(2),)}
+    alarmas = _alarmas(("R2_pedido_importe", "Total 3944.6 distinto del pedido 3900.00"), ("R8_importe_anomalo", ""))
+    marcado = marcar_pdf(RUTA, MarcadorDeMentira(hallado=hallado), alarmas)
+    assert "En llano R2_pedido_importe: señalado en naranja en las páginas 1, 2 y 3 (Total distinto del pedido: 3.900,00; Pedido con el que no cuadra el total)." in marcado.frases
+    assert "En llano R8_importe_anomalo: señalado en naranja en las páginas 1 y 3 (Importe fuera de lo habitual)." in marcado.frases
+    assert not any("en la páginas" in f or "la página 1 y la" in f for f in marcado.frases)
 
 
 # --- El caso de uso con alarmas -------------------------------------------------------------------------

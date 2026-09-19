@@ -31,7 +31,11 @@ SIN_ALARMAS = "Esta factura no ha hecho saltar ninguna alarma: cumple todas las 
 INCOMPLETO = "Lo que no hemos podido leer"
 MAX_CARACTERES = 2000  # por trozo: más que esto ya no es una frase escondida; se recorta y se avisa con «…»
 MAX_COINCIDENCIAS = 6  # un mismo dato repetido por toda la factura no se rodea más veces que esto
+MAX_NOTA = 80  # caracteres de una nota que se buscan si no aparece entera ni su primera frase
 ENCABEZADOS = frozenset({ALARMAS, TITULO, INCOMPLETO, SIN_COMPROBAR})  # el adaptador los escribe como títulos
+# La coletilla que el pie de la plantilla pega al final de la última nota: no forma parte de ella y, si se
+# buscara con ella, el recuadro bajaría hasta el pie de la hoja.
+PIE_DE_PLANTILLA = re.compile(r"\s*documento generado por\b[^.]*\.?\s*$", re.IGNORECASE)
 
 # Por qué no se veía, dicho como se lo diríamos a Alberto. La clave es el motivo que apunta el inspector.
 MOTIVOS = {
@@ -70,7 +74,8 @@ class Hallazgo:
 
 @dataclass(frozen=True)
 class Marca:
-    """Un recuadro naranja con su etiqueta: «IBAN distinto del maestro» junto a la cuenta."""
+    """Un recuadro naranja con su etiqueta: «IBAN distinto del maestro» junto a la cuenta. Si dos reglas
+    señalan el mismo dato, la etiqueta lleva las dos, una por línea."""
 
     pagina: int
     caja: tuple[float, float, float, float]
@@ -208,7 +213,9 @@ def _que_senalar(r: ReglaFallida, a: Alarmas) -> list[tuple[tuple[str, ...], str
         return [(campo("numero_factura") or campo("pedido"), "Factura repetida")]
     if r.id in ("R6_notas", "R6_evaluacion_disponible"):
         return notas if r.id == "R6_notas" else [(t, "Nota que no se ha podido evaluar") for t, _ in notas]
-    if r.id in ("R6_revision_interna", "R7_marcado_por_alberto"):
+    if r.id == "R6_revision_interna":  # la misma frase que ve en la cola: «Trae una nota que pide revisión»
+        return [(campo("pedido"), "Pedido con una nota que pide revisión")]
+    if r.id == "R7_marcado_por_alberto":
         return [(campo("pedido"), "Pedido que usted apuntó para revisar")]
     if r.id == "R6_proveedor_referencias" and "NIF de la factura" in d:
         return [(campo("nif"), "NIF que no es el del proveedor del pedido")]
@@ -257,8 +264,8 @@ def _importes(valor: float) -> list[str]:
 
 
 def _euros(texto: str) -> str:
-    """«12847.40» (como lo escribe la regla) → «12.847,40». Sin el símbolo del euro: la letra de las
-    etiquetas no lo tiene."""
+    """«12847.40» (como lo escribe la regla) → «12.847,40». Sin el símbolo del euro: la letra con la que
+    el adaptador escribe las etiquetas lo pinta como un punto."""
     try:
         return _importes(float(texto.replace(",", ".")))[0]
     except ValueError:
@@ -266,12 +273,14 @@ def _euros(texto: str) -> str:
 
 
 def textos_de_nota(nota: str) -> tuple[str, ...]:
-    """La nota entera y, por si va partida por algo que no es un salto de línea, su primera frase."""
-    limpia = " ".join(nota.split())
+    """La nota entera sin la coletilla del pie de plantilla y, por si va partida por algo que no es un
+    salto de línea, su primera frase y sus primeros MAX_NOTA caracteres."""
+    limpia = PIE_DE_PLANTILLA.sub("", " ".join(nota.split()))
     if not limpia:
         return ()
     primera = re.split(r"(?<=[.;:])\s", limpia, maxsplit=1)[0]
-    return tuple(dict.fromkeys(t for t in (limpia, primera, limpia[:60].strip()) if len(t) >= 12))
+    principio = limpia if len(limpia) <= MAX_NOTA else limpia[:MAX_NOTA].rsplit(" ", 1)[0]  # sin partir una palabra
+    return tuple(dict.fromkeys(t for t in (limpia, primera, principio.strip()) if len(t) >= 12))
 
 
 # --- Dónde ha aparecido cada cosa -------------------------------------------------------------------
@@ -279,10 +288,10 @@ def textos_de_nota(nota: str) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class Sitio:
-    """Qué se buscó por una regla y dónde cayó: «página 1», o None si no apareció."""
+    """Qué se buscó por una regla y en qué páginas cayó (ninguna si no apareció)."""
 
     buscado: str  # el primer texto que se probó; vacío si el dato ni siquiera se leyó
-    paginas: str | None
+    paginas: tuple[int, ...]
     etiqueta: str = ""  # lo que dice la marca
 
 
@@ -290,27 +299,33 @@ def senalar(busquedas: Sequence[Busqueda], hallado: Mapping[str, tuple[Hallazgo,
     """Las marcas naranjas y, por regla, dónde cayó cada dato buscado.
 
     De cada dato se rodea el primer texto que aparece, y como mucho MAX_COINCIDENCIAS veces. Dos reglas
-    que señalan el mismo sitio no lo rodean dos veces: la etiqueta de la primera se queda.
+    que señalan el mismo sitio no lo rodean dos veces: la etiqueta de la segunda se escribe debajo de la
+    primera, en la misma marca (y si dicen lo mismo, una sola vez).
     """
     marcas: list[Marca] = []
-    ocupadas: set[tuple[int, tuple[float, float, float, float]]] = set()
+    en_sitio: dict[tuple[int, tuple[float, float, float, float]], int] = {}  # qué marca hay en cada recuadro
     donde: dict[str, list[Sitio]] = {}
     for b in busquedas:
         hallazgos = next((hallado[t] for t in b.textos if hallado.get(t)), ())
-        paginas = sorted({h.pagina for h in hallazgos})
-        donde.setdefault(b.regla, []).append(Sitio(b.textos[0] if b.textos else "", _paginas(paginas) if paginas else None, b.etiqueta))
+        paginas = tuple(sorted({h.pagina for h in hallazgos}))
+        donde.setdefault(b.regla, []).append(Sitio(b.textos[0] if b.textos else "", paginas, b.etiqueta))
         for h in hallazgos[:MAX_COINCIDENCIAS]:
-            if (h.pagina, h.caja) in ocupadas:
+            sitio = (h.pagina, h.caja)
+            if sitio not in en_sitio:
+                en_sitio[sitio] = len(marcas)
+                marcas.append(Marca(h.pagina, h.caja, b.etiqueta))
                 continue
-            ocupadas.add((h.pagina, h.caja))
-            marcas.append(Marca(h.pagina, h.caja, b.etiqueta))
+            marca = marcas[en_sitio[sitio]]
+            if b.etiqueta not in marca.etiqueta.split("\n"):
+                marcas[en_sitio[sitio]] = Marca(marca.pagina, marca.caja, f"{marca.etiqueta}\n{b.etiqueta}")
     return marcas, donde
 
 
 def _paginas(numeros: Sequence[int]) -> str:
+    """«la página 1» o «las páginas 1, 2 y 3»."""
     if len(numeros) == 1:
-        return f"página {numeros[0]}"
-    return "páginas " + ", ".join(str(n) for n in numeros[:-1]) + f" y {numeros[-1]}"
+        return f"la página {numeros[0]}"
+    return "las páginas " + ", ".join(str(n) for n in numeros[:-1]) + f" y {numeros[-1]}"
 
 
 # --- La página final --------------------------------------------------------------------------------
@@ -330,7 +345,15 @@ def pagina_final(encontrado: OcultosDelPdf) -> tuple[str, ...]:
 def pagina_final_con_alarmas(alarmas: Alarmas, donde: Mapping[str, Sequence[Sitio]], encontrado: OcultosDelPdf) -> tuple[str, ...]:
     """El resultado y su motivo, las alarmas (qué y dónde), lo escondido y lo que no se ha podido leer."""
     parrafos = [f"{alarmas.resultado}: {alarmas.motivo}"]
-    lineas = [linea_de_alarma(r, donde.get(r.id, ()), encontrado) for r in alarmas.reglas]
+    # Dos reglas que se explican con la misma frase (R5_erp_pendiente y R5_no_pagada dicen las dos «El ERP
+    # dice que ya está pagada») van en una sola línea, con los sitios de las dos.
+    primera: dict[str, ReglaFallida] = {}
+    sitios: dict[str, list[Sitio]] = {}
+    for r in alarmas.reglas:
+        que = r.texto or r.id
+        primera.setdefault(que, r)
+        sitios.setdefault(que, []).extend(donde.get(r.id, ()))
+    lineas = [linea_de_alarma(primera[que], sitios[que], encontrado) for que in primera]
     lineas += [f"El fichero trae {a}." for a in alarmas.alertas if not a.startswith(("texto potencialmente oculto", "visibilidad del texto no verificable"))]
     if lineas:
         parrafos += [ALARMAS, INTRO_ALARMAS, *lineas]
@@ -350,14 +373,14 @@ def linea_de_alarma(r: ReglaFallida, sitios: Sequence[Sitio], encontrado: Oculto
     que = r.texto or r.id
     if r.id == "R6_contenido_oculto":
         paginas = sorted({t.pagina for t in encontrado.trozos})
-        return f"{que}: rodeado en rojo en la {_paginas(paginas)}." if paginas else f"{que}: no se ve a simple vista, no hay nada que rodear."
+        return f"{que}: rodeado en rojo en {_paginas(paginas)}." if paginas else f"{que}: no se ve a simple vista, no hay nada que rodear."
     if not sitios:
         return f"{que}: no hay ningún dato que rodear en la factura."
-    paginas = list(dict.fromkeys(s.paginas for s in sitios if s.paginas))
+    paginas = sorted({n for s in sitios for n in s.paginas})
     if paginas:
         etiquetas = list(dict.fromkeys(s.etiqueta for s in sitios if s.paginas and s.etiqueta))
-        return f"{que}: señalado en naranja en la {' y la '.join(paginas)} ({'; '.join(etiquetas)})."
-    buscado = [s.buscado for s in sitios if s.buscado]
+        return f"{que}: señalado en naranja en {_paginas(paginas)} ({'; '.join(etiquetas)})."
+    buscado = list(dict.fromkeys(s.buscado for s in sitios if s.buscado))
     if buscado:
         return f"{que}: no lo hemos encontrado escrito en la factura (buscábamos «{'», «'.join(buscado)}»)."
     return f"{que}: ese dato no aparece en la factura, así que no se puede rodear."
