@@ -27,5 +27,5 @@ def preguntar(request: HttpRequest) -> HttpResponse:
         del historial[:-40]  # la sesión no es un archivo: se conserva lo último
         request.session.modified = True
         if request.headers.get("HX-Request"):
-            return render(request, "panel/_mensajes.html", {"mensajes": historial[-2:]})
+            return render(request, "panel/_mensajes.html", {"mensajes": historial[-1:]})
     return render(request, "panel/preguntar.html", {"historial": historial, "pagina_actual": "preguntar"})
