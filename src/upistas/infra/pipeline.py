@@ -9,6 +9,7 @@ Aquí no hay lógica de negocio: solo se orquestan los casos de uso de `aplicaci
 """
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
 from dbos import DBOS, DBOSConfig, SetWorkflowID, WorkflowHandle
@@ -18,6 +19,7 @@ from upistas.aplicacion.mapeo import a_outcome
 from upistas.config import settings
 from upistas.contracts.factura_extraida import FacturaExtraida
 from upistas.infra import contenedor
+from upistas.puertos import DocumentoInspeccionado
 
 COLA = "documentos"
 
@@ -26,18 +28,25 @@ DBOS(config=_config)
 
 
 @DBOS.step()
-def leer(ruta: str) -> dict | None:
-    extraida = procesar.leer_documento(Path(ruta), contenedor.lectores())
-    return extraida.model_dump(mode="json") if extraida else None
+def leer(ruta: str) -> dict:
+    lectura = procesar.leer_documento(Path(ruta), contenedor.inspector(), contenedor.lectores())
+    return {
+        "documento": asdict(lectura.documento),
+        "extraida": lectura.extraida.model_dump(mode="json") if lectura.extraida else None,
+        "intentos": list(lectura.intentos),
+    }
 
 
 @DBOS.step()
-def decidir(file_id: str, extraida: dict | None, version_norma: str) -> dict:
+def decidir(file_id: str, leido: dict, version_norma: str) -> dict:
+    lectura = procesar.Lectura(
+        documento=DocumentoInspeccionado(**leido["documento"]),
+        extraida=FacturaExtraida.model_validate(leido["extraida"]) if leido["extraida"] else None,
+        intentos=tuple(tuple(i) for i in leido["intentos"]),
+    )
     norma = contenedor.norma(version_norma)
-    if not extraida:  # sin factura legible no hace falta consultar referencias
-        return a_outcome(procesar.decidir(file_id, None, None, norma))
-    factura = FacturaExtraida.model_validate(extraida)
-    return a_outcome(procesar.decidir(file_id, factura, contenedor.referencias(), norma))
+    refs = contenedor.referencias() if lectura.extraida else None
+    return a_outcome(procesar.decidir(file_id, lectura, refs, norma), metodo=lectura.extraida.metodo.value if lectura.extraida else "ninguno")
 
 
 @DBOS.workflow()

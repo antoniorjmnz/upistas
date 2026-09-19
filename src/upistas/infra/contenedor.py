@@ -11,13 +11,19 @@ from functools import cache
 from upistas.adaptadores.fuentes.erp_copia import ErpDesdeCopia
 from upistas.adaptadores.fuentes.erp_http import ClienteErpHttp
 from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
+from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_texto import LectorPdfTexto
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.config import ROOT, settings
 from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
 from upistas.infra import django_setup
-from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, LectorDocumento
+from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, Inspector, LectorDocumento
+
+
+@cache
+def inspector() -> Inspector:
+    return InspectorPdf()
 
 
 @cache
