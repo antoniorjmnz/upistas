@@ -6,11 +6,10 @@ mismo que se le exige al Excel, para que las dos fuentes digan lo mismo.
 """
 from __future__ import annotations
 
-from decimal import Decimal
 
 from django import forms
 
-from upistas.adaptadores.fuentes.excel import PATRON_NIF, PATRON_PEDIDO
+from upistas.adaptadores.fuentes.excel import PATRON_NIF
 from upistas.dominio.importes import normaliza_iban
 from web.panel.models import Pedido, Proveedor
 
@@ -63,46 +62,19 @@ class ProveedorForm(forms.ModelForm):
 
 
 class PedidoForm(forms.ModelForm):
-    proveedor = forms.ModelChoiceField(
-        queryset=Proveedor.objects.all(), label="Proveedor", empty_label="Elija un proveedor",
-    )
-    fecha = forms.DateField(
-        required=False, label="Fecha",
-        input_formats=["%Y-%m-%d", "%d/%m/%Y"],
-        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-        help_text="La del pedido, no la de la factura. Puede dejarlo en blanco.",
-    )
+    """Lo único que Alberto dice sobre un pedido: si quiere mirar sus facturas, y una nota.
+
+    Los pedidos nacen en el ERP y en el maestro importado; aquí no se crean ni se cambian
+    número, proveedor ni importe.
+    """
 
     class Meta:
         model = Pedido
-        fields = ["numero", "proveedor", "importe", "fecha", "revisar", "nota"]
+        fields = ["revisar", "nota"]
         labels = {
-            "numero": "Número de pedido",
-            "proveedor": "Proveedor",
-            "importe": "Importe",
-            "revisar": "Alberto quiere mirar las facturas de este pedido",
+            "revisar": "Quiero mirar las facturas de este pedido",
             "nota": "Nota",
         }
-        help_texts = {
-            "numero": "Se escribe PO, el año y cuatro números. Por ejemplo, PO-2026-0001.",
-            "importe": "Lo que se pidió, con IVA. Una factura de este pedido tiene que coincidir.",
-            "nota": "Para usted. No cambia ninguna decisión.",
-        }
-        error_messages = {"numero": {"unique": "Ya hay otro pedido con ese número."}}
-        widgets = {
-            "numero": forms.TextInput(attrs={"autocomplete": "off", "placeholder": "PO-2026-0001"}),
-            "importe": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
-            "nota": forms.Textarea(attrs={"rows": 3}),
-        }
+        help_texts = {"nota": "Para usted. No cambia ninguna decisión."}
+        widgets = {"nota": forms.Textarea(attrs={"rows": 3})}
 
-    def clean_numero(self) -> str:
-        numero = self.cleaned_data["numero"].strip().upper()
-        if not PATRON_PEDIDO.match(numero):
-            raise forms.ValidationError("El número de pedido se escribe PO, el año y cuatro cifras, como PO-2026-0001.")
-        return numero
-
-    def clean_importe(self) -> Decimal:
-        importe = self.cleaned_data["importe"]
-        if importe <= 0:
-            raise forms.ValidationError("El importe tiene que ser mayor que cero.")
-        return importe

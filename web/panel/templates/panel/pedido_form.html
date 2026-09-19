@@ -1,19 +1,21 @@
 {% extends "panel/base.html" %}
 {% load panel_extras %}
-{% block titulo %}{% if pedido.pk %}Editar {{ pedido.numero }}{% else %}Nuevo pedido{% endif %} · Pagos de Alberto{% endblock %}
+{% block titulo %}Pedido {{ pedido.numero }} · Pagos de Alberto{% endblock %}
 {% block contenido %}
 
 <section class="hero">
   <a class="volver" href="{% url 'panel:proveedor' proveedor.id %}">Volver a {{ proveedor.nombre }}</a>
-  {% if pedido.pk %}
-    <h1>Editar pedido</h1>
-    <p class="lead">El importe es lo que se comprueba contra cada factura de este pedido: si no coincide,
-      no se paga.</p>
-  {% else %}
-    <h1>Nuevo pedido</h1>
-    <p class="lead">Apunte lo que le ha pedido a {{ proveedor.nombre }} y por cuánto. Cuando llegue la
-      factura, el sistema comprobará que el pedido existe y que el importe coincide.</p>
-  {% endif %}
+  <h1>Pedido {{ pedido.numero }}</h1>
+  <p class="lead">Los datos del pedido vienen del ERP y del maestro; aquí solo se apunta si quiere mirar sus facturas
+    antes de pagarlas, y una nota para usted.</p>
+</section>
+
+<section class="tarjeta">
+  <div class="datos">
+    <div class="dato"><span>Proveedor</span>{{ proveedor.nombre }}</div>
+    <div class="dato"><span>Importe</span>{{ pedido.importe|euros }}</div>
+    <div class="dato"><span>Fecha</span>{% if pedido.fecha %}{{ pedido.fecha|date:"d/m/Y" }}{% else %}<span class="suave">sin fecha</span>{% endif %}</div>
+  </div>
 </section>
 
 <section class="tarjeta">
@@ -22,10 +24,6 @@
     {% if form.non_field_errors %}
       <div class="campo ancho"><span class="error">{{ form.non_field_errors.0 }}</span></div>
     {% endif %}
-    {% include "panel/_campo.html" with campo=form.numero %}
-    {% include "panel/_campo.html" with campo=form.proveedor %}
-    {% include "panel/_campo.html" with campo=form.importe %}
-    {% include "panel/_campo.html" with campo=form.fecha %}
     <div class="campo ancho{% if form.revisar.errors %} con-error{% endif %}">
       <label class="conmutador" for="{{ form.revisar.id_for_label }}">{{ form.revisar }}{{ form.revisar.label }}</label>
       <span class="ayuda">Sus facturas no se pagarán solas: pasarán por «Para revisar» aunque todo cuadre.</span>

@@ -13,7 +13,6 @@ urlpatterns = [
     path("proveedores/nuevo/", proveedores.nuevo, name="proveedor_nuevo"),
     path("proveedores/<int:id>/", proveedores.detalle, name="proveedor"),
     path("proveedores/<int:id>/editar/", proveedores.editar, name="proveedor_editar"),
-    path("proveedores/<int:id>/pedidos/nuevo/", proveedores.nuevo_pedido, name="pedido_nuevo"),
     path("pedidos/<int:id>/editar/", proveedores.editar_pedido, name="pedido_editar"),
     path("facturas/", facturas.lista, name="facturas"),
     path("facturas/<str:lote>/<str:file_id>/", facturas.detalle, name="factura"),

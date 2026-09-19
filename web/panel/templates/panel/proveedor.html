@@ -30,7 +30,6 @@
 <section class="tarjeta">
   <div class="cabecera-tarjeta">
     <h2>Pedidos{% if marcados %} <span class="pildora ojo">{{ marcados }} para mirar</span>{% endif %}</h2>
-    <a class="boton" href="{% url 'panel:pedido_nuevo' proveedor.id %}">{% icono "mas" 18 %}Nuevo pedido</a>
   </div>
   {% if not pedidos %}
     <div class="vacio">
