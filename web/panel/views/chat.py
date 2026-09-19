@@ -6,4 +6,4 @@ from django.shortcuts import render
 
 
 def preguntar(request: HttpRequest) -> HttpResponse:
-    return render(request, "panel/pronto.html", {"seccion": "Preguntar"})
+    return render(request, "panel/preguntar.html")
