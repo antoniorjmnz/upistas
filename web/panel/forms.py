@@ -7,6 +7,8 @@ mismo que se le exige al Excel, para que las dos fuentes digan lo mismo.
 from __future__ import annotations
 
 
+import re
+
 from django import forms
 
 from upistas.adaptadores.fuentes.excel import PATRON_NIF
@@ -47,8 +49,8 @@ class ProveedorForm(forms.ModelForm):
 
     def clean_nif(self) -> str:
         nif = self.cleaned_data["nif"].replace(" ", "").upper()
-        if not PATRON_NIF.match(nif):
-            raise forms.ValidationError("El NIF lleva una letra, siete números y una letra o número, como B46102331.")
+        if not PATRON_NIF.match(nif) and not re.fullmatch(r"[A-Z0-9./-]{8,20}", nif):
+            raise forms.ValidationError("El NIF lleva una letra, siete números y una letra o número, como B46102331; los extranjeros, tal como vienen en la factura.")
         return nif
 
     def clean_iban(self) -> str:

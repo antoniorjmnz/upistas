@@ -200,7 +200,7 @@ class Proveedor(models.Model):
 
     codigo = models.CharField(max_length=10, unique=True)  # P001, P002...
     nombre = models.CharField(max_length=200)
-    nif = models.CharField(max_length=12, unique=True)
+    nif = models.CharField(max_length=24, unique=True)
     iban = models.CharField(max_length=34)
     ciudad = models.CharField(max_length=80, blank=True)
     condiciones_dias = models.PositiveSmallIntegerField(null=True, blank=True)  # 30, 60... días para pagar

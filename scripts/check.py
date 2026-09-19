@@ -86,7 +86,7 @@ def check_hygiene():
             and not t.endswith(".gitkeep")
         ):
             fail(f"archivo que no debería estar en git: {t}")
-        if t.lower().endswith((".pdf", ".xlsx")):
+        if t.lower().endswith((".pdf", ".xlsx")) and t != "docs/albertitos_plan.pdf":
             fail(f"binario de datos en git: {t}")
     pattern = re.compile(
         r"sk-ant-[A-Za-z0-9_-]{10,}|sk-or-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}"

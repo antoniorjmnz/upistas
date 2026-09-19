@@ -20,6 +20,7 @@ from web.panel.asistente.herramientas import HERRAMIENTAS, ejecutar
 MAX_RONDAS = 4          # cuántas consultas puede encadenar por pregunta
 MAX_HISTORIAL = 10      # mensajes anteriores que se le pasan al modelo
 REINTENTOS = 1          # si la IA falla, un reintento y luego aviso
+PRESUPUESTO_S = 90      # tiempo total por pregunta, rondas y reintentos incluidos
 MAX_ENLACES = 5         # facturas que se enlazan como mucho en la línea «De:»
 
 MENSAJE_FUERA_DE_TEMA = (
@@ -129,6 +130,8 @@ def responder(pregunta: str, historial: list[dict], completar: Completar) -> Res
     t0 = time.monotonic()
     try:
         for _ in range(MAX_RONDAS):
+            if time.monotonic() - t0 > PRESUPUESTO_S:
+                raise TimeoutError(f"la IA lleva más de {PRESUPUESTO_S} s con esta pregunta")
             for intento in range(REINTENTOS + 1):  # si la IA falla por red o por tiempo, se insiste una vez
                 try:
                     respuesta = completar(mensajes, HERRAMIENTAS)

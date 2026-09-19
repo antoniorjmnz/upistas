@@ -12,6 +12,8 @@ from pathlib import Path
 import pymupdf
 
 from upistas.adaptadores.lectores.pdf import MAX_BYTES, MAX_PAGINAS, ocultos_de_pagina
+
+MAX_TROZOS = 300  # más marcas que esto no ayudan a quien revisa: se señalan y transcriben las primeras
 from upistas.aplicacion.marcar_pdf import OcultosDelPdf, PdfNoMarcable, TrozoOculto
 
 ROJO = (0.8, 0, 0)
@@ -38,7 +40,7 @@ class MarcadorPdfMuPDF:
 
     def marcar(self, ruta: Path, trozos: Sequence[TrozoOculto], pagina_final: Sequence[str]) -> bytes:
         with _abierto(ruta) as pdf:
-            for t in trozos:
+            for t in list(trozos)[:MAX_TROZOS]:
                 pdf[t.pagina - 1].draw_rect(pymupdf.Rect(t.caja), color=ROJO, width=1.2)
             if pagina_final:
                 _escribir_pagina_final(pdf, list(pagina_final))
@@ -99,6 +101,8 @@ def _escribir_pagina_final(pdf: pymupdf.Document, parrafos: list[str]) -> None:
     fuente = pymupdf.Font("helv")
     # Lo que la letra no sabe pintar (emojis, otros alfabetos) sale como un punto: si no, MuPDF
     # incrusta una fuente de varios megas para un carácter.
+    if len(parrafos) > MAX_TROZOS + 1:
+        parrafos = [*parrafos[: MAX_TROZOS + 1], f"… y {len(parrafos) - MAX_TROZOS - 1} trozos más que no se transcriben."]
     parrafos = ["".join(c if fuente.has_glyph(ord(c)) else "·" for c in p) for p in parrafos]
     pagina = pdf.new_page(width=HOJA[0], height=HOJA[1])
     escritor = pymupdf.TextWriter(pagina.rect, color=TINTA)

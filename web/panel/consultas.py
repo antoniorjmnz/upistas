@@ -412,6 +412,18 @@ def buscar_facturas(texto: str, limite: int = 10) -> dict:
     }
 
 
+def _reglas_sin_texto(reglas):
+    """Las comprobaciones sin el texto literal de la factura: la IA lo recibe como aviso, nunca como dato."""
+    limpias = []
+    for r in reglas or []:
+        r = dict(r)
+        detalle = r.get("detalle")
+        if isinstance(detalle, str) and r.get("id") in ("R6_notas", "R6_contenido_oculto", "R6_revision_interna"):
+            r["detalle"] = detalle.split(": ", 1)[0].split(" | Evidencia", 1)[0]
+        limpias.append(r)
+    return limpias
+
+
 def detalle_factura(file_id: str) -> dict:
     """Todo lo que sabemos de una factura: qué se leyó, qué reglas aplicaron y por qué salió así."""
     documento = Documento.objects.filter(file_id__iexact=file_id.strip()).order_by("-primera_vez").first()
@@ -438,7 +450,7 @@ def detalle_factura(file_id: str) -> dict:
         "paginas": documento.paginas,
         "alertas_fichero": list(documento.alertas or []),
         "decision": _fila_decision(decision, {documento.sha256: lectura}, nombres_por_nif()) if decision else None,
-        "reglas": (decision.outcome or {}).get("reglas") if decision else None,
+        "reglas": _reglas_sin_texto((decision.outcome or {}).get("reglas")) if decision else None,
         "lectura": (
             {
                 "metodo": lectura.metodo,

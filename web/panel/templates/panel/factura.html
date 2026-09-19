@@ -130,7 +130,7 @@
       {% if lectura %}
         <dt>Tardó</dt><dd>{{ lectura.segundos|floatformat:2 }} segundos</dd>
         <dt>Enviado a la inteligencia artificial</dt><dd>{{ lectura.tokens_in }} trozos de texto de ida y {{ lectura.tokens_out }} de vuelta</dd>
-        <dt>Lo que costó leerla</dt><dd>{% if lectura.coste_eur %}{{ lectura.coste_eur|euros }}{% else %}nada: se leyó sin inteligencia artificial{% endif %}</dd>
+        <dt>Lo que costó leerla</dt><dd>{% if lectura.coste_eur %}{{ lectura.coste_eur|euros }}{% elif lectura.tokens_in %}se usó inteligencia artificial, pero no hay tarifa configurada{% else %}nada: se leyó sin inteligencia artificial{% endif %}</dd>
       {% endif %}
     </dl>
 

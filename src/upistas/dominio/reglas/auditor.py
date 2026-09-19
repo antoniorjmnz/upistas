@@ -33,6 +33,8 @@ def pedido_importe(factura, refs, params):
     proveedor = refs.proveedores.get(factura.nif)
     if pedido is None:
         return Comprobacion("R2_pedido_importe", False, "Pedido ausente o no encontrado")
+    if factura.total is not None and factura.total < 0:
+        return Comprobacion("R2_pedido_importe", True, "Importe negativo: lo revisa R3_datos_fiscales")
     if proveedor is None or pedido.proveedor_id != proveedor.id or (pedido.nif and pedido.nif != factura.nif):
         return Comprobacion("R2_pedido_importe", False, "El pedido no pertenece al proveedor de la factura")
     if factura.total is None or abs(factura.total - pedido.importe) > tolerancia(params):

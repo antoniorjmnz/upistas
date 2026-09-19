@@ -433,3 +433,9 @@ def test_duplicados_por_hash_y_por_pedido():
     otra = replace(copia, sha256="b" * 64, numero="F-002")
     decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(otra, REFS)], {"a.pdf": factura, "b.pdf": otra})
     assert all(d.resultado == Resultado.ESCALAR for d in decisiones)
+
+
+def test_importe_negativo_es_duda_no_incumplimiento():
+    """Un total negativo no prueba nada contra el pedido: es un abono o un error, y lo mira una persona."""
+    factura = replace(FACTURA, total=Decimal("-121"))
+    assert Norma.desde_toml(NORMA).evaluar(factura, REFS).resultado == Resultado.ESCALAR
