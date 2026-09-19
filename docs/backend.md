@@ -34,6 +34,18 @@ de cada una, con su porqué". La web solo enseña lo que el backend guarda.
 **También desde la web**: Alberto sube sus PDF en «Subir facturas» y el mismo pipeline los decide en un hilo
 del servidor, con barra de progreso; DBOS arranca ahí, dentro del proceso web, en el primer repaso (ver [web.md](web.md)).
 
+**Cómo entra el lote 2.** Tres pasos, sin tocar el Excel de Alberto. (1) Arrancar el ERP con su
+actualización: `python alberto_erp.py --puerto 8010 --lote2 erp_export_lote2.csv` (y `ERP_URL` o
+`--erp-url` apuntando a ese puerto). (2) Dar de alta los proveedores y pedidos nuevos en el maestro de la web:
+`uv run python manage.py importar_maestro --proveedores-csv proveedores_nuevos.csv --pedidos-csv pedidos_nuevos.csv`.
+Lee los CSV de La Caja tal cual vienen (`proveedor_id` donde el Excel dice `ProveedorID`) con el adaptador
+`fuentes/csv_altas.py`, que devuelve los mismos `Proveedor` y `Pedido` que el Excel, y `MaestroDjango.importar`
+los vuelca en las tablas. Con los ficheros reales imprime «4 proveedores nuevos, 39 pedidos nuevos, 0 cambiados»;
+repetirlo dice «0 proveedores nuevos, 0 pedidos nuevos, 0 cambiados» y no pisa las marcas de revisar, las notas
+ni el campo activo que Alberto haya puesto en la web. (3) Subir la carpeta `facturas_primin` desde «Subir facturas»
+o pasarla por línea de comandos:
+`uv run upistas run --lote lote2 --facturas facturas_primin --norma v4 --erp-url http://127.0.0.1:8010 --salida outcomes_lote2.jsonl`.
+
 ## Qué se ha tenido en cuenta
 
 **El ERP de 2009.** Se descarga entero una vez (el detalle es por número de asiento, no por

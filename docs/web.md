@@ -56,7 +56,9 @@ Arriba en la barra lateral, las de Alberto:
   meter basura: el NIF con su formato, el IBAN sin espacios ni caracteres invisibles, el importe mayor
   que cero y el número de pedido `PO-AAAA-NNNN`. El maestro de La Caja entró con
   `uv run python manage.py importar_maestro [--excel RUTA]`, que lee el Excel con el adaptador de
-  siempre y lo vuelca en las tablas (11 proveedores y 516 pedidos); se puede repetir sin duplicar nada.
+  siempre y lo vuelca en las tablas (11 proveedores y 516 pedidos); se puede repetir sin duplicar nada
+  ni pisar lo que Alberto haya marcado o anotado aquí. Las altas del lote 2 entran con el mismo comando
+  y `--proveedores-csv` / `--pedidos-csv` (ver «Cómo entra el lote 2» en [backend.md](backend.md)).
 - **Para revisar**: la cola de lo escalado, agrupada por motivo. Alberto decide Pagar o No pagar con un
   comentario. Queda guardado aparte (`RevisionHumana`), no toca lo que calculó el sistema, y si dice
   Pagar ese pedido y ese documento cuentan como pagados para los lotes siguientes. Repasar otra vez el
