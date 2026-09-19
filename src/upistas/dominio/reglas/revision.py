@@ -14,7 +14,9 @@ def _id(valor):
 def lectura_suficiente(factura, refs, params):
     if factura.errores_lectura:
         return Comprobacion("R0_lectura", False, "; ".join(factura.errores_lectura))
-    faltan = [c for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total") if getattr(factura, c) is None]
+    # Un campo que el lector da por ausente con seguridad no es una duda de lectura: lo juzga su propia regla.
+    faltan = [c for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total")
+              if getattr(factura, c) is None and c not in factura.ausentes]
     return Comprobacion("R0_lectura", not faltan, "Campos no verificables: " + ", ".join(faltan) if faltan else "")
 
 

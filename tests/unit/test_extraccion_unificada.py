@@ -146,7 +146,24 @@ def test_conflicto_entre_paginas_no_elige_la_primera():
 def test_fecha_invalida_no_se_sustituye_por_vencimiento():
     factura = extraer(TEXTO.replace("15 de enero de 2026", "31/02/2026") + "Fecha vencimiento 01/04/2026")
     assert factura.campos.fecha.valor is None
-    assert factura.errores
+    # Se leyó bien y no existe: no es un fallo de lectura, es un dato inválido que juzga la regla de la fecha.
+    assert factura.campos.fecha.confianza == 1.0
+    assert "31/02/2026" in factura.campos.fecha.fuente
+    assert factura.errores == []
+
+
+def test_mes_que_no_se_reconoce_es_fallo_de_lectura():
+    factura = extraer(TEXTO.replace("15 de enero de 2026", "15 de encro de 2026"))
+    assert factura.campos.fecha.valor is None
+    assert factura.campos.fecha.confianza == 0.0
+    assert "Valor inválido para fecha" in factura.errores
+
+
+def test_fecha_invalida_y_otra_valida_es_contradiccion():
+    factura = extraer(TEXTO.replace("15 de enero de 2026", "31/02/2026") + "Fecha factura 01/04/2026")
+    assert factura.campos.fecha.valor is None
+    assert factura.campos.fecha.confianza == 0.0
+    assert "Valores contradictorios para fecha" in factura.errores
 
 
 def test_pagina_ocr_fallida_no_desaparece():

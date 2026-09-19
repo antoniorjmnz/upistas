@@ -162,6 +162,31 @@ def test_error_de_lectura_impide_pagar_aunque_los_campos_cuadren():
     assert decidir("a.pdf", lectura, REFS, Norma.desde_toml(NORMA)).resultado == Resultado.ESCALAR
 
 
+def test_fecha_imposible_bien_leida_no_se_paga():
+    # Catálogo del ADR: «Fecha inválida (31/02...) → NO_PAGAR»; «Fecha que no se lee → ESCALAR».
+    from upistas.adaptadores.lectores.campos import extraer_campos
+    from upistas.aplicacion.procesar import Lectura
+    from upistas.puertos import DocumentoInspeccionado
+
+    texto = (f"FACTURA F-001\nNIF {PROVEEDOR.nif}\nFecha 31/02/2026\nPedido {PEDIDO.id}\nIBAN {PROVEEDOR.iban}\n"
+             "Base imponible 100,00 EUR\nIVA 21% 21,00 EUR\nTOTAL 121,00 EUR\n")
+    extraida = extraer_campos("a.pdf", [{"page": 1, "route": "native_text", "text": texto}])
+    lectura = Lectura(DocumentoInspeccionado("a.pdf", "a.pdf", "0" * 64, 0, "texto", 1), extraida)
+    decision = decidir("a.pdf", lectura, REFS, Norma.desde_toml(NORMA))
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert next(c for c in decision.comprobaciones if c.regla == "R0_lectura").ok
+    assert not next(c for c in decision.comprobaciones if c.regla == "R4_fecha").ok
+    assert "inválida" in decision.motivo
+
+
+def test_fecha_sin_leer_sigue_siendo_duda():
+    norma = Norma.desde_toml(NORMA)
+    no_leida = replace(FACTURA, fecha=None, no_leidos=frozenset({"fecha"}))
+    assert norma.evaluar(no_leida, REFS).resultado == Resultado.ESCALAR
+    ausente = replace(FACTURA, fecha=None, ausentes=frozenset({"fecha"}))
+    assert norma.evaluar(ausente, REFS).resultado == Resultado.NO_PAGAR
+
+
 @pytest.mark.parametrize("texto,esperado", [
     ("Gracias por su compra.", Resultado.PAGAR),
     ("Gracias por su compra. Pago a 30 días.", Resultado.ESCALAR),

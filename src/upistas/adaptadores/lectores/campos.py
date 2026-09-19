@@ -35,6 +35,8 @@ def coste_de(paginas: list[dict]) -> dict | None:
         "tokens_out": sum(p.get("tokens_out") or 0 for p in paginas),
     }
 
+FECHA_INVALIDA = "fecha inválida"  # marca interna: el texto es una fecha en cifras que no existe en el calendario
+
 
 def etiqueta(palabra: str) -> str:
     return r"(?<!\w)" + r"[ \t]*".join(palabra) + r"(?!\w)"
@@ -111,7 +113,9 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
             texto, re.I,
         ):
             fecha = parse_fecha(m[1])
-            guardar("fecha", fecha.isoformat() if fecha else None, m[0])
+            # Una fecha en cifras que no existe (31/02/2026) se leyó bien; un mes escrito que no se reconoce, no.
+            invalida = fecha is None and not re.search(r"[a-z]", m[1], re.I)
+            guardar("fecha", FECHA_INVALIDA if invalida else fecha.isoformat() if fecha else None, m[0])
 
         patrones = {
             "base": rf"(?:{etiqueta('BASE')}(?:\s+IMPONIBLE)?|{etiqueta('SUBTOTAL')}){SEPARADOR}{MONEDA}({NUMERO})",
@@ -128,14 +132,17 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
     for nombre in CAMPOS:
         encontrados = candidatos[nombre]
         valores = {v for v, _ in encontrados}
-        valor = next(iter(valores)) if len(valores) == 1 and None not in valores else None
+        # Una fecha inválida leída con seguridad va sin valor pero con confianza plena: no es un fallo de
+        # lectura (el campo queda en `ausentes`, no en `no_leidos`) y la juzga la regla de la fecha.
+        invalida = valores == {FECHA_INVALIDA}
+        valor = next(iter(valores)) if len(valores) == 1 and None not in valores and not invalida else None
         if len(valores) > 1:
             errores.append(f"Valores contradictorios para {nombre}")
-        elif encontrados and valor is None:
+        elif encontrados and valor is None and not invalida:
             errores.append(f"Valor inválido para {nombre}")
         campos[nombre] = {
             "valor": valor,
-            "confianza": 1.0 if valor is not None else 0.0,
+            "confianza": 1.0 if valor is not None or invalida else 0.0,
             "fuente": "\n".join(dict.fromkeys(raw for _, raw in encontrados)) or None,
         }
 
