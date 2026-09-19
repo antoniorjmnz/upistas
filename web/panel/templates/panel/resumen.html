@@ -103,8 +103,11 @@
 </section>
 {% endif %}
 
-<p class="suave" style="margin: 0; font-size: 14px;">Repasadas el {{ ejecucion.inicio|date:"j \d\e F" }} a las {{ ejecucion.inicio|date:"H:i" }} con la copia del ERP de ese momento y la norma {{ ejecucion.norma }}.
-  <a href="{% url 'panel:ejecucion' ejecucion.id %}">Ver el detalle</a></p>
+<div class="acciones" style="justify-content: space-between;">
+  <p class="suave" style="margin: 0; font-size: 14px;">Repasadas el {{ ejecucion.inicio|date:"j \d\e F" }} a las {{ ejecucion.inicio|date:"H:i" }} con la copia del ERP de ese momento y la norma {{ ejecucion.norma }}.
+    <a href="{% url 'panel:ejecucion' ejecucion.id %}">Ver el detalle</a></p>
+  {% include "panel/_repasar_boton.html" %}
+</div>
 
 {% endif %}
 {% endblock %}

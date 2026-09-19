@@ -51,10 +51,10 @@ def test_el_almacen_guarda_por_huella_y_no_duplica(tmp_path):
         otra_vez = almacen.guardar("lote1", [_subida("enero_copia.pdf", PDF)])
 
     ruta = primera.facturas[0].ruta
-    assert ruta.name == hashlib.sha256(PDF).hexdigest() + ".pdf"
-    assert ruta.parent == tmp_path / "facturas" and ruta.read_bytes() == PDF
-    assert otra_vez.facturas[0].ruta == ruta  # el mismo contenido se reutiliza
-    assert list((tmp_path / "facturas").iterdir()) == [ruta]
+    assert ruta == tmp_path / "lotes" / "lote1" / "enero.pdf" and ruta.read_bytes() == PDF  # el pipeline ve el nombre de siempre
+    huella = tmp_path / "facturas" / (hashlib.sha256(PDF).hexdigest() + ".pdf")
+    assert list((tmp_path / "facturas").iterdir()) == [huella]  # el contenido, una sola vez
+    assert otra_vez.facturas[0].ruta == tmp_path / "lotes" / "lote1" / "enero_copia.pdf"
     assert [f.file_id for f in primera.facturas] == ["enero.pdf"]
     assert [f.file_id for f in otra_vez.facturas] == ["enero_copia.pdf"]
     assert not primera.errores and not otra_vez.errores
@@ -87,7 +87,7 @@ def test_el_almacen_saca_los_pdf_de_un_zip(tmp_path):
         guardado = almacen.guardar("lote1", [SimpleUploadedFile("facturas.zip", paquete.getvalue())])
 
     assert sorted(f.file_id for f in guardado.facturas) == ["enero.pdf", "febrero.pdf"]
-    assert {f.ruta.parent for f in guardado.facturas} == {tmp_path / "facturas"}
+    assert {f.ruta.parent for f in guardado.facturas} == {tmp_path / "lotes" / "lote1"}
     assert not guardado.errores
 
 

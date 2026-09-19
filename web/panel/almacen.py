@@ -1,12 +1,15 @@
 """Dónde van los PDF que Alberto sube por la web.
 
 Cada contenido se guarda una sola vez, con su huella por nombre (`almacen/facturas/<sha256>.pdf`):
-si vuelve a subir la misma factura no se duplica, se reutiliza la que ya estaba. El nombre con el
-que llegó se conserva aparte, para que Alberto reconozca sus facturas.
+si vuelve a subir la misma factura no se duplica, se reutiliza la que ya estaba. Con el nombre con
+el que llegó queda un enlace en `almacen/lotes/<lote>/`, que es lo que lee el pipeline y lo que ve
+Alberto en las pantallas.
 """
 from __future__ import annotations
 
 import hashlib
+import os
+import shutil
 import zipfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePosixPath
@@ -46,8 +49,29 @@ def guardar(lote: str, ficheros: Iterable) -> Guardado:
             ruta = carpeta / f"{huella}.pdf"
             if not ruta.exists():
                 ruta.write_bytes(datos)
-            facturas.append(Factura(_nombre_libre(nombre, huella, usados), ruta))
+            file_id = _nombre_libre(nombre, huella, usados)
+            facturas.append(Factura(file_id, _con_su_nombre(ruta, lote, file_id)))
     return Guardado(facturas, errores)
+
+
+def _con_su_nombre(ruta_huella: Path, lote: str, file_id: str) -> Path:
+    """La misma factura, con el nombre con el que llegó, en la carpeta de su lote (`almacen/lotes/<lote>/`).
+
+    El pipeline toma el nombre del fichero como identidad del documento, así que es esta ruta la que
+    se le pasa. Es un enlace duro al fichero guardado por huella: el contenido sigue estando una vez.
+    """
+    carpeta = Path(settings.MEDIA_ROOT) / "lotes" / lote
+    carpeta.mkdir(parents=True, exist_ok=True)
+    destino = carpeta / file_id
+    if destino.exists():
+        if destino.read_bytes() == ruta_huella.read_bytes():
+            return destino
+        destino.unlink()
+    try:
+        os.link(ruta_huella, destino)
+    except OSError:  # un sistema de ficheros sin enlaces duros: copia y ya
+        shutil.copyfile(ruta_huella, destino)
+    return destino
 
 
 def _desempaquetar(fichero, errores: list[str]) -> Iterator[tuple[str, bytes]]:
