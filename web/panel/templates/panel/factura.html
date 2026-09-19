@@ -1,148 +1,163 @@
 {% extends "panel/base.html" %}
 {% load static panel_extras %}
-{% block titulo %}{{ documento.file_id }} · Pagos de Alberto{% endblock %}
+{% block titulo %}{{ proveedor|default:documento.file_id }} · Pagos de Alberto{% endblock %}
 {% block css %}<link rel="stylesheet" href="{% static 'panel/facturas.css' %}">{% endblock %}
 {% block contenido %}
 
-<div>
-  <p class="suave"><a href="{% url 'panel:facturas' %}?lote={{ documento.lote|urlencode }}">Volver a las facturas</a></p>
-  <h1>{{ documento.file_id }}</h1>
-  <p class="cabecera-factura">
-    <span class="pildora grande {{ decision.resultado|pildora }}">{{ decision.resultado|etiqueta }}</span>
-    <span>{% if proveedor %}{{ proveedor }}{% else %}Proveedor: no se pudo leer{% endif %}</span>
+<section class="hero">
+  <a class="volver" href="{% url 'panel:facturas' %}?lote={{ documento.lote|urlencode }}">Volver a las facturas</a>
+  <h1>{{ proveedor|default:documento.file_id }}</h1>
+  <p class="lead resultado">
+    <span class="pildora grande {{ decision.resultado|pildora }}">{% if decision.resultado == "PAGAR" %}{% icono "check" 16 %}{% elif decision.resultado == "NO_PAGAR" %}{% icono "x" 16 %}{% else %}{% icono "ojo" 16 %}{% endif %}{{ decision.resultado|etiqueta }}</span>
+    <span>{{ motivo_corto }}.</span>
   </p>
-  <p class="intro">{{ decision.motivo }}</p>
-</div>
+</section>
+
+{% if decidir_arriba %}
+<section class="tarjeta">
+  <h2>Su decisión</h2>
+  <p class="intro">{% if revision %}Esta la decidió usted; puede cambiarla cuando quiera.{% else %}El sistema no lo tiene claro: dígale usted si se paga o no.{% endif %}</p>
+  {% include "panel/_revisar_form.html" with decision=decision revision=revision %}
+</section>
+{% endif %}
 
 <section class="tarjeta">
-  <h2>Qué dice la norma</h2>
-  {% if reglas %}
-    <p class="suave">Las comprobaciones de la norma {{ ejecucion.norma }}, una a una, tal como salieron.</p>
-    {% for r in reglas %}
+  <h2>Por qué</h2>
+  {% if fallan %}
+    {% for r in fallan %}
       <div class="regla">
-        <span class="estado pildora {% if r.ok %}bien{% else %}mal{% endif %}">{% if r.ok %}Bien{% else %}Falla{% endif %}</span>
-        <span>
-          <b>{{ r.id|regla }}</b>
-          {% if r.detalle %}<br><span class="suave">{{ r.detalle }}</span>{% endif %}
-        </span>
+        <span class="estado pildora mal">Falla</span>
+        <span><b>{{ r.id|regla }}</b>{% if r.detalle %}<br><span class="suave">{{ r.detalle }}</span>{% endif %}</span>
       </div>
     {% endfor %}
+  {% elif reglas %}
+    <p class="intro">Cumple las {{ reglas|length }} comprobaciones de la norma.</p>
   {% else %}
-    <p>No hemos podido comprobar ninguna norma: no se pudo leer la factura, así que no hay datos que comprobar.
-      Por eso queda para que la mire usted.</p>
+    <p class="intro">No se pudo leer la factura, así que no hay datos que comprobar: por eso la tiene que mirar usted.</p>
   {% endif %}
 </section>
 
+{% if notas or alertas %}
+<div class="aviso ojo">
+  {% icono "alerta" 20 %}
+  <div>
+    {% for n in notas %}<p>«{{ n.texto }}»</p>{% endfor %}
+    {% for a in alertas %}<p>El fichero trae {{ a }}.</p>{% endfor %}
+    <p>No se tiene en cuenta: se decide con los datos.</p>
+  </div>
+</div>
+{% endif %}
+
 <section class="tarjeta">
-  <h2>Lo que hemos leído</h2>
-  <p class="suave">Cada dato, con lo seguros que estamos de haberlo leído bien y en qué página estaba.</p>
+  <h2>La factura</h2>
   <dl class="datos">
-    {% for c in leidos %}
+    {% for c in datos %}
       <dt>{{ c.etiqueta }}</dt>
-      <dd>
-        {% if c.falta %}<span class="suave">no aparece</span>
-        {% else %}{{ c.valor }}
-          {% if c.confianza != None %}<span class="suave"> · seguridad {{ c.confianza }} %</span>{% endif %}
-          {% if c.pagina %}<span class="suave"> · página {{ c.pagina }}</span>{% endif %}
-          {% if c.poco_fiable %} <span class="pildora ojo">poco fiable</span>{% endif %}
-        {% endif %}
-      </dd>
+      <dd>{% if c.valor %}{{ c.valor }}{% if c.poco_fiable %} <span class="pildora ojo">poco fiable</span>{% endif %}{% else %}<span class="suave">no aparece</span>{% endif %}</dd>
     {% endfor %}
   </dl>
-</section>
+  <p style="margin: 22px 0 0;"><a class="boton suave" href="{% url 'panel:factura_pdf' documento.lote documento.file_id %}" target="_blank" rel="noopener">{% icono "doc" 18 %}Ver la factura original</a></p>
 
-<section class="tarjeta">
-  <h2>Texto de la factura que no decide</h2>
-  <p class="suave">Lo que dice una factura nunca decide: se mira y se decide con los datos.</p>
-  {% for n in notas %}
-    <div class="nota">
-      <p>«{{ n.texto }}»</p>
-      <p class="suave">{% for c in n.categorias %}{{ c }}{% if not forloop.last %} · {% endif %}{% empty %}sin clasificar{% endfor %}</p>
+  <details class="mas">
+    <summary>Ver todas las comprobaciones y los detalles técnicos{% icono "chevron" 16 %}</summary>
+
+    <h2>Las comprobaciones de la norma {{ ejecucion.norma }}</h2>
+    <div>
+      {% for r in reglas %}
+        <div class="regla">
+          <span class="estado pildora {% if r.ok %}bien{% else %}mal{% endif %}">{% if r.ok %}Bien{% else %}Falla{% endif %}</span>
+          <span><b>{{ r.id|regla }}</b>{% if r.detalle %}<br><span class="suave">{{ r.detalle }}</span>{% endif %}</span>
+        </div>
+      {% empty %}
+        <p class="suave">Ninguna: sin datos leídos no hay nada que comprobar.</p>
+      {% endfor %}
     </div>
-  {% empty %}
-    <p class="suave">Esta factura no trae texto de ese tipo.</p>
-  {% endfor %}
-</section>
 
-<section class="tarjeta">
-  <h2>Avisos del fichero</h2>
-  {% if alertas %}
-    <ul>{% for a in alertas %}<li>{{ a }}</li>{% endfor %}</ul>
-  {% else %}
-    <p class="suave">Ninguno: el fichero no tiene nada raro.</p>
-  {% endif %}
-</section>
-
-<section class="tarjeta">
-  <h2>El documento</h2>
-  <div class="grid-2">
+    <h2>Cada dato, con lo seguros que estamos y en qué página estaba</h2>
     <dl class="datos">
+      {% for c in leidos %}
+        <dt>{{ c.etiqueta }}</dt>
+        <dd>{% if c.falta %}<span class="suave">no aparece</span>{% else %}{{ c.valor }}{% if c.confianza != None %}<span class="suave"> · seguridad {{ c.confianza }} %</span>{% endif %}{% if c.pagina %}<span class="suave"> · página {{ c.pagina }}</span>{% endif %}{% if c.poco_fiable %} <span class="pildora ojo">poco fiable</span>{% endif %}{% endif %}</dd>
+      {% endfor %}
+    </dl>
+
+    <h2>El texto de la factura que no decide</h2>
+    <div>
+      {% for n in notas %}
+        <p>«{{ n.texto }}» <span class="suave">({% for c in n.categorias %}{{ c }}{% if not forloop.last %} · {% endif %}{% empty %}sin clasificar{% endfor %})</span></p>
+      {% empty %}
+        <p class="suave">Esta factura no trae texto de ese tipo.</p>
+      {% endfor %}
+    </div>
+
+    <h2>Avisos del fichero</h2>
+    {% if alertas %}
+      <ul>{% for a in alertas %}<li>{{ a }}</li>{% endfor %}</ul>
+    {% else %}
+      <p class="suave">Ninguno: el fichero no tiene nada raro.</p>
+    {% endif %}
+
+    <h2>El documento</h2>
+    <dl class="datos">
+      <dt>Fichero</dt><dd class="mono">{{ documento.file_id }}</dd>
       <dt>Tipo</dt><dd>{{ tipo }}</dd>
       <dt>Páginas</dt><dd>{{ documento.paginas }}</dd>
       <dt>Tamaño</dt><dd>{{ documento.bytes|filesizeformat }}</dd>
       <dt>Huella del fichero</dt><dd class="mono">{{ documento.sha256 }}</dd>
-      <dt>Dónde está guardado</dt><dd class="mono">{{ documento.ruta }}</dd>
-    </dl>
-    <dl class="datos">
       <dt>Cómo se leyó</dt><dd>{{ metodo }}</dd>
       {% if lectura %}
-        {% if lectura.lector %}<dt>Con qué se leyó</dt><dd>{{ lectura.lector }}</dd>{% endif %}
         <dt>Tardó</dt><dd>{{ lectura.segundos|floatformat:2 }} segundos</dd>
-        {% if lectura.tokens_in or lectura.tokens_out %}
-          <dt>Enviado a la inteligencia artificial</dt>
-          <dd>{{ lectura.tokens_in }} trozos de texto de ida y {{ lectura.tokens_out }} de vuelta</dd>
-        {% endif %}
-        <dt>Lo que costó leerla</dt>
-        <dd>{% if lectura.coste_eur %}{{ lectura.coste_eur|euros }}{% else %}nada: se leyó sin inteligencia artificial{% endif %}</dd>
+        <dt>Enviado a la inteligencia artificial</dt><dd>{{ lectura.tokens_in }} trozos de texto de ida y {{ lectura.tokens_out }} de vuelta</dd>
+        <dt>Lo que costó leerla</dt><dd>{% if lectura.coste_eur %}{{ lectura.coste_eur|euros }}{% else %}nada: se leyó sin inteligencia artificial{% endif %}</dd>
       {% endif %}
     </dl>
-  </div>
-  <p><a class="boton" href="{% url 'panel:factura_pdf' documento.lote documento.file_id %}" target="_blank" rel="noopener">Ver el PDF</a></p>
-</section>
 
-<section class="tarjeta">
-  <h2>Historial</h2>
-  <p class="suave">Todas las veces que hemos decidido sobre esta factura, y con qué copia de los datos.</p>
-  <div class="tabla-caja">
-    <table>
-      <thead><tr><th>Cuándo</th><th>Resultado</th><th>Por qué</th><th>Copia de los datos</th></tr></thead>
-      <tbody>
-      {% for h in historial %}
-        <tr>
-          <td>{{ h.ejecucion.inicio|date:"d/m/Y H:i" }}</td>
-          <td><span class="pildora {{ h.resultado|pildora }}">{{ h.resultado|etiqueta }}</span></td>
-          <td>{{ h.motivo }}</td>
-          <td class="mono">{{ h.ejecucion.version_datos }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% if revisiones %}
-    <h2 style="margin-top: 18px;">Lo que ha decidido usted</h2>
+    <h2>Todas las veces que se ha decidido sobre ella</h2>
     <div class="tabla-caja">
       <table>
-        <thead><tr><th>Cuándo</th><th>Quién</th><th>Resultado</th><th>Comentario</th></tr></thead>
+        <thead><tr><th>Cuándo</th><th>Resultado</th><th>Por qué</th><th>Versión de los datos</th></tr></thead>
         <tbody>
-        {% for r in revisiones %}
+        {% for h in historial %}
           <tr>
-            <td>{{ r.cuando|date:"d/m/Y H:i" }}</td>
-            <td>{{ r.quien }}</td>
-            <td><span class="pildora {{ r.resultado|pildora }}">{{ r.resultado|etiqueta }}</span></td>
-            <td>{{ r.comentario }}</td>
+            <td>{{ h.ejecucion.inicio|date:"d/m/Y H:i" }}</td>
+            <td><span class="pildora {{ h.resultado|pildora }}">{{ h.resultado|etiqueta }}</span></td>
+            <td>{{ h.motivo }}</td>
+            <td class="mono">{{ h.ejecucion.version_datos }}</td>
           </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
-  {% endif %}
+
+    <h2>Lo que ha decidido usted</h2>
+    {% if revisiones %}
+      <div class="tabla-caja">
+        <table>
+          <thead><tr><th>Cuándo</th><th>Quién</th><th>Resultado</th><th>Comentario</th></tr></thead>
+          <tbody>
+          {% for r in revisiones %}
+            <tr>
+              <td>{{ r.cuando|date:"d/m/Y H:i" }}</td>
+              <td>{{ r.quien }}</td>
+              <td><span class="pildora {{ r.resultado|pildora }}">{{ r.resultado|etiqueta }}</span></td>
+              <td>{{ r.comentario }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="suave">Todavía no ha decidido nada sobre esta factura.</p>
+    {% endif %}
+  </details>
 </section>
 
+{% if not decidir_arriba %}
 <section class="tarjeta">
-  <h2>Su decisión</h2>
-  <p class="suave">Lo que usted decida se guarda aparte, con su nombre y la fecha: no cambia lo que calculó el
-    sistema ni borra nada de lo de arriba. Si decide Pagar, este pedido contará como pagado en los lotes siguientes.</p>
+  <h2>¿No está de acuerdo?</h2>
+  <p class="intro">Diga usted qué se hace y se guarda con la fecha; lo de arriba no se toca.</p>
   {% include "panel/_revisar_form.html" with decision=decision revision=revision %}
 </section>
+{% endif %}
 
 {% endblock %}
