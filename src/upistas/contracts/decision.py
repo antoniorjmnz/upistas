@@ -32,3 +32,18 @@ class Decision(BaseModel):
     reglas: list[Regla] | None = None
     pedido: str | None = None
     run_id: str | None = None
+    alertas: Annotated[
+        list[str] | None,
+        Field(
+            description='Lo que Alberto debe ver aunque la decisión sea clara: notas sospechosas, importe anómalo, contradicciones'
+        ),
+    ] = None
+    metodo: Annotated[
+        str | None,
+        Field(
+            description='Cómo se leyó el documento: texto_determinista, texto_llm, vision_llm o ninguno'
+        ),
+    ] = None
+    version_datos: Annotated[
+        str | None, Field(description='Copia del ERP y del Excel con la que se decidió')
+    ] = None

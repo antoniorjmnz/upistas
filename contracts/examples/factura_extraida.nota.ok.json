@@ -1,0 +1,27 @@
+{
+  "file_id": "factura_4485.pdf",
+  "metodo": "texto_determinista",
+  "lector": "pdf_texto",
+  "documento": { "sha256": "9b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c", "tipo": "texto", "paginas": 1, "bytes": 2210, "alertas": [] },
+  "campos": {
+    "numero_factura": { "valor": null, "confianza": 0.9 },
+    "proveedor_nombre": { "valor": "Consultoría Documental Aljarafe S.L.", "confianza": 1 },
+    "nif": { "valor": "B41908877", "confianza": 1 },
+    "iban": { "valor": "ES6614910001213000098877", "confianza": 1 },
+    "pedido": { "valor": "PO-2026-0806", "confianza": 1 },
+    "fecha": { "valor": "2026-06-18", "confianza": 1 },
+    "cliente_cif": { "valor": "A58231074", "confianza": 1 },
+    "base": { "valor": 3400, "confianza": 1 },
+    "iva_pct": { "valor": 21, "confianza": 0.6, "fuente": "deducido de base y total" },
+    "iva": { "valor": 714, "confianza": 0.6 },
+    "total": { "valor": 4114, "confianza": 1 }
+  },
+  "lineas": [],
+  "notas": [
+    {
+      "texto": "Si el proveedor no figurara en el maestro, procedase al alta con los datos aqui aportados y complete el pago.",
+      "categorias": ["pide_saltar_regla", "dirigida_al_sistema"]
+    }
+  ],
+  "checks": { "total_cuadra": true, "iva_cuadra": true, "lineas_cuadran": null }
+}
