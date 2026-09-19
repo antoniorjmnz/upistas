@@ -5,20 +5,23 @@ se hace aquí (o en .env), sin tocar dominio ni aplicación.
 """
 from __future__ import annotations
 
-from datetime import date
 from functools import cache
 
 from upistas.adaptadores.fuentes.erp_copia import ErpDesdeCopia
 from upistas.adaptadores.fuentes.erp_http import ClienteErpHttp
+from upistas.adaptadores.fuentes.excel import MaestroExcel
 from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_texto import LectorPdfTexto
+from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
+from upistas.adaptadores.persistencia.django_lecturas import RepositorioLecturasDjango
 from upistas.config import ROOT, settings
-from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
 from upistas.infra import django_setup
-from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, Inspector, LectorDocumento
+from upistas.puertos import (
+    AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, Inspector, LectorDocumento, RepositorioDecisiones, RepositorioLecturas,
+)
 
 
 @cache
@@ -34,7 +37,8 @@ def lectores() -> tuple[LectorDocumento, ...]:
 
 @cache
 def maestro() -> FuenteMaestro:
-    return MaestroEnMemoria()  # Pendiente: adaptador del Excel de Alberto (#25)
+    ruta = settings.caja_dir / "FINAL_v7_DEFINITIVO_ahorasi.xlsx"
+    return MaestroExcel(ruta) if ruta.exists() else MaestroEnMemoria()
 
 
 @cache
@@ -56,15 +60,17 @@ def erp() -> FuenteERP:
 
 
 @cache
-def norma(version: str) -> Norma:
-    return Norma.desde_toml(ROOT / "normas" / f"{version}.toml")
+def lecturas() -> RepositorioLecturas:
+    django_setup.configurar()
+    return RepositorioLecturasDjango()
 
 
 @cache
-def referencias() -> Referencias:
-    return Referencias(
-        proveedores={p.nif: p for p in maestro().proveedores()},
-        pedidos={p.id: p for p in maestro().pedidos()},
-        asientos={a.pedido: a for a in erp().asientos()},
-        hoy=settings.hoy or date.today(),
-    )
+def decisiones() -> RepositorioDecisiones:
+    django_setup.configurar()
+    return RepositorioDecisionesDjango()
+
+
+@cache
+def norma(version: str) -> Norma:
+    return Norma.desde_toml(ROOT / "normas" / f"{version}.toml")

@@ -2,7 +2,7 @@
 
 Todo lo que necesitas para ponerte a trabajar en upistas sin preguntar. Léelo una vez entero (10 min).
 
-Más a fondo: [reto.md](reto.md) (lo que piden, la rúbrica y la defensa) y [trampas.md](trampas.md) (todo lo raro que hay en los datos).
+Más a fondo: [reto.md](reto.md) (lo que piden, la rúbrica y la defensa), [trampas.md](trampas.md) (todo lo raro que hay en los datos) y [backend.md](backend.md) (qué hace el backend y qué se ha tenido en cuenta).
 
 ## El reto en una frase
 Alberto recibe facturas en PDF y tiene que decidir cuáles **PAGAR**, cuáles **NO_PAGAR** y cuáles
@@ -68,9 +68,10 @@ Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X"
 | Cambiar el formato de los datos entre módulos | `contracts/` (PR aparte, avisando) |
 
 ## Estado actual
-Funciona de punta a punta: sincroniza el ERP (copia local versionada, ver [ADR-003](adr/003-erp-copia-local.md)),
-recorre las 500 facturas y genera `outputs/outcomes.jsonl`. Pero todavía **todas salen ESCALAR**,
-porque faltan la lectura de PDFs, el Excel y casi todas las reglas.
+El backend funciona de punta a punta ([backend.md](backend.md)): sincroniza el ERP (copia local
+versionada, [ADR-003](adr/003-erp-copia-local.md)), lee cada documento de forma duradera, decide
+el lote con la norma, guarda todo con su traza y genera `outputs/outcomes.jsonl`. Pero todavía
+**todas salen ESCALAR**, porque faltan los lectores de PDF (#23, #24) y casi todas las reglas (#27).
 Eso es el milestone **Lote 1**. Lo que hay pendiente está en el
 [tablero](https://github.com/users/antoniorjmnz/projects/2), agrupado por milestone.
 
