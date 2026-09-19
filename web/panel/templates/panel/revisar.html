@@ -1,0 +1,49 @@
+{% extends "panel/base.html" %}
+{% load static %}
+{% block titulo %}Para revisar · Pagos de Alberto{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'panel/revision.css' %}">{% endblock %}
+{% block contenido %}
+<div>
+  <h1>Para revisar</h1>
+  <p class="intro">Aquí solo llegan las facturas que el sistema no puede decidir con seguridad: datos que no se
+    leen bien, el Excel y el ERP que se contradicen, texto en la factura que intenta influir en la decisión,
+    importes fuera de lo habitual o facturas que usted mismo apuntó para mirar. Del resto se encarga solo,
+    así que estas son las únicas que tiene que ver.</p>
+</div>
+
+<div class="cifras">
+  <div class="cifra"><b>{{ n_pendientes }}</b><span>Pendientes de revisar</span></div>
+  <div class="cifra"><b>{{ n_revisadas }}</b><span>Ya revisadas por usted</span></div>
+  <div class="cifra"><b>{{ n_escaladas }}</b><span>Facturas escaladas en total</span></div>
+</div>
+
+<form class="filtros tarjeta" method="get" action="{% url 'panel:cola' %}"
+      hx-get="{% url 'panel:cola' %}" hx-target="#lista" hx-push-url="true"
+      hx-trigger="input changed delay:300ms from:#buscar, change from:select, submit">
+  <label for="buscar">Buscar
+    <input id="buscar" type="search" name="q" value="{{ q }}" placeholder="Nombre del fichero, pedido o motivo" autocomplete="off">
+  </label>
+  <label for="estado">Qué le enseñamos
+    <select id="estado" name="estado">
+      <option value="pendientes" {% if estado == "pendientes" %}selected{% endif %}>Pendientes de revisar</option>
+      <option value="revisadas" {% if estado == "revisadas" %}selected{% endif %}>Ya revisadas</option>
+      <option value="todas" {% if estado == "todas" %}selected{% endif %}>Todas</option>
+    </select>
+  </label>
+  {% if lotes %}
+  <label for="lote">Lote
+    <select id="lote" name="lote">
+      {% for l in lotes %}<option value="{{ l }}" {% if l == lote %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <noscript><button class="boton" type="submit">Buscar</button></noscript>
+</form>
+
+<p class="suave nota-pago">Si decide «Pagar», ese pedido queda como pagado: no le volverá a salir en los
+  lotes siguientes. Puede cambiar de opinión y volver a decidir; se guarda todo lo que ha ido diciendo.</p>
+
+<div id="lista" class="cola">
+  {% include "panel/_revisar_lista.html" %}
+</div>
+{% endblock %}
