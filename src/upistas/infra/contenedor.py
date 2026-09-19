@@ -19,7 +19,6 @@ from upistas.adaptadores.fuentes.erp_http import ClienteErpHttp
 from upistas.adaptadores.fuentes.excel import MaestroExcel
 from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.fuentes.snapshot import ErpSnapshot
-from upistas.adaptadores.lectores.fal_ocr import FalOCR
 from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnificado
 from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
@@ -40,17 +39,13 @@ def inspector() -> Inspector:
 
 
 def _ocr() -> Callable[[bytes], str] | None:
-    """El proveedor de OCR para escaneados: fal (extra ocr) o firecrawl (httpx, sin extra)."""
+    """El OCR para escaneados: Firecrawl /parse (httpx, sin extra)."""
     if not settings.usar_ocr:
         return None
-    if settings.ocr_provider == "firecrawl":
-        from upistas.adaptadores.lectores.firecrawl_ocr import FirecrawlOCR
+    from upistas.adaptadores.lectores.firecrawl_ocr import FirecrawlOCR
 
-        return FirecrawlOCR(settings.firecrawl_api_key, settings.firecrawl_base_url,
-                            cerrojo=settings.outputs_dir / ".firecrawl.lock")
-    if settings.ocr_provider == "fal":
-        return FalOCR()
-    raise ValueError(f"OCR_PROVIDER desconocido: {settings.ocr_provider!r} (usa 'fal' o 'firecrawl')")
+    return FirecrawlOCR(settings.firecrawl_api_key, settings.firecrawl_base_url,
+                        cerrojo=settings.outputs_dir / ".firecrawl.lock")
 
 
 @cache
@@ -186,7 +181,7 @@ def configurar(nuevos: Settings) -> None:
 
 @cache
 def huella_lectores() -> str:
-    codigo = hashlib.sha256(f"{VERSION}:{settings.usar_ocr}:{settings.ocr_provider}:{settings.lectura_timeout_s}".encode())
+    codigo = hashlib.sha256(f"{VERSION}:{settings.usar_ocr}:{settings.lectura_timeout_s}".encode())
     base = ROOT / "src" / "upistas"
     rutas = list((base / "adaptadores" / "lectores").glob("*.py")) + [
         base / "dominio" / "notas.py", base / "dominio" / "importes.py",

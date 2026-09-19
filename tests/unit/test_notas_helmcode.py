@@ -12,7 +12,6 @@ import pytest
 from openai import APITimeoutError
 
 from upistas.adaptadores.notas_helmcode import EvaluadorNotasHelmcode
-from upistas.adaptadores.lectores.fal_ocr import FalOCR
 from upistas.dominio.duplicados import resolver_duplicados
 from upistas.dominio.modelos import Asiento, EvaluacionNotas, Factura, Nota, Pedido, Proveedor, Referencias, Resultado
 from upistas.dominio.norma import Norma
@@ -130,15 +129,6 @@ def test_error_ocr_se_mantiene_aunque_figure_pagada():
     factura = replace(FACTURA, errores_lectura=("Página 2: API de imágenes no disponible",))
     refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, estado="PAGADA")})
     assert Norma.desde_toml(NORMA).evaluar(factura, refs).resultado == Resultado.ESCALAR
-
-
-def test_fallo_fal_se_convierte_en_error_de_lectura_sin_exponer_detalles(monkeypatch):
-    falso = SimpleNamespace(upload_file=Mock(side_effect=RuntimeError("detalle sensible")))
-    monkeypatch.setitem(sys.modules, "fal_client", falso)
-    with pytest.raises(LecturaFallida) as exc:
-        FalOCR()(b"imagen")
-    assert "API de imágenes no disponible" in str(exc.value)
-    assert "detalle sensible" not in str(exc.value)
 
 
 def test_pipeline_no_crea_cliente_sin_notas_ni_con_ocr_fallido(monkeypatch):

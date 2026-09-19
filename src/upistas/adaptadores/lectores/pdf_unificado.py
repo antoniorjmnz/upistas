@@ -23,7 +23,7 @@ def texto_util(texto: str) -> bool:
 
 
 def _campos_insuficientes(pagina: dict) -> bool:
-    extraida = extraer_campos("pagina", [{"page": pagina.get("page", 1), "route": pagina.get("route", "fal_ocr"),
+    extraida = extraer_campos("pagina", [{"page": pagina.get("page", 1), "route": pagina.get("route", "firecrawl_ocr"),
                                          "text": pagina.get("text", ""), "error": pagina.get("error")}])
     if extraida.errores:
         return True
@@ -35,7 +35,7 @@ def _discrepancias(pagina: dict) -> list[str]:
     if not ocr.strip() or not vision.strip():
         return []
     indice = pagina.get("page", 1)
-    a = extraer_campos("ocr", [{"page": indice, "route": "fal_ocr", "text": ocr}])
+    a = extraer_campos("ocr", [{"page": indice, "route": "firecrawl_ocr", "text": ocr}])
     b = extraer_campos("vision", [{"page": indice, "route": "vision_llm", "text": vision}])
     avisos = []
     for nombre in ("numero_factura", "nif", "iban", "pedido", "fecha", "base", "iva_pct", "iva", "total"):
