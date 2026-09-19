@@ -1,56 +1,63 @@
 {% load panel_extras %}
 {% if not ejecucion %}
-  <p class="suave">Todavía no hemos pasado ningún lote. En cuanto se procese uno, aquí verá sus facturas.</p>
+  <section class="tarjeta">
+    <div class="vacio">
+      <div class="icono">{% icono "doc" 28 %}</div>
+      <p class="grande">Todavía no hay facturas</p>
+      <p class="suave">En cuanto se pase el primer lote, aquí las verá todas.</p>
+    </div>
+  </section>
+{% elif not pagina.object_list %}
+  <section class="tarjeta">
+    <div class="vacio">
+      <p class="grande">Ninguna factura coincide</p>
+      <p class="suave">Pruebe con otro proveedor, otro número, o vuelva a «Todas».</p>
+    </div>
+  </section>
 {% else %}
-  <div class="cifras">
-    <div class="cifra"><b>{{ total }}</b><span>Facturas del lote {{ lote }}</span></div>
-    <div class="cifra"><b>{{ cuenta.PAGAR|default:"0" }}</b><span>Para pagar</span></div>
-    <div class="cifra"><b>{{ cuenta.NO_PAGAR|default:"0" }}</b><span>Para no pagar</span></div>
-    <div class="cifra"><b>{{ cuenta.ESCALAR|default:"0" }}</b><span>Para que las mire usted</span></div>
-  </div>
-
-  <div class="tarjeta">
-    <p class="suave" style="margin-top: 0;">
-      {% if filtrando %}{{ encontrados }} de {{ total }} facturas{% else %}{{ total }} facturas{% endif %}
-    </p>
+  <section class="tarjeta">
     <div class="tabla-caja">
       <table>
         <thead>
-          <tr>
-            <th>Factura</th><th>Proveedor</th><th>Pedido</th><th>Fecha</th><th class="num">Total</th>
-            <th>Resultado</th><th>Por qué</th><th>Avisos y su decisión</th>
-          </tr>
+          <tr><th>Proveedor</th><th>Pedido</th><th>Fecha</th><th class="num">Total</th><th>Resultado</th><th>Por qué</th></tr>
         </thead>
         <tbody>
         {% for d in pagina %}
           <tr>
-            <td><a href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">{{ d.documento.file_id }}</a></td>
-            <td>{% if d.proveedor %}{{ d.proveedor }}{% else %}<span class="suave">no se pudo leer</span>{% endif %}</td>
-            <td class="mono">{{ d.pedido }}</td>
+            <td>
+              <a class="quien" href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">{{ d.proveedor|default:d.documento.file_id }}</a>
+              <span class="fichero suave">{{ d.documento.file_id }}</span>
+            </td>
+            <td>{{ d.pedido }}</td>
             <td>{{ d.fecha }}</td>
             <td class="num">{{ d.total|euros }}</td>
-            <td><span class="pildora {{ d.resultado|pildora }}">{{ d.resultado|etiqueta }}</span></td>
-            <td class="motivo" title="{{ d.motivo }}">{{ d.motivo|truncatechars:90 }}</td>
             <td>
-              <div class="marcas">
-                {% if d.alertas %}<span class="pildora ojo" title="El fichero tiene algo raro">avisos</span>{% endif %}
-                {% if d.notas %}<span class="pildora ojo" title="La factura trae texto que no es un dato">texto raro</span>{% endif %}
-                {% if d.revision %}<span class="pildora {{ d.revision.resultado|pildora }}" title="Lo que decidió usted el {{ d.revision.cuando|date:'d/m/Y' }}">{{ d.revision.resultado|etiqueta }} (usted)</span>{% endif %}
-              </div>
+              {% if d.revision %}
+                <span class="pildora {{ d.revision.resultado|pildora }}">{{ d.revision.resultado|etiqueta }} (usted)</span>
+              {% else %}
+                <span class="pildora {{ d.resultado|pildora }}">{{ d.resultado|etiqueta }}</span>
+              {% endif %}
             </td>
+            <td class="porque" title="{{ d.motivo }}">{{ d.porque }}</td>
           </tr>
-        {% empty %}
-          <tr><td colspan="8" class="suave">Ninguna factura coincide con lo que ha pedido.</td></tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
     {% if pagina.paginator.num_pages > 1 %}
-    <nav class="paginas" aria-label="Páginas">
-      {% if pagina.has_previous %}<a href="?lote={{ lote|urlencode }}&amp;q={{ q|urlencode }}&amp;resultado={{ resultado }}&amp;revision={{ revision }}&amp;pagina={{ pagina.previous_page_number }}" hx-get="?lote={{ lote|urlencode }}&amp;q={{ q|urlencode }}&amp;resultado={{ resultado }}&amp;revision={{ revision }}&amp;pagina={{ pagina.previous_page_number }}" hx-target="#tabla" hx-push-url="true">← Anterior</a>{% endif %}
-      <span class="suave">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
-      {% if pagina.has_next %}<a href="?lote={{ lote|urlencode }}&amp;q={{ q|urlencode }}&amp;resultado={{ resultado }}&amp;revision={{ revision }}&amp;pagina={{ pagina.next_page_number }}" hx-get="?lote={{ lote|urlencode }}&amp;q={{ q|urlencode }}&amp;resultado={{ resultado }}&amp;revision={{ revision }}&amp;pagina={{ pagina.next_page_number }}" hx-target="#tabla" hx-push-url="true">Siguiente →</a>{% endif %}
-    </nav>
+      <nav class="paginas" aria-label="Páginas">
+        {% if pagina.has_previous %}
+          <a href="{% url 'panel:facturas' %}{% querystring pagina=pagina.previous_page_number %}"
+             hx-get="{% url 'panel:facturas' %}{% querystring pagina=pagina.previous_page_number %}"
+             hx-target="#tabla" hx-push-url="true">Anterior</a>
+        {% endif %}
+        <span class="suave">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+        {% if pagina.has_next %}
+          <a href="{% url 'panel:facturas' %}{% querystring pagina=pagina.next_page_number %}"
+             hx-get="{% url 'panel:facturas' %}{% querystring pagina=pagina.next_page_number %}"
+             hx-target="#tabla" hx-push-url="true">Siguiente</a>
+        {% endif %}
+      </nav>
     {% endif %}
-  </div>
+  </section>
 {% endif %}

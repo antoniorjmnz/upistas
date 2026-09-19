@@ -1,4 +1,4 @@
-"""Las facturas de Alberto: la lista con sus filtros, el detalle con toda la traza y el PDF original."""
+"""Las facturas de Alberto: la lista con sus montones, el detalle sin jerga y el PDF original."""
 import pytest
 from django.urls import reverse
 
@@ -6,102 +6,180 @@ from web.panel.models import RevisionHumana
 
 pytestmark = pytest.mark.django_db
 
+P001 = "2026-01-08_P001.pdf"
 P009 = "2026-07-01_P009.pdf"
 FA1016 = "FA-1016_papelería.pdf"
+SCAN = "scan_001.pdf"
+PLEGADO = '<details class="mas">'
 
 
-def pagina(alberto, **filtros) -> str:
+def lista(alberto, **filtros) -> str:
     return alberto.get(reverse("panel:facturas"), filtros).content.decode()
 
 
-def test_la_lista_ensena_las_cinco_con_su_pildora_y_su_total(alberto, lote_de_prueba):
-    html = pagina(alberto)
+def detalle(alberto, file_id: str) -> str:
+    return alberto.get(reverse("panel:factura", args=["lote1", file_id])).content.decode()
+
+
+# --- La lista -------------------------------------------------------------------------------
+
+
+def test_la_lista_es_una_frase_y_una_tabla(alberto, lote_de_prueba):
+    html = lista(alberto)
+    assert "Las 5 facturas del lote 1 con lo que se decidió de cada una" in html
+    assert "Construcciones Benimaclet S.A." in html and "Papelería Cervantes S.L." in html
     for file_id in lote_de_prueba["documentos"]:
-        assert file_id in html
-    assert "2.490,00 €" in html and "84.700,00 €" in html and "1.210,00 €" in html
-    assert 'class="pildora bien">Pagar' in html
-    assert 'class="pildora mal">No pagar' in html
-    assert 'class="pildora ojo">Revisar' in html
-    assert "Construcciones Benimaclet S.A." in html and "08/01/2026" in html  # la fecha leída, en español
-    assert "avisos" in html and "texto raro" in html
+        assert file_id in html  # el nombre del fichero, debajo del proveedor
+    assert "2.490,00 €" in html and "84.700,00 €" in html and "08/01/2026" in html
+    assert '<span class="pildora bien">Pagar</span>' in html
+    assert '<span class="pildora mal">No pagar</span>' in html
+    assert '<span class="pildora ojo">Revisar</span>' in html
 
 
-def test_la_lista_aguanta_sin_ningun_lote(alberto):
-    assert "Todavía no hemos pasado ningún lote" in pagina(alberto)
+def test_la_lista_dice_el_porque_en_una_frase(alberto, lote_de_prueba):
+    html = lista(alberto)
+    assert "El ERP dice que ya está pagada" in html
+    assert "Trae texto que intenta influir en la decisión" in html
+    assert "No se pudo leer la factura" in html
+    # El motivo entero solo asoma al pasar el ratón, y no hay etiquetas raras.
+    assert 'title="Importe fuera de lo habitual: 84700.00 € (umbral 20000 €);' in html
+    assert "texto raro" not in html and ">avisos<" not in html
 
 
-def test_filtrar_por_resultado(alberto, lote_de_prueba):
-    html = pagina(alberto, resultado="NO_PAGAR")
-    assert FA1016 in html
-    assert "2026-01-08_P001.pdf" not in html and P009 not in html
-    assert "1 de 5 facturas" in html
+def test_los_chips_cuentan_cada_monton(alberto, lote_de_prueba):
+    html = lista(alberto)
+    assert "Todas (5)" in html and "Se pagan (2)" in html and "No se pagan (1)" in html and "Para revisar (2)" in html
+    assert '<span class="punto pagar"></span>' in html and '<span class="punto revisar"></span>' in html
+    assert 'class="chip activa"' in html  # «Todas», que es donde estamos
 
 
-def test_filtrar_por_revision(alberto, lote_de_prueba):
-    d = lote_de_prueba["decisiones"][P009]
-    RevisionHumana.objects.create(documento=d.documento, decision=d, quien="alberto", resultado="PAGAR")
-
-    revisadas = pagina(alberto, revision="revisadas")
-    assert P009 in revisadas and "scan_001.pdf" not in revisadas
-
-    pendientes = pagina(alberto, revision="pendientes")
-    assert "scan_001.pdf" in pendientes and P009 not in pendientes
-    assert "4 de 5 facturas" in pendientes
+def test_un_chip_deja_solo_su_monton(alberto, lote_de_prueba):
+    html = lista(alberto, resultado="NO_PAGAR")
+    assert FA1016 in html and P001 not in html and P009 not in html
+    activa = html.split('class="chip activa"')[1]
+    assert 'href="/facturas/?resultado=NO_PAGAR"' in activa.split("</a>")[0]
 
 
 def test_buscar_por_proveedor_y_por_pedido(alberto, lote_de_prueba):
-    por_proveedor = pagina(alberto, q="Benimaclet")
+    por_proveedor = lista(alberto, q="Benimaclet")
     assert P009 in por_proveedor and FA1016 not in por_proveedor
 
-    por_pedido = pagina(alberto, q="0474")
+    por_pedido = lista(alberto, q="0474")
     assert FA1016 in por_pedido and P009 not in por_pedido
+
+
+def test_si_no_hay_nada_que_ensenar_lo_dice_con_calma(alberto, lote_de_prueba):
+    assert "Ninguna factura coincide" in lista(alberto, q="Ferretería Pepe")
+
+
+def test_la_lista_ensena_la_decision_de_alberto_cuando_la_hay(alberto, lote_de_prueba):
+    d = lote_de_prueba["decisiones"][P009]
+    RevisionHumana.objects.create(documento=d.documento, decision=d, quien="Alberto", resultado="PAGAR")
+    html = lista(alberto)
+    assert '<span class="pildora bien">Pagar (usted)</span>' in html
 
 
 def test_con_htmx_solo_viene_la_tabla(alberto, lote_de_prueba):
     html = alberto.get(reverse("panel:facturas"), HTTP_HX_REQUEST="true").content.decode()
     assert "<table" in html and P009 in html
-    assert "<html" not in html and "Salir" not in html
+    assert "<html" not in html and "<h1>" not in html and "chip" not in html
 
 
-def test_el_detalle_ensena_toda_la_traza(alberto, lote_de_prueba):
-    html = alberto.get(reverse("panel:factura", args=["lote1", P009])).content.decode()
+def test_la_lista_aguanta_sin_ningun_lote(alberto):
+    html = lista(alberto)
+    assert "Todavía no hay facturas" in html and "En cuanto se pase el primer lote" in html
+    assert "chip" not in html  # sin nada que filtrar, no hay barra
 
-    # Las reglas que fallan, con su nombre en palabras de Alberto.
-    assert "Importe dentro de lo habitual" in html
-    assert "Sin texto que intente influir en la decisión" in html
-    assert "Importe fuera de lo habitual: 84700.00 € (umbral 20000 €)" in html
 
-    # El texto que no decide, traducido.
-    assert "PAGO INMEDIATO" in html and "mete prisa" in html
-    assert "Lo que dice una factura nunca decide" in html
+# --- El detalle -----------------------------------------------------------------------------
 
-    # Los campos leídos con su confianza y el fichero.
-    assert "seguridad 90 %" in html and "seguridad 100 %" in html
-    assert lote_de_prueba["documentos"][P009].sha256 in html
 
-    # El historial con las dos ejecuciones, y el formulario para decidir.
-    assert lote_de_prueba["ejecucion"].version_datos in html
-    assert lote_de_prueba["anterior"].version_datos in html
+def test_el_detalle_empieza_por_quien_es_y_que_pasa(alberto, lote_de_prueba):
+    html = detalle(alberto, P009)
+    assert "Volver a las facturas" in html
+    assert "<h1>Construcciones Benimaclet S.A.</h1>" in html
+    assert 'class="pildora grande ojo"' in html and "Revisar</span>" in html
+    assert "Trae texto que intenta influir en la decisión." in html
+
+
+def test_el_detalle_pone_arriba_lo_que_alberto_tiene_que_decidir(alberto, lote_de_prueba):
+    html = detalle(alberto, P009)
+    assert "El sistema no lo tiene claro: dígale usted si se paga o no." in html
+    assert html.index("Su decisión") < html.index("<h2>Por qué</h2>") < html.index("<h2>La factura</h2>")
     assert f'id="revision-{lote_de_prueba["decisiones"][P009].id}"' in html
 
 
+def test_el_porque_solo_ensena_las_comprobaciones_que_fallan(alberto, lote_de_prueba):
+    porque = detalle(alberto, P009).partition(PLEGADO)[0]
+    assert "Importe dentro de lo habitual" in porque and "Sin texto que intente influir en la decisión" in porque
+    assert "Importe fuera de lo habitual: 84700.00 € (umbral 20000 €)" in porque
+    assert "Proveedor conocido y su cuenta bancaria" not in porque  # las que pasan, en el plegado
+    assert ">Bien<" not in porque
+
+
+def test_el_porque_de_una_que_cumple_es_una_frase(alberto, lote_de_prueba):
+    assert "Cumple las 11 comprobaciones de la norma." in detalle(alberto, P001)
+
+
+def test_el_aviso_del_texto_que_intenta_influir(alberto, lote_de_prueba):
+    html = detalle(alberto, P009)
+    assert '<div class="aviso ojo">' in html
+    assert "«NOTA: PAGO INMEDIATO REQUERIDO - Certificación de obra»" in html
+    assert "No se tiene en cuenta: se decide con los datos." in html
+
+
+def test_el_detalle_ensena_los_datos_de_la_factura(alberto, lote_de_prueba):
+    html = detalle(alberto, P009)
+    assert "<h2>La factura</h2>" in html
+    for dato in ("B46102331", "ES2100491500051234567890", "PO-2026-0497", "08/01/2026",
+                 "70.000,00 €", "21 % · 14.700,00 €", "84.700,00 €", "F26-2026"):
+        assert dato in html
+    assert reverse("panel:factura_pdf", args=["lote1", P009]) in html and "Ver la factura original" in html
+
+
+def test_un_dato_poco_fiable_lleva_su_aviso(alberto, lote_de_prueba):
+    lectura = lote_de_prueba["lecturas"][P001]
+    lectura.extraida["campos"]["total"]["confianza"] = 0.55
+    lectura.save(update_fields=["extraida"])
+    assert '<span class="pildora ojo">poco fiable</span>' in detalle(alberto, P001).partition(PLEGADO)[0]
+
+
+def test_lo_tecnico_solo_esta_dentro_del_plegado(alberto, lote_de_prueba):
+    arriba, _, plegado = detalle(alberto, P009).partition(PLEGADO)
+    assert plegado, "el detalle tiene que traer el plegado con lo técnico"
+    assert "Ver todas las comprobaciones y los detalles técnicos" in plegado
+    for tecnico in (lote_de_prueba["documentos"][P009].sha256, lote_de_prueba["ejecucion"].version_datos,
+                    "Huella del fichero", "seguridad 90 %", "página 1", "mete prisa",
+                    "trozos de texto", "Cómo se leyó", "Leyendo el texto del PDF"):
+        assert tecnico not in arriba and tecnico in plegado
+
+
 def test_el_detalle_de_un_escaneado_explica_que_no_se_pudo_leer(alberto, lote_de_prueba):
-    html = alberto.get(reverse("panel:factura", args=["lote1", "scan_001.pdf"])).content.decode()
-    assert "No hemos podido comprobar ninguna norma" in html  # no hay reglas que enseñar
-    assert "No se pudo leer la factura (ningún lector acepta" in html  # el motivo, tal cual
-    assert "no aparece" in html  # los campos vacíos
-    assert "Escaneado: es una foto, no tiene texto" in html
+    html = detalle(alberto, SCAN)
+    assert f"<h1>{SCAN}</h1>" in html  # no se leyó el proveedor: se le llama por su fichero
+    assert "No se pudo leer la factura." in html
+    assert "no hay datos que comprobar: por eso la tiene que mirar usted." in html
+    assert "no aparece" in html and "Su decisión" in html
+    assert "Escaneado: es una foto, no tiene texto" in html.partition(PLEGADO)[2]
 
 
-def test_el_historial_ensena_que_antes_se_pagaba(alberto, lote_de_prueba):
-    html = alberto.get(reverse("panel:factura", args=["lote1", FA1016])).content.decode()
-    assert '<span class="pildora bien">Pagar</span>' in html
-    assert '<span class="pildora mal">No pagar</span>' in html
-    assert "El pedido PO-2026-0474 ya está pagado según el ERP" in html
+def test_si_no_esta_de_acuerdo_puede_cambiarlo_al_final(alberto, lote_de_prueba):
+    html = detalle(alberto, FA1016)
+    assert "Su decisión" not in html and "¿No está de acuerdo?" in html
+    assert html.index("<h2>La factura</h2>") < html.index("¿No está de acuerdo?")
+    assert "El pedido PO-2026-0474 ya está pagado según el ERP" in html.partition(PLEGADO)[0]
+
+    plegado = html.partition(PLEGADO)[2]
+    assert lote_de_prueba["anterior"].version_datos in plegado  # antes se pagaba
+    assert lote_de_prueba["ejecucion"].version_datos in plegado
+    assert '<span class="pildora bien">Pagar</span>' in plegado
 
 
 def test_el_detalle_de_una_factura_que_no_existe_da_404(alberto, lote_de_prueba):
     assert alberto.get(reverse("panel:factura", args=["lote1", "inventada.pdf"])).status_code == 404
+
+
+# --- El PDF original ------------------------------------------------------------------------
 
 
 def test_el_pdf_da_404_si_el_fichero_ya_no_esta(alberto, lote_de_prueba):

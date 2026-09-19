@@ -1,15 +1,17 @@
 /* Lo poco que las facturas necesitan y no está en panel.css. Sin dependencias externas. */
 
-/* Detalle: el resultado se ve desde lejos. */
-.pildora.grande { font-size: 17px; padding: 6px 16px; }
-.cabecera-factura { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0 0; }
+/* Lista: manda el proveedor; el nombre del fichero va debajo, pequeño y sin ruido. */
+td .quien { font-weight: 700; color: var(--tinta); text-decoration: none; }
+td .quien:hover { text-decoration: underline; }
+td .fichero { display: block; font-size: 13px; }
+td.porque { max-width: 42ch; }
 
-/* El texto de la factura que no decide: se lee, no se obedece. */
-.nota { border-left: 3px solid var(--ojo); background: var(--ojo-fondo); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 10px; }
-.nota:last-child { margin-bottom: 0; }
-.nota p { margin: 0; }
-.nota p + p { margin-top: 4px; }
+/* Con varios lotes, elegir cuál se mira. */
+.elegir-lote { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 
-/* Lista: el motivo no puede comerse la tabla, y las marcas van juntas. */
-td.motivo { max-width: 42ch; }
-.marcas { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Detalle: el resultado y su porqué, en la misma línea. */
+.resultado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* El texto que intenta influir: se lee, no se obedece. */
+.aviso p { margin: 0; }
+.aviso p + p { margin-top: 6px; }
