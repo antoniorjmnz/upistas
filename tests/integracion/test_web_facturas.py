@@ -99,33 +99,35 @@ def test_el_filtro_de_proveedor_deja_solo_lo_suyo(alberto, lote_de_prueba):
     assert SCAN not in html
 
 
-def test_el_filtro_de_importe_deja_solo_lo_que_esta_en_rango(alberto, lote_de_prueba):
-    html = lista(alberto, desde="2000", hasta="3000")
-    assert P001 in html
-    for file_id in (FA1016, P009, SUM3011, SCAN):
-        assert file_id not in html
+def test_el_filtro_de_fecha_deja_solo_lo_que_esta_en_rango(alberto, lote_de_prueba):
+    html = lista(alberto, desde="2026-01-01", hasta="2026-01-31")  # las cuatro leídas son del 8 de enero
+    for file_id in (P001, FA1016, P009, SUM3011):
+        assert file_id in html
+    assert SCAN not in html  # sin fecha leída, no entra en el filtro
+    html = lista(alberto, desde="2026-02-01")
+    assert P001 not in html and "Ninguna factura coincide" in html and "quite los filtros" in html
 
 
-def test_un_proveedor_que_no_existe_no_deja_nada(alberto, lote_de_prueba):
-    html = lista(alberto, proveedor="P999")
-    assert "Ninguna factura coincide con la búsqueda o los filtros" in html
+def test_un_proveedor_que_ya_no_esta_en_el_maestro_no_filtra(alberto, lote_de_prueba):
+    html = lista(alberto, proveedor="P999")  # un enlace guardado con un código borrado: se enseña todo, sin filtro puesto
     for file_id in (P001, FA1016, P009, SUM3011, SCAN):
-        assert file_id not in html
+        assert file_id in html
+    assert "filtros-puestos" not in html
 
 
 def test_el_select_de_proveedor_lista_el_maestro(alberto, lote_de_prueba):
     _proveedor_p001()
     bloque = lista(alberto).split('<select name="proveedor"')[1].split("</select>")[0]
     assert '<option value="">Todos los proveedores</option>' in bloque
-    assert '<option value="P001" >Suministros Levante S.L.</option>' in bloque
+    assert '<option value="P001">Suministros Levante S.L.</option>' in bloque
 
 
 def test_los_filtros_puestos_se_ven_y_se_pueden_quitar(alberto, lote_de_prueba):
     _proveedor_p001()
-    html = lista(alberto, proveedor="P001", desde="1000", hasta="3000")
+    html = lista(alberto, proveedor="P001", desde="2026-01-01", hasta="2026-01-31")
     bloque = html.split('class="filtros-puestos"')[1].split("</div>")[0]
     assert "Proveedor: Suministros Levante S.L." in bloque
-    assert "de 1.000,00 € a 3.000,00 €" in bloque
+    assert "del 1/1/2026 al 31/1/2026" in bloque
     enlace = bloque.split('<a href="')[1].split('"')[0]
     assert "proveedor=" not in enlace and "desde=" not in enlace and "hasta=" not in enlace
     assert "Quitar filtros" in bloque

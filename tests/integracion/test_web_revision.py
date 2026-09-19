@@ -162,15 +162,15 @@ def test_el_filtro_de_proveedor_deja_solo_las_suyas(alberto, lote_de_prueba, pro
     assert ESCALADA in html and ESCANEADA not in html  # el escaneado no tiene NIF leído
 
 
-def test_el_filtro_de_importe_desde_deja_fuera_lo_que_no_llega(alberto, lote_de_prueba):
-    html = cola(alberto, desde="90000")
+def test_el_filtro_de_fecha_desde_deja_fuera_lo_anterior(alberto, lote_de_prueba):
+    html = cola(alberto, desde="2026-02-01")
     assert ESCALADA not in html and ESCANEADA not in html
-    assert "Ninguna factura coincide con la búsqueda o los filtros" in html
+    assert "Ninguna factura coincide" in html and "Quitar filtros" in html
 
 
-def test_el_filtro_de_importe_hasta_deja_lo_que_no_se_pasa(alberto, lote_de_prueba):
-    html = cola(alberto, hasta="90000")
-    assert ESCALADA in html
+def test_el_filtro_de_fecha_hasta_deja_lo_anterior(alberto, lote_de_prueba):
+    html = cola(alberto, hasta="2026-01-31")
+    assert ESCALADA in html and ESCANEADA not in html  # el escaneado no tiene fecha leída
 
 
 def test_el_select_de_proveedor_lleva_el_maestro(alberto, lote_de_prueba, proveedor_p001):
@@ -186,6 +186,6 @@ def test_los_chips_oob_conservan_el_proveedor(alberto, lote_de_prueba, proveedor
 
 
 def test_quitar_filtros_enlaza_sin_proveedor_ni_importe(alberto, lote_de_prueba, proveedor_p001):
-    html = cola(alberto, proveedor="P001", desde="1000", hasta="3000")
+    html = cola(alberto, proveedor="P001", desde="2026-01-01", hasta="2026-01-31")
     assert "Quitar filtros" in html
     assert 'href="?estado=pendientes&amp;q=&amp;lote=lote1"' in html

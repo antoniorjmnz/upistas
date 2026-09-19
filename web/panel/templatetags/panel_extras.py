@@ -141,3 +141,15 @@ def estatico(ruta: str) -> str:
     fichero = finders.find(ruta)
     version = int(os.path.getmtime(fichero)) if fichero else 0
     return f"{static(ruta)}?v={version}"
+
+
+@register.filter
+def fecha_corta(texto: str | None) -> str:
+    """'2026-01-08' → '8/1/2026'. Lo que no sea una fecha se deja tal cual."""
+    from datetime import date
+
+    try:
+        d = date.fromisoformat(str(texto).strip())
+    except (ValueError, AttributeError):
+        return str(texto or "")
+    return f"{d.day}/{d.month}/{d.year}"

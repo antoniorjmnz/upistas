@@ -184,8 +184,20 @@ def importe_o_nada(texto: str | None):
         return None
 
 
-def filtrar_decisiones(qs: QuerySet[Decision], proveedor: str = "", desde=None, hasta=None) -> QuerySet[Decision]:
-    """Deja solo las decisiones de ese proveedor (por sus pedidos o por el NIF leído) y entre esos importes."""
+def fecha_o_nada(texto: str | None):
+    """'2026-01-08' (lo que manda un <input type=date>) → date; vacío o raro → None."""
+    from datetime import date
+
+    try:
+        return date.fromisoformat(str(texto).strip()) if texto and str(texto).strip() else None
+    except ValueError:
+        return None
+
+
+def filtrar_decisiones(qs: QuerySet[Decision], proveedor: str = "", desde=None, hasta=None,
+                       fecha_desde=None, fecha_hasta=None) -> QuerySet[Decision]:
+    """Deja solo las decisiones de ese proveedor (por sus pedidos o por el NIF leído), entre esos importes
+    y entre esas fechas de factura (la fecha leída va en ISO, así que se compara como texto)."""
     from django.db.models import Q
 
     from web.panel.models import Proveedor
@@ -203,5 +215,12 @@ def filtrar_decisiones(qs: QuerySet[Decision], proveedor: str = "", desde=None, 
             lecturas = lecturas.filter(extraida__campos__total__valor__gte=float(desde))
         if hasta is not None:
             lecturas = lecturas.filter(extraida__campos__total__valor__lte=float(hasta))
+        qs = qs.filter(documento__sha256__in=lecturas.values("sha256"))
+    if fecha_desde is not None or fecha_hasta is not None:
+        lecturas = Lectura.objects.all()
+        if fecha_desde is not None:
+            lecturas = lecturas.filter(extraida__campos__fecha__valor__gte=fecha_desde.isoformat())
+        if fecha_hasta is not None:
+            lecturas = lecturas.filter(extraida__campos__fecha__valor__lte=fecha_hasta.isoformat())
         qs = qs.filter(documento__sha256__in=lecturas.values("sha256"))
     return qs

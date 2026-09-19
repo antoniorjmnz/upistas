@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlencode
 
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from web.panel import consultas
@@ -89,9 +91,14 @@ def lista(request: HttpRequest) -> HttpResponse:
     ejecucion = consultas.ultima_ejecucion(pedido_lote or None)
     q = (request.GET.get("q") or "").strip()
     resultado = request.GET.get("resultado") or ""
+    proveedores = consultas.proveedores_para_filtro()
     proveedor = request.GET.get("proveedor") or ""
-    desde = request.GET.get("desde") or ""
-    hasta = request.GET.get("hasta") or ""
+    if proveedor not in dict(proveedores):  # un código que ya no está en el maestro no filtra nada
+        proveedor = ""
+    fecha_desde = consultas.fecha_o_nada(request.GET.get("desde"))
+    fecha_hasta = consultas.fecha_o_nada(request.GET.get("hasta"))
+    desde = fecha_desde.isoformat() if fecha_desde else ""
+    hasta = fecha_hasta.isoformat() if fecha_hasta else ""
 
     decisiones = consultas.decisiones_de(ejecucion) if ejecucion else Decision.objects.none()
     cuenta = {f["resultado"]: f["n"] for f in decisiones.values("resultado").annotate(n=Count("id"))}
@@ -107,7 +114,7 @@ def lista(request: HttpRequest) -> HttpResponse:
             | Q(motivo__icontains=q)
             | Q(documento__sha256__in=con_ese_proveedor)
         )
-    qs = consultas.filtrar_decisiones(qs, proveedor=proveedor, desde=consultas.importe_o_nada(desde), hasta=consultas.importe_o_nada(hasta))
+    qs = consultas.filtrar_decisiones(qs, proveedor=proveedor, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta)
 
     pagina = Paginator(qs.order_by("documento__file_id"), POR_PAGINA).get_page(request.GET.get("pagina"))
     filas = list(pagina)
@@ -120,7 +127,6 @@ def lista(request: HttpRequest) -> HttpResponse:
         d.revision = revisiones.get(d.documento_id)
         d.porque = consultas.motivo_corto(d)
 
-    proveedores = consultas.proveedores_para_filtro()
     ctx = {
         "lotes": consultas.lotes(),
         "lote": ejecucion.lote if ejecucion else pedido_lote,
@@ -133,6 +139,7 @@ def lista(request: HttpRequest) -> HttpResponse:
         "desde": desde,
         "hasta": hasta,
         "filtrando": bool(proveedor or desde or hasta),
+        "quitar_filtros": f"{reverse('panel:facturas')}?{urlencode({k: v for k, v in (('resultado', resultado), ('q', q), ('lote', pedido_lote)) if v})}",
         "pagina": pagina,
         "cuenta": cuenta,
         "total": sum(cuenta.values()),
