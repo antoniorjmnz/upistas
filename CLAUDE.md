@@ -14,13 +14,14 @@ cruzando un Excel y un ERP de 2009. Equipo de 4, cada uno con su propio Claude.
 - `uv run pytest` — tests
 - `uv run python scripts/check.py` — lo mismo que la CI; tiene que pasar antes de abrir PR
 - `uv run upistas erp sync` / `uv run upistas erp estado` — copia del ERP (arrancado aparte con `python ../caja/alberto_erp.py`)
-- `uv run upistas run [--limit N] [--norma v3] [--sin-sync]` — sincroniza el ERP y procesa La Caja → `outputs/outcomes.jsonl`
+- `uv run upistas run [--lote lote1] [--norma v3] [--carpeta ../caja/facturas] [--limit N] [--sin-sync]` — sincroniza el ERP, lee y decide un lote → `outputs/outcomes.jsonl`. Ver [docs/backend.md](docs/backend.md).
 - `uv run python scripts/gen_contracts.py` — tras cambiar `contracts/*.schema.json`
 - `/tarea N` empieza la issue N · `/pr` cierra el trabajo y abre la PR
 
 ## Reglas del código
 - El LLM solo extrae datos; las decisiones las toman las reglas de `dominio/`. Nunca al revés.
 - Lógica de negocio solo en `src/upistas/dominio/`, en funciones puras con tests.
+- Leer es duradero y se cachea por contenido (sha256); decidir es barato y se repite entero. No mezcles las dos fases.
 - Los `@DBOS.step` solo orquestan. `infra/contenedor.py` es el único sitio que elige adaptadores.
 - `lint-imports` vigila las capas: si falla, el código está en la capa equivocada. No lo desactives.
 - Tests sin red, sin IA real y sin el ERP: usa las fuentes en memoria.

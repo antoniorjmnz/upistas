@@ -21,3 +21,10 @@ def configurar(migrar: bool = True) -> None:
 
         call_command("migrate", verbosity=0, interactive=False)
     _listo = True
+
+
+def cerrar_conexion() -> None:
+    """Cierra la conexión a la base de datos del hilo actual (los workers de DBOS no la reutilizan)."""
+    from django.db import connection
+
+    connection.close()
