@@ -44,10 +44,12 @@ def _grupos(motivos: list[tuple[str, Decision]], revisiones: dict[int, RevisionH
     return grupos
 
 
-def _vacio(estado: str, q: str, hay_ejecucion: bool) -> dict:
+def _vacio(estado: str, q: str, hay_filtro: bool, hay_ejecucion: bool) -> dict:
     """Qué decirle cuando no hay nada que enseñar, sin que parezca un error."""
     if not hay_ejecucion:
         return {"titulo": "Todavía no hay facturas", "detalle": "En cuanto se pase el primer lote verá aquí lo que tiene que decidir."}
+    if hay_filtro:
+        return {"titulo": "Ninguna factura coincide con la búsqueda o los filtros", "detalle": "Pruebe cambiando el proveedor, el importe o lo que ha buscado."}
     if q:
         return {"titulo": "No hay ninguna factura con eso", "detalle": "Pruebe con el nombre del fichero o con el número del pedido."}
     if estado == "decididas":
@@ -60,6 +62,12 @@ def cola(request: HttpRequest) -> HttpResponse:
     ejecucion = consultas.ultima_ejecucion(lote)
     estado = "decididas" if request.GET.get("estado") == "decididas" else "pendientes"
     q = (request.GET.get("q") or "").strip()
+    proveedor = (request.GET.get("proveedor") or "").strip()
+    desde_texto = (request.GET.get("desde") or "").strip()
+    hasta_texto = (request.GET.get("hasta") or "").strip()
+    desde = consultas.importe_o_nada(desde_texto)
+    hasta = consultas.importe_o_nada(hasta_texto)
+    hay_filtro = bool(proveedor) or desde is not None or hasta is not None
 
     if ejecucion is None:
         escaladas, revisiones = Decision.objects.none(), {}
@@ -78,9 +86,12 @@ def cola(request: HttpRequest) -> HttpResponse:
             escaladas = escaladas.filter(
                 Q(documento__file_id__icontains=q) | Q(pedido__icontains=q) | Q(motivo__icontains=q)
             )
+        escaladas = consultas.filtrar_decisiones(escaladas, proveedor=proveedor, desde=desde, hasta=hasta)
 
     pagina = Paginator(_ordenadas(list(escaladas)), POR_PAGINA).get_page(request.GET.get("pagina"))
     lotes = consultas.lotes()
+    proveedores = consultas.proveedores_para_filtro()
+    nombre_proveedor = dict(proveedores).get(proveedor, "") if proveedor else ""
     es_htmx = bool(request.headers.get("HX-Request"))
     ctx = {
         "lotes": lotes,
@@ -88,10 +99,19 @@ def cola(request: HttpRequest) -> HttpResponse:
         "lote": ejecucion.lote if ejecucion else "",
         "estado": estado,
         "q": q,
-        "consulta": urlencode({"q": q, "lote": ejecucion.lote if ejecucion else ""}),
+        "proveedores": proveedores,
+        "proveedor": proveedor,
+        "proveedor_nombre": nombre_proveedor,
+        "desde": desde_texto,
+        "hasta": hasta_texto,
+        "consulta": urlencode({
+            "q": q, "lote": ejecucion.lote if ejecucion else "",
+            "proveedor": proveedor, "desde": desde_texto, "hasta": hasta_texto,
+        }),
+        "sin_filtros": urlencode({"q": q, "lote": ejecucion.lote if ejecucion else ""}),
         "pagina": pagina,
         "grupos": _grupos(list(pagina), revisiones),
-        "vacio": _vacio(estado, q, ejecucion is not None),
+        "vacio": _vacio(estado, q, hay_filtro, ejecucion is not None),
         "n_pendientes": n_pendientes,
         "n_decididas": n_decididas,
         "n_escaladas": n_escaladas,
