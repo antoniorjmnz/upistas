@@ -46,7 +46,8 @@ def _ocr() -> Callable[[bytes], str] | None:
     if settings.ocr_provider == "firecrawl":
         from upistas.adaptadores.lectores.firecrawl_ocr import FirecrawlOCR
 
-        return FirecrawlOCR(settings.firecrawl_api_key, settings.firecrawl_base_url)
+        return FirecrawlOCR(settings.firecrawl_api_key, settings.firecrawl_base_url,
+                            cerrojo=settings.outputs_dir / ".firecrawl.lock")
     return FalOCR()
 
 

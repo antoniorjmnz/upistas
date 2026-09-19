@@ -18,10 +18,10 @@ def _png() -> bytes:
     return pix.tobytes("png")
 
 
-def _respuesta(datos, estado=200):
+def _respuesta(datos=None, estado=200, headers=None):
     return SimpleNamespace(
         status_code=estado,
-        raise_for_status=Mock(),
+        headers=headers or {},
         json=Mock(return_value=datos),
     )
 
@@ -57,18 +57,65 @@ def test_sin_clave_es_fallo_de_lectura():
 def test_fallo_de_la_api_es_fallo_de_lectura_sin_exponer_detalles():
     post = Mock(side_effect=RuntimeError("detalle sensible"))
     with pytest.raises(LecturaFallida) as fallo:
-        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post))(_png())
+        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), espera_base=0)(_png())
     assert "detalle sensible" not in str(fallo.value)
 
 
 def test_respuesta_sin_exito_o_sin_texto_es_fallo():
     post = Mock(return_value=_respuesta({"success": False}))
     with pytest.raises(LecturaFallida):
-        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post))(_png())
+        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), espera_base=0)(_png())
 
     post = Mock(return_value=_ok("   "))
     with pytest.raises(LecturaFallida, match="sin texto"):
-        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post))(_png())
+        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), espera_base=0)(_png())
+
+
+def test_los_fallos_de_transporte_se_reintentan():
+    """RemoteProtocolError (el plan corta conexiones a la vez) es transitorio: se reintenta."""
+    import httpx
+
+    post = Mock(side_effect=[
+        httpx.RemoteProtocolError("connection closed"),
+        httpx.RemoteProtocolError("connection closed"),
+        _ok(),
+    ])
+    ocr = FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), espera_base=0)
+    assert ocr(_png()) == TEXTO
+    assert post.call_count == 3
+
+
+def test_un_429_espera_lo_que_pida_el_retry_after():
+    post = Mock(side_effect=[_respuesta(estado=429, headers={"retry-after": "5"}), _ok()])
+    dormido = []
+    ocr = FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), espera_base=0, dormir=dormido.append)
+    assert ocr(_png()) == TEXTO
+    assert dormido == [5.0]
+
+
+def test_un_error_4xx_no_se_reintenta():
+    post = Mock(return_value=_respuesta(estado=403))
+    with pytest.raises(LecturaFallida, match="HTTP 403"):
+        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), espera_base=0)(_png())
+    assert post.call_count == 1
+
+
+def test_agotados_los_intentos_es_fallo_de_lectura():
+    import httpx
+
+    post = Mock(side_effect=httpx.RemoteProtocolError("connection closed"))
+    with pytest.raises(LecturaFallida, match="RemoteProtocolError"):
+        FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), intentos=3, espera_base=0)(_png())
+    assert post.call_count == 3
+
+
+def test_el_cerrojo_seria_las_llamadas_entre_procesos(tmp_path):
+    """Con cerrojo, la llamada pasa por el fichero de bloqueo compartido y sigue funcionando."""
+    cerrojo = tmp_path / ".firecrawl.lock"
+    post = Mock(return_value=_ok())
+    ocr = FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post), cerrojo=cerrojo)
+    assert ocr(_png()) == TEXTO
+    assert cerrojo.exists()
 
 
 def test_el_markdown_con_tablas_vuelve_como_texto_plano():
