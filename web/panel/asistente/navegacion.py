@@ -1,17 +1,15 @@
 """`ir_a`: la herramienta con la que el asistente lleva a Alberto a una pantalla de esta web.
 
 Solo devuelve rutas de aquí (salen de `reverse`, nunca de lo que escriba el modelo), y los filtros que
-acepta son los mismos que tienen las pantallas: resultado, proveedor del maestro, fechas y texto.
+acepta son los mismos que tienen las pantallas: resultado, proveedor del maestro, fechas, texto y lote.
 """
 from __future__ import annotations
 
 from urllib.parse import urlencode
 
-from django.db.models import Q
 from django.urls import reverse
 
 from web.panel import consultas
-from web.panel.models import Proveedor
 
 PANTALLAS = {
     "inicio": "Hoy",
@@ -23,20 +21,13 @@ PANTALLAS = {
     "ejecuciones": "Registro de repasos",
     "erp": "Conexión con el ERP",
     "asientos": "Asientos del ERP",
+    "importar": "Importar datos",
 }
 RESULTADOS = {"PAGAR": "PAGAR", "NO_PAGAR": "NO_PAGAR", "ESCALAR": "ESCALAR", "REVISAR": "ESCALAR"}
+_SIN_FILTROS = {"inicio": "panel:inicio", "proveedores": "panel:proveedores", "ejecuciones": "panel:ejecuciones",
+                "erp": "panel:conexion", "importar": "panel:proveedor_importar"}
 
-
-def _proveedor(texto: str) -> Proveedor | None:
-    """Por código (P001), NIF o trozo del nombre. Si hay varios con ese nombre, el primero por nombre."""
-    limpio = texto.strip()
-    if not limpio:
-        return None
-    return (
-        Proveedor.objects.filter(Q(codigo__iexact=limpio) | Q(nif__iexact=limpio.replace(" ", "")))
-        .first()
-        or Proveedor.objects.filter(nombre__icontains=limpio).order_by("nombre").first()
-    )
+_proveedor = consultas.buscar_proveedor  # por código (P001), NIF o trozo del nombre
 
 
 def _filtros_de_lista(filtros: dict) -> tuple[dict, list[str]]:
@@ -65,8 +56,13 @@ def _filtros_de_lista(filtros: dict) -> tuple[dict, list[str]]:
                 params[clave] = fecha.isoformat()
     if filtros.get("texto"):
         params["q"] = str(filtros["texto"])[:100]
-    if filtros.get("lote") and str(filtros["lote"]) in consultas.lotes():
-        params["lote"] = str(filtros["lote"])
+    lote = str(filtros.get("lote") or "").strip().lower().replace(" ", "")
+    if lote:
+        lotes = consultas.lotes()
+        if lote in lotes:
+            params["lote"] = lote
+        else:
+            avisos.append(f"no hay ningún lote «{filtros['lote']}» decidido; hay: {', '.join(lotes) or 'ninguno'}")
     return params, avisos
 
 
@@ -109,10 +105,11 @@ def ir_a(pantalla: str = "", filtros: dict | None = None) -> dict:
             titulo += f" de {nombre}"
         if params.get("resultado"):
             titulo += f" · {consultas.ETIQUETA[params['resultado']]}"
+        if params.get("lote"):
+            titulo += f" · {consultas.nombre_lote(params['lote'])}"
     else:
         params = {}
-        url = reverse({"inicio": "panel:inicio", "proveedores": "panel:proveedores",
-                       "ejecuciones": "panel:ejecuciones", "erp": "panel:conexion"}[pantalla])
+        url = reverse(_SIN_FILTROS[pantalla])
 
     salida = {"url": f"{url}?{urlencode(params)}" if params else url, "titulo": titulo}
     if avisos:
