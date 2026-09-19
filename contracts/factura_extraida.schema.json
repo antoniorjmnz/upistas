@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {
     "file_id": { "type": "string", "description": "Nombre del PDF tal cual en La Caja" },
-    "metodo": { "enum": ["texto_determinista", "texto_llm", "vision_llm"], "description": "Cómo se obtuvo la mayoría de campos" },
+    "metodo": { "enum": ["texto_determinista", "ocr_determinista", "texto_llm", "vision_llm"], "description": "Cómo se obtuvo la mayoría de campos: del texto del PDF, del texto reconocido por OCR, o con un LLM sobre texto o imagen" },
     "lector": { "type": "string", "description": "Nombre del lector que lo produjo" },
     "documento": {
       "type": "object",
