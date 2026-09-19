@@ -292,19 +292,22 @@ td.porque { max-width: 42ch; }
 
 /* ---- Filtrar: el proveedor a la vista y, plegado, el importe ---- */
 .barra select { min-height: 42px; max-width: 280px; }
-details.filtro { position: relative; }
+details.filtro { display: contents; }
 details.filtro > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 42px; border-radius: 999px; border: 1px solid var(--linea); background: var(--panel); color: var(--tinta-2); font-weight: 600; font-size: 14px; cursor: pointer; }
 details.filtro > summary::-webkit-details-marker { display: none; }
 details.filtro > summary:hover, details.filtro[open] > summary { background: var(--hover); color: var(--tinta); }
 details.filtro.activo > summary { border-color: var(--marca); color: var(--marca-osc); background: var(--marca-claro); }
-.filtro-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 6; min-width: 320px; padding: 16px; background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra-2); display: grid; gap: 12px; }
+.filtro-panel { flex-basis: 100%; display: flex; gap: 14px 18px; align-items: end; flex-wrap: wrap; padding: 16px 18px; background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); }
 .filtro-panel .campo { display: flex; flex-direction: column; gap: 6px; }
 .filtro-panel label { font-size: 13px; font-weight: 600; color: var(--tinta-2); }
-.filtro-panel input[type=number], .filtro-panel input[type=text] { width: 100%; min-height: 42px; }
-.filtro-panel .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.filtro-panel .pie-formulario { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+.filtro-panel input[type=date] { font: inherit; padding: 0 12px; min-height: 42px; border: 1px solid var(--linea); border-radius: var(--radio-s); background: var(--panel); color: var(--tinta); box-shadow: var(--sombra); min-width: 170px; }
+.filtro-panel .dos { display: flex; gap: 12px; flex-wrap: wrap; }
+.filtro-panel .pie-formulario { display: flex; gap: 10px; align-items: center; }
+.filtro-panel .atajos { display: flex; gap: 8px 6px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.filtro-panel .atajos .eti { font-size: 13px; font-weight: 600; color: var(--suave); margin-right: 4px; }
+.filtro-panel .atajos .chip { min-height: 36px; padding: 6px 12px; font-size: 14px; }
 .filtros-puestos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--tinta-2); }
-@media (max-width: 640px) { .filtro-panel { right: auto; left: 0; min-width: min(320px, 90vw); } }
+@media (max-width: 640px) { .filtro-panel .atajos { margin-left: 0; } .filtro-panel input[type=date] { min-width: 0; width: 100%; } }
 
 /* Filas de facturas: cada pieza en su columna, para que los botones no se metan donde va el avatar */
 .fila > .av, .fila-factura > .av { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
@@ -320,3 +323,5 @@ details.filtro.activo > summary { border-color: var(--marca); color: var(--marca
   .fila .porque, .fila-factura .porque { grid-column: 2; grid-row: 3; }
   .fila .accion, .fila-factura .accion { grid-column: 2; grid-row: 4; flex-wrap: wrap; }
 }
+
+td.num { white-space: nowrap; }

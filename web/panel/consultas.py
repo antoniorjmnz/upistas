@@ -245,3 +245,24 @@ def nombre_proveedor(campos: dict, por_nif: dict[str, str] | None = None) -> str
         return None
     tabla = por_nif if por_nif is not None else nombres_por_nif()
     return tabla.get(str(nif).upper().replace(" ", ""))
+
+
+def atajos_de_fecha(hoy=None) -> list[dict]:
+    """Los periodos que Alberto elige de un golpe: este mes, el pasado, este trimestre, este año."""
+    from calendar import monthrange
+    from datetime import date, timedelta
+
+    hoy = hoy or date.today()
+
+    def ultimo_dia(a: int, m: int) -> date:
+        return date(a, m, monthrange(a, m)[1])
+
+    mes_pasado = hoy.replace(day=1) - timedelta(days=1)
+    trimestre_inicio = date(hoy.year, 3 * ((hoy.month - 1) // 3) + 1, 1)
+    trimestre_fin = ultimo_dia(hoy.year, trimestre_inicio.month + 2)
+    return [
+        {"nombre": "Este mes", "desde": hoy.replace(day=1).isoformat(), "hasta": ultimo_dia(hoy.year, hoy.month).isoformat()},
+        {"nombre": "Mes pasado", "desde": mes_pasado.replace(day=1).isoformat(), "hasta": mes_pasado.isoformat()},
+        {"nombre": "Este trimestre", "desde": trimestre_inicio.isoformat(), "hasta": trimestre_fin.isoformat()},
+        {"nombre": "Este año", "desde": date(hoy.year, 1, 1).isoformat(), "hasta": date(hoy.year, 12, 31).isoformat()},
+    ]

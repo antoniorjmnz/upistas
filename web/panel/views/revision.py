@@ -58,6 +58,14 @@ def _vacio(estado: str, q: str, hay_filtro: bool, hay_ejecucion: bool) -> dict:
     return {"titulo": "No le queda nada por decidir", "detalle": "Todas las facturas que el sistema no supo resolver ya tienen su decisión."}
 
 
+def _hoy():
+    from datetime import date
+
+    from upistas.config import settings as ajustes
+
+    return ajustes.hoy or date.today()
+
+
 def cola(request: HttpRequest) -> HttpResponse:
     lote = request.GET.get("lote") or None
     ejecucion = consultas.ultima_ejecucion(lote)
@@ -113,6 +121,7 @@ def cola(request: HttpRequest) -> HttpResponse:
         }),
         "sin_filtros": urlencode({"q": q, "lote": ejecucion.lote if ejecucion else ""}),
         "hay_filtro": hay_filtro,
+        "atajos": consultas.atajos_de_fecha(_hoy()),
         "pagina": pagina,
         "grupos": _grupos(list(pagina), revisiones),
         "vacio": _vacio(estado, q, hay_filtro, ejecucion is not None),

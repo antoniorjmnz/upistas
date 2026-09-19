@@ -48,6 +48,11 @@ entera, así el desplegable, el estado y la línea de filtros van siempre a una.
       <div class="pie-formulario">
         <button class="boton pequeno" type="submit">Aplicar</button>
       </div>
+      <div class="atajos">
+        <span class="eti">O elija</span>
+        {% for a in atajos %}<a class="chip{% if desde == a.desde and hasta == a.hasta %} activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring desde=a.desde hasta=a.hasta pagina=None %}">{{ a.nombre }}</a>{% endfor %}
+        <a class="chip{% if not desde and not hasta %} activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring desde=None hasta=None pagina=None %}">Cualquier fecha</a>
+      </div>
     </div>
   </details>
   <div class="chips">

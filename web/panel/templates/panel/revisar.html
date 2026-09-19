@@ -51,6 +51,11 @@
       <div class="pie-formulario">
         <button type="submit" class="boton pequeno">Aplicar</button>
       </div>
+      <div class="atajos">
+        <span class="eti">O elija</span>
+        {% for a in atajos %}<a class="chip{% if desde == a.desde and hasta == a.hasta %} activa{% endif %}" href="?estado={{ estado }}&amp;{{ sin_filtros }}&amp;proveedor={{ proveedor|urlencode }}&amp;desde={{ a.desde }}&amp;hasta={{ a.hasta }}">{{ a.nombre }}</a>{% endfor %}
+        <a class="chip{% if not desde and not hasta %} activa{% endif %}" href="?estado={{ estado }}&amp;{{ sin_filtros }}&amp;proveedor={{ proveedor|urlencode }}">Cualquier fecha</a>
+      </div>
     </div>
   </details>
   {% include "panel/_revisar_chips.html" %}

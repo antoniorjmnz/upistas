@@ -85,6 +85,13 @@ def _fecha(valor) -> str:
         return str(valor)
 
 
+def _hoy() -> date:
+    """La fecha de referencia del sistema (HOY en .env), para que los atajos de fecha cuadren con los datos."""
+    from upistas.config import settings as ajustes
+
+    return ajustes.hoy or date.today()
+
+
 def lista(request: HttpRequest) -> HttpResponse:
     """Todas las facturas del lote, con lo que se decidió de cada una."""
     pedido_lote = (request.GET.get("lote") or "").strip()
@@ -140,6 +147,7 @@ def lista(request: HttpRequest) -> HttpResponse:
         "desde": desde,
         "hasta": hasta,
         "filtrando": bool(proveedor or desde or hasta),
+        "atajos": consultas.atajos_de_fecha(_hoy()),
         "quitar_filtros": f"{reverse('panel:facturas')}?{urlencode({k: v for k, v in (('resultado', resultado), ('q', q), ('lote', pedido_lote)) if v})}",
         "pagina": pagina,
         "cuenta": cuenta,
