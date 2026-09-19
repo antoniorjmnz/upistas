@@ -3,6 +3,7 @@
     uv run upistas erp sync        trae el ERP de Alberto a nuestra copia local
     uv run upistas erp estado      última sincronización y versión de los datos
     uv run upistas run             sincroniza el ERP, lee y decide un lote → outputs/outcomes.jsonl
+                                   (outputs/outcomes_<lote>.jsonl si el lote no es lote1; otro nombre con --salida)
 """
 import argparse
 import json
@@ -64,6 +65,11 @@ def documentos(args: argparse.Namespace) -> list[Path]:
     if not rutas:
         print(f"No hay documentos en {carpeta}", file=sys.stderr)
     return rutas
+
+
+def nombre_outcomes(lote: str) -> str:
+    """El informe que se entrega: outcomes.jsonl para el lote 1 y outcomes_<lote>.jsonl para los demás."""
+    return "outcomes.jsonl" if lote == "lote1" else f"outcomes_{lote}.jsonl"
 
 
 def guardar_jsonl(filas: list[dict], nombre: str) -> Path:
@@ -166,9 +172,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     if r.get("notas_evaluadas"):
         print(f"Notas: {r['notas_evaluadas']} documentos, {r['notas_desde_cache']} desde caché, "
               f"{r['notas_fallidas']} evaluaciones no disponibles")
-    if args.salida:
-        salida = guardar_jsonl([d.outcome for d in inf.decisiones], args.salida)
-        print(f"Informe guardado en {salida}")
+    salida = guardar_jsonl([d.outcome for d in inf.decisiones], args.salida or nombre_outcomes(args.lote))
+    print(f"Informe guardado en {salida}")
     if inf.anterior:
         print(f"Respecto a la ejecución #{inf.anterior.id} ({inf.anterior.inicio.astimezone():%d/%m %H:%M}, datos {inf.anterior.version_datos}): "
               f"{len(inf.cambios)} facturas cambian de resultado")
@@ -193,7 +198,7 @@ def main() -> None:
     run.add_argument("--ocr", action="store_true", help="Habilita Fal GOT-OCR para escaneos; requiere FAL_KEY y el extra ocr")
     run.add_argument("--norma", default="v3")
     run.add_argument("--timeout-lectura", type=float, default=settings.lectura_timeout_s, help="Segundos máximos por documento, incluida la llamada OCR")
-    run.add_argument("--salida", help="Opcional: guardar además un informe JSONL en outputs")
+    run.add_argument("--salida", help="Nombre del informe JSONL en outputs; por defecto outcomes.jsonl (lote1) u outcomes_<lote>.jsonl")
     run.add_argument("--limit", type=int, default=0, help="Procesar solo los N primeros (pruebas)")
     run.add_argument("--sin-sync", action="store_true", help="No hablar con el ERP: usar la última copia")
     run.set_defaults(func=cmd_run)

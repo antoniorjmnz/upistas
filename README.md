@@ -48,7 +48,8 @@ sh scripts/setup.sh             # plantilla de commit + hooks
 uv sync --extra dev             # instala todo (Python 3.12 incluido)
 uv run pytest                   # tests
 uv run upistas run --limit 20   # procesa 20 facturas → outputs/outcomes.jsonl
-uv run upistas run              # procesa La Caja entera
+uv run upistas run              # procesa La Caja entera (lote 1)
+uv run upistas run --lote lote2 --facturas ../caja/facturas_primin   # lote 2 → outputs/outcomes_lote2.jsonl
 ```
 Postgres (opcional, para varios procesos): `docker compose up -d` y `DATABASE_URL` en `.env`.
 

@@ -18,7 +18,9 @@ de cada una, con su porqué". La web solo enseña lo que el backend guarda.
 5. Guarda la ejecución con la versión exacta de los datos, cada decisión con sus reglas, alertas y
    notas, y compara con la pasada anterior del mismo lote: qué facturas cambian de resultado y por qué.
 6. Escribe `outputs/outcomes.jsonl` (una línea por documento, solo `file_id` y `result` son
-   obligatorios; el resto es traza).
+   obligatorios; el resto es traza). Si el lote no es `lote1` el fichero se llama
+   `outputs/outcomes_<lote>.jsonl` (así el lote 2 sale ya como `outcomes_lote2.jsonl`, el nombre de
+   la entrega); `--salida` cambia el nombre.
 
 **Lo que queda guardado** (y la web puede enseñar):
 - Cada conexión con el ERP: cuándo, si fue bien, cuántos reintentos, esperas y reconexiones, y qué cambió.
@@ -29,7 +31,7 @@ de cada una, con su porqué". La web solo enseña lo que el backend guarda.
 - Cada decisión: resultado, motivo, reglas que pasó o falló, alertas para Alberto, notas del documento.
 - Cada revisión humana: quién decidió qué sobre una factura escalada y cuándo. El original no se toca.
 
-**Comandos**: `upistas erp sync`, `upistas erp estado`, `upistas run [--lote] [--norma] [--carpeta] [--limit] [--sin-sync]`.
+**Comandos**: `upistas erp sync`, `upistas erp estado`, `upistas run [--lote] [--norma] [--carpeta] [--limit] [--sin-sync] [--salida]`.
 
 **También desde la web**: Alberto sube sus PDF en «Subir facturas» y el mismo pipeline los decide en un hilo
 del servidor, con barra de progreso; DBOS arranca ahí, dentro del proceso web, en el primer repaso (ver [web.md](web.md)).
