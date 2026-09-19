@@ -10,6 +10,7 @@
 {% elif not pagina.object_list %}
   <section class="tarjeta">
     <div class="vacio">
+      <div class="icono">{% icono "buscar" 26 %}</div>
       <p class="grande">Ninguna factura coincide</p>
       <p class="suave">Pruebe con otro proveedor, otro número, o vuelva a «Todas».</p>
     </div>
@@ -19,16 +20,18 @@
     <div class="tabla-caja">
       <table>
         <thead>
-          <tr><th>Proveedor</th><th>Pedido</th><th>Fecha</th><th class="num">Total</th><th>Resultado</th><th>Por qué</th></tr>
+          <tr><th>Proveedor</th><th>Fecha</th><th class="num">Total</th><th>Resultado</th><th>Por qué</th><th></th></tr>
         </thead>
         <tbody>
         {% for d in pagina %}
           <tr>
             <td>
-              <a class="quien" href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">{{ d.proveedor|default:d.documento.file_id }}</a>
-              <span class="fichero suave">{{ d.documento.file_id }}</span>
+              <span class="quien">
+                <span class="av {{ d.proveedor|color_avatar }}">{{ d.proveedor|iniciales }}</span>
+                <span><a href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">{{ d.proveedor|default:d.documento.file_id }}</a>
+                  {% if d.proveedor or d.pedido %}<small>{% if d.proveedor %}{{ d.documento.file_id }}{% endif %}{% if d.pedido %} · pedido {{ d.pedido }}{% endif %}</small>{% endif %}</span>
+              </span>
             </td>
-            <td>{{ d.pedido }}</td>
             <td>{{ d.fecha }}</td>
             <td class="num">{{ d.total|euros }}</td>
             <td>
@@ -39,6 +42,7 @@
               {% endif %}
             </td>
             <td class="porque" title="{{ d.motivo }}">{{ d.porque }}</td>
+            <td>{% include "panel/_previsualizar.html" with documento=d.documento %}</td>
           </tr>
         {% endfor %}
         </tbody>

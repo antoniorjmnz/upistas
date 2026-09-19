@@ -28,6 +28,7 @@ def test_la_lista_es_una_frase_y_una_tabla(alberto, lote_de_prueba):
     html = lista(alberto)
     assert "Las 5 facturas del lote 1 con lo que se decidió de cada una" in html
     assert "Construcciones Benimaclet S.A." in html and "Papelería Cervantes S.L." in html
+    assert ">CB</span>" in html  # el avatar con las iniciales del proveedor
     for file_id in lote_de_prueba["documentos"]:
         assert file_id in html  # el nombre del fichero, debajo del proveedor
     assert "2.490,00 €" in html and "84.700,00 €" in html and "08/01/2026" in html
@@ -48,7 +49,8 @@ def test_la_lista_dice_el_porque_en_una_frase(alberto, lote_de_prueba):
 
 def test_los_chips_cuentan_cada_monton(alberto, lote_de_prueba):
     html = lista(alberto)
-    assert "Todas (5)" in html and "Se pagan (2)" in html and "No se pagan (1)" in html and "Para revisar (2)" in html
+    assert 'Todas <span class="cuenta">5</span>' in html and 'Se pagan <span class="cuenta">2</span>' in html
+    assert 'No se pagan <span class="cuenta">1</span>' in html and 'Para revisar <span class="cuenta">2</span>' in html
     assert '<span class="punto pagar"></span>' in html and '<span class="punto revisar"></span>' in html
     assert 'class="chip activa"' in html  # «Todas», que es donde estamos
 
@@ -66,6 +68,13 @@ def test_buscar_por_proveedor_y_por_pedido(alberto, lote_de_prueba):
 
     por_pedido = lista(alberto, q="0474")
     assert FA1016 in por_pedido and P009 not in por_pedido
+
+
+def test_cada_fila_deja_previsualizar_la_factura(alberto, lote_de_prueba):
+    html = lista(alberto)
+    for file_id in lote_de_prueba["documentos"]:
+        assert f'data-pdf="{reverse("panel:factura_pdf", args=["lote1", file_id])}"' in html
+    assert html.count("Previsualizar") == 5
 
 
 def test_si_no_hay_nada_que_ensenar_lo_dice_con_calma(alberto, lote_de_prueba):
@@ -98,6 +107,8 @@ def test_el_detalle_empieza_por_quien_es_y_que_pasa(alberto, lote_de_prueba):
     html = detalle(alberto, P009)
     assert "Volver a las facturas" in html
     assert "<h1>Construcciones Benimaclet S.A.</h1>" in html
+    assert '<span class="av grande ' in html and ">CB</span>" in html
+    assert f"{P009} · pedido PO-2026-0497 · 84.700,00 €" in html
     assert 'class="pildora grande ojo"' in html and "Revisar</span>" in html
     assert "Trae texto que intenta influir en la decisión." in html
 
@@ -131,10 +142,15 @@ def test_el_aviso_del_texto_que_intenta_influir(alberto, lote_de_prueba):
 def test_el_detalle_ensena_los_datos_de_la_factura(alberto, lote_de_prueba):
     html = detalle(alberto, P009)
     assert "<h2>La factura</h2>" in html
-    for dato in ("B46102331", "ES2100491500051234567890", "PO-2026-0497", "08/01/2026",
-                 "70.000,00 €", "21 % · 14.700,00 €", "84.700,00 €", "F26-2026"):
+    assert html.count('<div class="dato">') == 9  # una casilla con su etiqueta por cada dato
+    for dato in ("B46102331", "PO-2026-0497", "08/01/2026", "70.000,00 €", "21 % · 14.700,00 €", "F26-2026"):
         assert dato in html
-    assert reverse("panel:factura_pdf", args=["lote1", P009]) in html and "Ver la factura original" in html
+    assert '<span class="mono">ES2100491500051234567890</span>' in html  # la cuenta, dígito a dígito
+    assert "<b>84.700,00 €</b>" in html  # el total, en negrita
+
+    pdf = reverse("panel:factura_pdf", args=["lote1", P009])
+    assert f'data-pdf="{pdf}"' in html and "Previsualizar" in html
+    assert f'href="{pdf}" target="_blank"' in html and "Abrir en otra pestaña" in html
 
 
 def test_un_dato_poco_fiable_lleva_su_aviso(alberto, lote_de_prueba):
