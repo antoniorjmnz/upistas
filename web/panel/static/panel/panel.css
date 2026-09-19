@@ -309,6 +309,19 @@ details.conversaciones[open] summary svg { transform: rotate(180deg); }
 @media (max-width: 640px) { dialog.asistente { width: 100vw; border-left: 0; } }
 /* Con el panel abierto, en pantallas anchas el contenido le deja sitio (ancho del panel + margen); en móvil el panel lo tapa todo y no hace falta */
 @media (min-width: 1001px) { body.con-asistente .contenido { padding-right: calc(var(--asistente) + 24px); transition: padding-right 220ms ease-out; } }
+/* En un portátil de 1000-1280 px el panel abierto dejaba al contenido 260-500 px: el menú pasa al carril de iconos (como por debajo
+   de 900 px) y el panel se estrecha a 380 px, así el contenido conserva de 540 a 800 px y sus rejillas se reorganizan en vez de romperse */
+@media (min-width: 1001px) and (max-width: 1280px) {
+  body.con-asistente { --asistente: 380px; }
+  body.con-asistente .contenido { padding-right: calc(var(--asistente) + 16px); }
+  body.con-asistente .app { grid-template-columns: 76px 1fr; }
+  body.con-asistente .lado { padding: 16px 10px; }
+  body.con-asistente .lado nav a span, body.con-asistente .marca span, body.con-asistente .persona div, body.con-asistente .estado-erp div,
+  body.con-asistente .lado .abajo nav a span, body.con-asistente .lado nav .recientes { display: none; }
+  body.con-asistente .lado nav a { justify-content: center; }
+  body.con-asistente .insignia { margin-left: 0; }
+  body.con-asistente .estado-erp { justify-content: center; padding: 10px; }
+}
 
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
