@@ -67,6 +67,20 @@ def test_detalle_desconocida_sugiere_parecidas(lote_asistente):
     assert "aviso" in d and "factura_pagada.pdf" in d["parecidas"]
 
 
+def test_el_nombre_del_proveedor_sale_del_maestro_si_la_factura_no_lo_trae(lote_asistente):
+    """Las lecturas reales no traen proveedor_nombre: el asistente lo saca del maestro por el NIF."""
+    from web.panel.models import Lectura, Proveedor
+
+    Proveedor.objects.create(codigo="P007", nombre="Papelería Ruzafa S.L.", nif="J40112358", iban="ES2100000000000000000000")
+    lectura = Lectura.objects.get(file_id="factura_pagada.pdf")
+    lectura.extraida["campos"]["proveedor_nombre"] = {"valor": None, "confianza": 0}
+    lectura.save()
+
+    assert consultas.detalle_factura("factura_pagada.pdf")["decision"]["proveedor"] == "Papelería Ruzafa S.L."
+    assert [f["proveedor"] for f in consultas.buscar_facturas("FA-1016")["encontradas"]] == ["Papelería Ruzafa S.L."]
+    assert consultas.pendientes_revision()["pendientes"][0]["proveedor"] == "Limpiezas Turia"  # esa sí lo traía
+
+
 def test_pendientes_y_revisada(lote_asistente):
     assert consultas.pendientes_revision()["cuantas"] == 1
     RevisionHumana.objects.create(

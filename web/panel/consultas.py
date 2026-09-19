@@ -285,7 +285,8 @@ def _canon_pedido(texto: str) -> str:
     return f"PO2026{m.group(1).zfill(4)}" if m else ""
 
 
-def _fila_decision(d: Decision, lecturas: dict[str, Lectura]) -> dict:
+def _fila_decision(d: Decision, lecturas: dict[str, Lectura], por_nif: dict[str, str]) -> dict:
+    """Una factura tal y como se le cuenta al asistente. `por_nif` es `nombres_por_nif()`, pedido una vez por consulta."""
     campos_leidos = campos(lecturas.get(d.documento.sha256))
     return {
         "file_id": d.documento.file_id,
@@ -293,7 +294,7 @@ def _fila_decision(d: Decision, lecturas: dict[str, Lectura]) -> dict:
         "motivo": d.motivo,
         "pedido": d.pedido or None,
         "numero_factura": campos_leidos.get("numero_factura"),
-        "proveedor": campos_leidos.get("proveedor_nombre"),
+        "proveedor": nombre_proveedor(campos_leidos, por_nif),
         "total": campos_leidos.get("total"),
         "lote": d.ejecucion.lote,
         "norma": d.ejecucion.norma,
@@ -352,9 +353,10 @@ def buscar_facturas(texto: str, limite: int = 10) -> dict:
         filtro |= Q(pedido__icontains=canon[6:])  # los dígitos del pedido: "2026-0474", "PO20260474"...
     decisiones = list(decisiones_de(ejecucion).filter(filtro)[:limite])
     lecturas = lecturas_por_sha(d.documento.sha256 for d in decisiones)
+    por_nif = nombres_por_nif()
     return {
         "ejecucion": ejecucion.lote,
-        "encontradas": [_fila_decision(d, lecturas) for d in decisiones],
+        "encontradas": [_fila_decision(d, lecturas, por_nif) for d in decisiones],
         "mas": decisiones_de(ejecucion).filter(filtro).count() - len(decisiones),
     }
 
@@ -380,7 +382,7 @@ def detalle_factura(file_id: str) -> dict:
         "tipo": documento.tipo,
         "paginas": documento.paginas,
         "alertas_fichero": list(documento.alertas or []),
-        "decision": _fila_decision(decision, {documento.sha256: lectura}) if decision else None,
+        "decision": _fila_decision(decision, {documento.sha256: lectura}, nombres_por_nif()) if decision else None,
         "reglas": (decision.outcome or {}).get("reglas") if decision else None,
         "lectura": (
             {
@@ -411,9 +413,10 @@ def pendientes_revision(lote: str | None = None) -> dict:
         return {"aviso": "todavía no hay ninguna ejecución terminada"}
     decisiones = list(pendientes_de_revision(ejecucion))
     lecturas = lecturas_por_sha(d.documento.sha256 for d in decisiones)
+    por_nif = nombres_por_nif()
     return {
         "ejecucion": ejecucion.lote,
-        "pendientes": [_fila_decision(d, lecturas) for d in decisiones],
+        "pendientes": [_fila_decision(d, lecturas, por_nif) for d in decisiones],
         "cuantas": len(decisiones),
     }
 
