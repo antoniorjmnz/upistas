@@ -18,7 +18,7 @@ cuánta concurrencia controlada soportamos y qué pasa cuando algo falla a mitad
 |---|---|
 | Pipeline | **DBOS** (ejecución duradera como librería, estado en SQLite/Postgres) |
 | Web y back-office | **Django** + **HTMX** + Alpine.js + Tailwind/DaisyUI |
-| Extracción | pymupdf (texto) + LLM vía **Helmcode** (API OpenAI; `qwen3.6` visión, `glm5.3` texto) |
+| Extracción | pymupdf (texto) + LLM vía **Helmcode** (API OpenAI; `deepseek-v4-flash` visión con `gemma4` de respaldo, `glm5.3` texto) |
 | Datos de referencia | openpyxl (Excel), httpx (ERP) |
 | Contratos | JSON Schema → modelos Pydantic generados |
 

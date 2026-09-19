@@ -51,7 +51,7 @@ necesaria para el flujo principal.
 ## Lo que hemos decidido
 - **El LLM solo lee; las reglas deciden.** La IA convierte documentos en datos. PAGAR/NO_PAGAR/ESCALAR lo decide código determinista y auditable.
 - **Stack**: Python + DBOS + Django + HTMX. Por qué y alternativas en [ADR-001](adr/001-stack.md).
-- **IA**: Helmcode (servidores en la UE, tarifa plana). `qwen3.6` para escaneos, `glm5.3` para texto. La clave va en tu `.env`; pídela por privado.
+- **IA**: Helmcode (servidores en la UE, tarifa plana). `deepseek-v4-flash` para escaneos (con `gemma4` de respaldo si falla), `glm5.3` para texto y notas. La clave va en tu `.env`; pídela por privado.
 - **La norma es un fichero** (`normas/v3.toml`). La v4 del sábado será otro fichero.
 - **Cada factura es un workflow duradero**: si el proceso se cae, al arrancar sigue donde iba sin repetir nada.
 - **Una sola base de datos** (`DATABASE_URL` en `.env`): la app y el estado del pipeline. SQLite en local; Postgres (`docker compose up -d`) para varios procesos.
