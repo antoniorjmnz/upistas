@@ -1,0 +1,126 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="flujo-decision" name="Flujo de decisión">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="titulo" value="Cómo se decide cada factura (norma de pagos v3 + ADR-002)" style="text;html=1;fontSize=20;fontStyle=1;fontFamily=Helvetica;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="60" y="30" width="700" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitulo" value="Solo lo que exige la norma de Alberto (seis reglas) y el criterio acordado. Leer es siempre el primer paso; decidir es determinista: la IA nunca decide." style="text;html=1;fontSize=12;fontFamily=Helvetica;align=left;verticalAlign=top;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="60" y="70" width="760" height="40" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="inicio" value="Factura (PDF)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9CA3AF;fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="440" y="120" width="160" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="leer" value="&lt;b&gt;Leer siempre todo&lt;/b&gt;&lt;br&gt;NIF, IBAN, pedido, importe, base, IVA, total, fecha, notas y texto oculto,&lt;br&gt;más la divisa y el país del NIF" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEF2FF;strokeColor=#4F46E5;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="380" y="200" width="280" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_lectura" value="¿Se ha leído lo necesario&lt;br&gt;con seguridad?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="410" y="310" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_lectura" value="&lt;b&gt;ESCALAR&lt;/b&gt;&lt;br&gt;No se pudo leer (escaneado, campo ilegible, dato contradictorio)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="320" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_divisa" value="¿Está en euros?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="430" y="430" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_divisa" value="&lt;b&gt;ESCALAR&lt;/b&gt;&lt;br&gt;El pedido está en euros: sin tipo de cambio pactado, el importe no se puede comparar. La paga Alberto a mano si es legítima." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="425" width="240" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_r1" value="&lt;b&gt;Regla 1&lt;/b&gt;&lt;br&gt;¿NIF en el maestro&lt;br&gt;e IBAN igual al del maestro?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="540" width="240" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_r1" value="&lt;b&gt;NO PAGAR&lt;/b&gt;&lt;br&gt;NIF fuera del maestro o cuenta distinta (aunque una nota diga que ha cambiado)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="720" y="550" width="240" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_r1" value="&lt;b&gt;ESCALAR&lt;/b&gt;&lt;br&gt;El maestro no permite contrastarlo (ficha sin NIF o sin IBAN)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="555" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_r2" value="&lt;b&gt;Regla 2&lt;/b&gt;&lt;br&gt;¿El pedido existe, es de ese proveedor&lt;br&gt;y el importe es igual (±0,01 €)?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="390" y="670" width="260" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_r2" value="&lt;b&gt;NO PAGAR&lt;/b&gt;&lt;br&gt;Pedido inexistente, de otro proveedor o importe distinto" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="720" y="690" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_r4" value="&lt;b&gt;Regla 4&lt;/b&gt;&lt;br&gt;¿Fecha válida y no futura?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="810" width="200" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_r4" value="&lt;b&gt;NO PAGAR&lt;/b&gt;&lt;br&gt;Fecha imposible (31/02) o futura, leída con claridad" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="720" y="820" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_r3" value="&lt;b&gt;Regla 3&lt;/b&gt;&lt;br&gt;¿IVA bien calculado&lt;br&gt;y total = base + IVA?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="410" y="930" width="220" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_r3" value="&lt;b&gt;NO PAGAR&lt;/b&gt;&lt;br&gt;La suma no cuadra o la cuota no corresponde al tipo impreso" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="720" y="945" width="240" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_r3" value="&lt;b&gt;ESCALAR&lt;/b&gt;&lt;br&gt;Duda fiscal: sin tipo impreso, importes negativos, o tipo que no encaja con el país del NIF (p. ej. un proveedor extranjero cobrando IVA español)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="930" width="240" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="nota_r3" value="Qué es «bien calculado» según el país del NIF:&lt;br&gt;• España: 21 %, 10 % o 4 % sobre la base.&lt;br&gt;• UE o fuera de la UE: 0 % con inversión del sujeto pasivo o exención.&lt;br&gt;• IRPF, exenta o sujeto pasivo bien aplicados: se pagan (ADR-002)." style="text;html=1;fontSize=11;fontFamily=Helvetica;align=left;verticalAlign=top;fontColor=#374151;strokeColor=#D1D5DB;fillColor=#F9FAFB;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="720" y="1030" width="300" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_notas" value="&lt;b&gt;Regla 6&lt;/b&gt;&lt;br&gt;¿Trae notas relevantes, texto oculto&lt;br&gt;o Alberto la apuntó para revisar?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1070" width="260" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_notas" value="&lt;b&gt;ESCALAR&lt;/b&gt;&lt;br&gt;Lo mira una persona. El texto de la factura nunca decide: ni autoriza ni bloquea." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="1085" width="240" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d_r5" value="&lt;b&gt;Regla 5&lt;/b&gt;&lt;br&gt;¿Pedido PENDIENTE en el ERP&lt;br&gt;y no pagado ni aprobado antes?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#374151;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1210" width="260" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_r5" value="&lt;b&gt;NO PAGAR&lt;/b&gt;&lt;br&gt;Ya pagada en el ERP, ya aprobada en otro lote o copia de una factura ya vista. Nunca pagar dos veces." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="720" y="1225" width="240" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_r5" value="&lt;b&gt;ESCALAR&lt;/b&gt;&lt;br&gt;Sin apunte en el ERP, apuntes que se contradicen, o Excel y ERP en desacuerdo sobre el pedido" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="1225" width="240" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="pagar" value="&lt;b&gt;PAGAR&lt;/b&gt;&lt;br&gt;Cumple la norma" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D1FAE5;strokeColor=#10B981;fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="440" y="1360" width="160" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="prioridad" value="&lt;b&gt;Si fallan varias reglas a la vez, manda este orden&lt;/b&gt;&lt;br&gt;1. Lo que no se puede verificar (lectura, maestro, evaluación de la nota) → ESCALAR.&lt;br&gt;2. Un incumplimiento probado (reglas 1, 2, 3 y 4) → NO PAGAR, aunque haya nota o texto oculto.&lt;br&gt;3. Notas o texto oculto → ESCALAR, aunque el ERP diga pagada.&lt;br&gt;4. Pago previo o duplicado confirmado → NO PAGAR.&lt;br&gt;A igual nivel gana la más restrictiva: NO PAGAR &gt; ESCALAR &gt; PAGAR. Escalar nunca autoriza un segundo pago." style="text;html=1;fontSize=11;fontFamily=Helvetica;align=left;verticalAlign=top;fontColor=#374151;strokeColor=#D1D5DB;fillColor=#F9FAFB;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1460" width="560" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="leyenda" value="&lt;b&gt;Leyenda&lt;/b&gt;&lt;br&gt;Verde: se paga sola. Rojo: no se paga y se explica por qué. Ámbar: la decide Alberto en «Para revisar», con el motivo delante.&lt;br&gt;El idioma de la factura no cambia ninguna regla: solo cambia cómo se lee." style="text;html=1;fontSize=11;fontFamily=Helvetica;align=left;verticalAlign=top;fontColor=#374151;strokeColor=#D1D5DB;fillColor=#F9FAFB;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1460" width="380" height="120" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="f1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;" edge="1" parent="1" source="inicio" target="leer"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;" edge="1" parent="1" source="leer" target="d_lectura"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f3" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_lectura" target="e_lectura"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f4" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_lectura" target="d_divisa"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f5" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_divisa" target="e_divisa"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f6" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_divisa" target="d_r1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f7" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r1" target="n_r1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f7b" value="No se sabe" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r1" target="e_r1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f8" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r1" target="d_r2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f9" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r2" target="n_r2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f10" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r2" target="d_r4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f11" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r4" target="n_r4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f12" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r4" target="d_r3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f13" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r3" target="n_r3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f13b" value="Duda" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r3" target="e_r3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f14" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r3" target="d_notas"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f15" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_notas" target="e_notas"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f16" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#374151;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_notas" target="d_r5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f17" value="Ya pagada" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#EF4444;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r5" target="n_r5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f17b" value="No se sabe" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#F59E0B;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r5" target="e_r5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f18" value="Sí" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#10B981;fontFamily=Helvetica;fontSize=11;" edge="1" parent="1" source="d_r5" target="pagar"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
