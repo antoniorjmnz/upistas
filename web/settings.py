@@ -28,6 +28,8 @@ DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
+# Orígenes extra de confianza (túnel de Cloudflare, previews...): lista separada por comas.
+CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 
 # Application definition
 

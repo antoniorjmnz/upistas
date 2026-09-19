@@ -137,3 +137,89 @@ def lote_de_prueba(db):
         "documentos": docs, "lecturas": lecturas,
         "decisiones": {d.documento.file_id: d for d in Decision.objects.filter(ejecucion=ejecuciones["actual"]).select_related("documento")},
     }
+
+
+# --- Asistente «Preguntar»: una copia del ERP y un lote pequeño ya decidido ---------------------
+
+from dataclasses import replace  # noqa: E402
+from datetime import date  # noqa: E402
+from decimal import Decimal  # noqa: E402
+
+from upistas.dominio.modelos import Asiento  # noqa: E402
+from upistas.puertos import DescargaERP, EstadisticasDescarga  # noqa: E402
+
+ASIENTO_BASE = Asiento("AS-00084", "PO-2026-0084", "P002", "A41220987", Decimal("859.40"), date(2026, 3, 21), "PENDIENTE")
+ASIENTOS = (
+    ASIENTO_BASE,
+    replace(ASIENTO_BASE, id="AS-00474", pedido="PO-2026-0474", proveedor_id="P007", nif="J40112358", estado="PAGADA"),
+    replace(ASIENTO_BASE, id="AS-00507", pedido="PO-2026-0546", proveedor_id="P005", nif=""),
+)
+
+
+class ClienteFalso:
+    """ClienteERP de mentira: devuelve los asientos que le pasen, sin red."""
+
+    def __init__(self, *descargas):
+        self.descargas = list(descargas)
+
+    def descargar(self):
+        asientos = self.descargas.pop(0)
+        return DescargaERP(asientos=asientos, lote2_cargado=False, estadisticas=EstadisticasDescarga(peticiones=30))
+
+
+@pytest.fixture
+def copia_erp():
+    """Una versión del ERP guardada como si se hubiera sincronizado de verdad."""
+    from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
+    from upistas.aplicacion.sincronizar_erp import sincronizar_erp
+
+    return sincronizar_erp(ClienteFalso(ASIENTOS), AlmacenERPDjango())
+
+
+def _extraida_asistente(numero, proveedor, nif, pedido, total):
+    def campo(valor):
+        return {"valor": valor, "confianza": 0.99}
+
+    return {
+        "metodo": "texto_determinista",
+        "lector": "falso",
+        "documento": {"tipo": "texto", "paginas": 1},
+        "campos": {
+            "numero_factura": campo(numero), "proveedor_nombre": campo(proveedor),
+            "nif": campo(nif), "iban": campo("ES2100000000000000000000"), "pedido": campo(pedido),
+            "fecha": campo("2026-03-01"), "cliente_cif": campo("A58231074"),
+            "base": campo(total / 1.21), "iva_pct": campo(21.0), "iva": campo(total - total / 1.21),
+            "total": campo(total),
+        },
+        "lineas": [], "notas": [], "checks": {"total_cuadra": True, "iva_cuadra": True, "lineas_cuadran": None},
+    }
+
+
+def _doc_asistente(lote, file_id, sha, lectura_extraida):
+    from web.panel.models import Documento, Lectura
+
+    doc = Documento.objects.create(lote=lote, file_id=file_id, ruta=f"/x/{file_id}", sha256=sha, bytes=100, tipo="texto", paginas=1)
+    Lectura.objects.create(sha256=sha, file_id=file_id, lote=lote, ok=True, lector="falso",
+                           metodo="texto_determinista", extraida=lectura_extraida, segundos=0.1)
+    return doc
+
+
+@pytest.fixture
+def lote_asistente(copia_erp):
+    """Una ejecución terminada con una decisión de cada tipo, sobre la copia del ERP."""
+    from django.utils import timezone
+
+    from web.panel.models import Decision, Ejecucion
+
+    lote = "lote1"
+    d1 = _doc_asistente(lote, "factura_bien.pdf", "a" * 64, _extraida_asistente("FA-1001", "Transportes Guadaira", "A41220987", "PO-2026-0084", 859.40))
+    d2 = _doc_asistente(lote, "factura_pagada.pdf", "b" * 64, _extraida_asistente("FA-1016", "Papelería Ruzafa", "J40112358", "PO-2026-0474", 859.40))
+    d3 = _doc_asistente(lote, "factura_rara.pdf", "c" * 64, _extraida_asistente("FA-1020", "Limpiezas Turia", "B98120774", "PO-2026-0546", 859.40))
+    ejecucion = Ejecucion.objects.create(lote=lote, norma="v3", version_erp=copia_erp.version or "v", inicio=timezone.now(), fin=timezone.now(), estado="terminada")
+    Decision.objects.create(documento=d1, ejecucion=ejecucion, resultado="PAGAR", motivo="Cumple la norma v3", pedido="PO-2026-0084",
+                            outcome={"file_id": "factura_bien.pdf", "result": "PAGAR", "motivo": "Cumple la norma v3", "reglas": [{"id": "R2_pedido_importe", "ok": True}]})
+    Decision.objects.create(documento=d2, ejecucion=ejecucion, resultado="NO_PAGAR", motivo="El pedido ya está pagado en el ERP", pedido="PO-2026-0474",
+                            outcome={"file_id": "factura_pagada.pdf", "result": "NO_PAGAR", "motivo": "El pedido ya está pagado en el ERP", "reglas": [{"id": "R5_erp_estado", "ok": False, "detalle": "estado PAGADA"}]})
+    Decision.objects.create(documento=d3, ejecucion=ejecucion, resultado="ESCALAR", motivo="El asiento no tiene NIF", pedido="PO-2026-0546",
+                            outcome={"file_id": "factura_rara.pdf", "result": "ESCALAR", "motivo": "El asiento no tiene NIF"})
+    return ejecucion
