@@ -1,4 +1,8 @@
-"""El LLM de verdad: Helmcode (API compatible con OpenAI). Solo elige herramientas y redacta."""
+"""El LLM de verdad: un proveedor compatible con OpenAI. Solo elige herramientas y redacta.
+
+Por defecto es Helmcode (la misma clave que el pipeline); con ASISTENTE_BASE_URL, ASISTENTE_API_KEY y
+ASISTENTE_MODELO en el .env el asistente va con otro (OpenRouter, por ejemplo) sin tocar nada más.
+"""
 from __future__ import annotations
 
 from functools import cache
@@ -22,11 +26,11 @@ def completar(mensajes: list[dict], herramientas: list[dict]) -> RespuestaModelo
     """Una llamada al modelo de texto. Los fallos los gestiona agente.responder (reintento + aviso)."""
     from upistas.config import settings
 
-    if not settings.helmcode_api_key:
-        raise SinCliente("falta HELMCODE_API_KEY en el .env (se pide al equipo por privado)")
-    cliente = _cliente(settings.helmcode_api_key, settings.helmcode_base_url)
+    if not settings.asistente_api_key:
+        raise SinCliente("falta ASISTENTE_API_KEY o HELMCODE_API_KEY en el .env (se pide al equipo por privado)")
+    cliente = _cliente(settings.asistente_api_key, settings.asistente_base_url)
     r = cliente.chat.completions.create(
-        model=settings.modelo_texto,
+        model=settings.asistente_modelo,
         messages=mensajes,
         tools=herramientas,
         tool_choice="auto",
@@ -42,4 +46,5 @@ def completar(mensajes: list[dict], herramientas: list[dict]) -> RespuestaModelo
         llamadas=llamadas,
         tokens_in=uso.prompt_tokens if uso else 0,
         tokens_out=uso.completion_tokens if uso else 0,
+        modelo=getattr(r, "model", None) or settings.asistente_modelo,
     )

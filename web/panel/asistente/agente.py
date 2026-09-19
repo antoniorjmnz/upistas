@@ -107,7 +107,7 @@ def frase_de_contexto(contexto: dict | None) -> str:
 
 
 class SinCliente(Exception):
-    """No hay clave de Helmcode configurada: la IA no está disponible. No tiene sentido reintentar."""
+    """No hay clave del asistente (ni de Helmcode) configurada: la IA no está disponible. No tiene sentido reintentar."""
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,7 @@ class RespuestaModelo:
     llamadas: tuple[Llamada, ...] = ()
     tokens_in: int = 0
     tokens_out: int = 0
+    modelo: str = ""            # qué modelo contestó, tal como lo dice el proveedor
 
 
 @dataclass
@@ -135,6 +136,7 @@ class RespuestaAsistente:
     propuestas: list[dict] = field(default_factory=list)   # acciones que Alberto tiene que confirmar
     tokens_in: int = 0
     tokens_out: int = 0
+    modelo: str = ""
     segundos: float = 0.0
     ok: bool = True
     error: str = ""
@@ -224,6 +226,7 @@ def responder(pregunta: str, historial: list[dict], completar: Completar, contex
                         raise
             salida.tokens_in += respuesta.tokens_in
             salida.tokens_out += respuesta.tokens_out
+            salida.modelo = respuesta.modelo or salida.modelo
             if not respuesta.llamadas:
                 salida.texto = respuesta.texto or "La IA no ha dicho nada. Prueba a preguntarlo de otra forma."
                 salida.segundos = time.monotonic() - t0
@@ -252,7 +255,7 @@ def responder(pregunta: str, historial: list[dict], completar: Completar, contex
     except SinCliente as e:  # falta la clave: es configuración, no un fallo pasajero
         salida.ok = False
         salida.error = str(e)
-        salida.texto = "La IA no está configurada todavía: falta la clave de Helmcode. El resto de la aplicación sigue funcionando."
+        salida.texto = "La IA no está configurada todavía: falta la clave del asistente. El resto de la aplicación sigue funcionando."
     except Exception as e:  # la IA caída no rompe la web
         salida.ok = False
         salida.error = str(e)

@@ -264,12 +264,40 @@ class Importacion(models.Model):
 # --- Asistente (chatbot de «Preguntar») -------------------------------------------------------
 
 
+class Conversacion(models.Model):
+    """Una conversación con el asistente: sus preguntas (`Pregunta`) y las acciones que se confirmaron en ella.
+
+    El título es la primera pregunta, recortada. La sesión solo guarda cuál es la actual; los mensajes
+    se reconstruyen desde aquí (ver views/chat.py).
+    """
+
+    TITULO_MAX = 60
+
+    titulo = models.CharField(max_length=TITULO_MAX, blank=True)
+    creada = models.DateTimeField(auto_now_add=True)
+    actualizada = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-actualizada", "-id"]
+        verbose_name = "conversación"
+        verbose_name_plural = "conversaciones"
+
+    def __str__(self) -> str:
+        return self.titulo or f"Conversación {self.pk}"
+
+
 class Pregunta(models.Model):
-    """Cada pregunta de Alberto al asistente: cuánto tardó y cuánto costó (para #31)."""
+    """Cada pregunta de Alberto al asistente: qué contestó, con qué modelo, cuánto tardó y cuánto costó (para #31).
+
+    `detalles` guarda lo que la respuesta enseña aparte del texto (fuentes, botones «Ir a», propuestas).
+    """
 
     cuando = models.DateTimeField(auto_now_add=True)
+    conversacion = models.ForeignKey(Conversacion, null=True, blank=True, on_delete=models.CASCADE, related_name="preguntas")
     texto = models.TextField()
     respuesta = models.TextField(blank=True)
+    detalles = models.JSONField(default=dict, blank=True)
+    modelo = models.CharField(max_length=60, blank=True)
     ok = models.BooleanField(default=True)
     error = models.TextField(blank=True)
     tokens_in = models.PositiveIntegerField(default=0)
@@ -290,6 +318,8 @@ class AccionAsistente(models.Model):
     """
 
     cuando = models.DateTimeField(auto_now_add=True)
+    # En qué conversación se confirmó. Borrar la conversación no borra la acción: es traza.
+    conversacion = models.ForeignKey(Conversacion, null=True, blank=True, on_delete=models.SET_NULL, related_name="acciones")
     tipo = models.CharField(max_length=40)
     datos = models.JSONField(default=dict, blank=True)
     resultado = models.TextField(blank=True)
