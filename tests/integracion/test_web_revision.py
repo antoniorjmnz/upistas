@@ -53,6 +53,13 @@ def test_cada_factura_lleva_a_su_detalle_y_se_puede_previsualizar(alberto, lote_
     assert f'data-pdf="{reverse("panel:factura_pdf", args=["lote1", ESCANEADA])}"' in html
 
 
+def test_cada_ficha_lleva_el_boton_pequeno_de_ver_en_el_pdf_que_hizo_saltar_la_alarma(alberto, lote_de_prueba):
+    html = cola(alberto)
+    assert html.count("Ver en el PDF qué ha hecho saltar la alarma") == 2
+    for file_id in (ESCALADA, ESCANEADA):
+        assert f'class="boton pequeno suave alarma" data-pdf="{reverse("panel:factura_pdf_marcado", args=["lote1", file_id])}"' in html
+
+
 def test_los_chips_separan_lo_pendiente_de_lo_ya_decidido(alberto, lote_de_prueba):
     d = lote_de_prueba["decisiones"][ESCALADA]
     RevisionHumana.objects.create(documento=d.documento, decision=d, quien="Alberto", resultado="PAGAR")

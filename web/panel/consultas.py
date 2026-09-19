@@ -172,6 +172,54 @@ def motivo_corto(decision: Decision) -> str:
     return MOTIVO_CORTO.get(fallan[0].get("id", ""), fallan[0].get("detalle") or "Hay dudas con los datos")
 
 
+# --- El PDF con las alarmas señaladas: lo que el caso de uso `marcar_pdf` necesita saber de la decisión ---
+
+# Cada dato leído, como se le nombra a Alberto dentro de una frase («no se ha podido leer la fecha»).
+NOMBRE_CAMPO = {
+    "nif": "el NIF del proveedor",
+    "iban": "la cuenta donde cobra",
+    "pedido": "el número de pedido",
+    "fecha": "la fecha",
+    "base": "la base imponible",
+    "iva": "el IVA",
+    "total": "el total",
+}
+
+
+def alarmas_de(decision: Decision, lectura: Lectura | None):
+    """Lo que hizo saltar las alarmas en esa decisión, listo para que `marcar_pdf` lo señale en el PDF:
+    las comprobaciones que fallan (en palabras de Alberto), los datos leídos con su texto literal, las notas,
+    los avisos del fichero y lo que no se pudo leer."""
+    from upistas.aplicacion.mapeo import CONFIANZA_MINIMA
+    from upistas.aplicacion.marcar_pdf import Alarmas, CampoLeido, ReglaFallida
+
+    extraida = (lectura.extraida if lectura else None) or {}
+    campos = extraida.get("campos") or {}
+    leidos = {nombre: CampoLeido(c.get("valor"), c.get("fuente")) for nombre, c in campos.items() if c}
+
+    def leido(nombre: str) -> bool:
+        c = campos.get(nombre) or {}
+        return c.get("valor") not in (None, "") and (c.get("confianza") or 0) >= CONFIANZA_MINIMA
+
+    reglas = tuple(
+        ReglaFallida(r.get("id") or "", r.get("detalle") or "", MOTIVO_CORTO.get(r.get("id") or "", ""))
+        for r in (decision.outcome or {}).get("reglas") or [] if not r.get("ok")
+    )
+    notas = tuple(str(n.get("texto")) for n in (decision.notas or []) if isinstance(n, dict) and n.get("texto"))
+    # Las notas ya van rodeadas por su cuenta: como aviso del fichero solo cuentan las del inspector.
+    alertas = [a for a in dict.fromkeys((decision.documento.alertas or []) + (decision.alertas or [])) if not a.startswith("Nota:")]
+    return Alarmas(
+        resultado=ETIQUETA.get(decision.resultado, decision.resultado),
+        motivo=motivo_corto(decision),
+        reglas=reglas,
+        campos=leidos,
+        notas=notas,
+        sin_leer=tuple(nombre for campo, nombre in NOMBRE_CAMPO.items() if not leido(campo)),
+        errores=tuple(str(e) for e in extraida.get("errores") or []),
+        alertas=tuple(alertas),
+    )
+
+
 # --- Filtrar por proveedor e importe: lo mismo en Facturas y en Para revisar -------------------
 
 

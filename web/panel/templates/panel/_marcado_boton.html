@@ -1,0 +1,3 @@
+{# El botón que abre, encima de la página, el PDF con lo que hace saltar la alarma rodeado. Espera `documento`; `grande` para el tamaño normal. #}
+{% load panel_extras %}
+<button type="button" class="{% if grande %}boton suave{% else %}boton pequeno suave{% endif %} alarma" data-pdf="{% url 'panel:factura_pdf_marcado' documento.lote documento.file_id %}" data-titulo="{{ documento.file_id }} · con las alarmas señaladas">{% icono "alerta" 15 %}Ver en el PDF qué ha hecho saltar la alarma</button>

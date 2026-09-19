@@ -29,6 +29,7 @@
       <p class="enlaces">
         <a href="{% url 'panel:factura' doc.lote doc.file_id %}">Ver la factura</a>
         {% include "panel/_previsualizar.html" with documento=doc %}
+        {% include "panel/_marcado_boton.html" with documento=doc %}
       </p>
     </article>
     {% endwith %}

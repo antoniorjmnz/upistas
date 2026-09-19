@@ -84,6 +84,16 @@ Arriba en la barra lateral, las de Alberto:
 Donde salga una factura hay un botón **Previsualizar**: abre su PDF encima de la página, sin salir de la
 lista ni descargar nada. Se cierra con el botón Cerrar, con Escape o pulsando fuera.
 
+Si la factura no se paga sola (no se paga, o la tiene que mirar Alberto, o se paga pero el fichero trae
+avisos), al lado hay otro botón: **Ver en el PDF qué ha hecho saltar la alarma**. Abre en el mismo visor
+una copia del PDF con cada dato que falla rodeado en naranja y una nota corta al lado («Cuenta distinta de
+la del maestro», «Total distinto del pedido: 12.847,40 €», «Fecha imposible», «Texto que intenta influir
+en la decisión»); el texto escondido va en rojo, como siempre. La copia acaba en una página nueva que
+empieza por el resultado y su motivo, lista las alarmas y en qué página está cada una (y lo que no hemos
+encontrado escrito en la factura), transcribe lo escondido y dice qué no se ha podido leer. El original no
+se toca. Lo decide el caso de uso `aplicacion/marcar_pdf.py` (qué se busca por cada regla y qué se
+escribe); PyMuPDF busca y dibuja en `adaptadores/pdf_marcado.py`.
+
 Abajo en la barra lateral, las de quien lleva el sistema (mismo cuidado, más datos):
 
 - **Registro de repasos**: cada pasada por un lote en una línea (cuándo, lote, facturas, se pagan, no se

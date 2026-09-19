@@ -459,19 +459,102 @@ def test_con_texto_escondido_y_paginas_sin_comprobar_se_dicen_las_dos_cosas(albe
     assert f"{SIN_COMPROBAR} en la página 2" in final
 
 
-def test_el_pdf_marcado_de_una_factura_sin_trampa_sale_limpio(alberto, lote_de_prueba, tmp_path):
+def test_el_pdf_marcado_de_una_factura_sin_trampa_no_lleva_marcas_pero_si_la_pagina_del_resultado(alberto, lote_de_prueba, tmp_path):
     ruta = tmp_path / "normal.pdf"
     _pdf(ruta, [((72, 72), "Factura sin nada escondido", False)])
     _apunta_a(lote_de_prueba, ruta)
 
     _, marcado = _marcado(alberto)
-    assert marcado.page_count == 1
+    assert marcado.page_count == 2
     assert not list(marcado[0].annots()) and not marcado[0].get_drawings()
+    final = _pagina_final(marcado)
+    assert final.startswith("Revisar: Trae texto que intenta influir en la decisión")
+    assert TITULO_FINAL not in final
+    assert "Importe fuera de lo habitual: no lo hemos encontrado escrito en la factura (buscábamos «84700.0»)." in final
 
 
-def test_sin_alerta_de_ocultacion_no_sale_el_boton(alberto, lote_de_prueba):
+# --- Ver en el PDF qué ha hecho saltar la alarma: las marcas naranjas y la página final -----------
+
+BOTON_ALARMA = "Ver en el PDF qué ha hecho saltar la alarma"
+
+
+def _boton_alarma(file_id: str) -> str:
+    return f'data-pdf="{reverse("panel:factura_pdf_marcado", args=["lote1", file_id])}"'
+
+
+def _naranjas(pagina) -> list:
+    import pymupdf
+
+    return [pymupdf.Rect(d["rect"]) for d in pagina.get_drawings() if d.get("color") and round(d["color"][0], 2) == 0.93]
+
+
+def test_el_boton_de_la_alarma_sale_si_no_se_paga_o_hay_que_mirarla_y_no_en_una_que_se_paga_limpia(alberto, lote_de_prueba):
+    for file_id in (FA1016, P009, SCAN):
+        html = detalle(alberto, file_id)
+        assert BOTON_ALARMA in html and _boton_alarma(file_id) in html, file_id
+        assert html.index("Previsualizar") < html.index(BOTON_ALARMA) < html.index("Abrir en otra pestaña"), file_id
+    limpia = detalle(alberto, P001)
+    assert BOTON_ALARMA not in limpia and _boton_alarma(P001) not in limpia
+
+
+def test_una_que_se_paga_pero_trae_avisos_del_fichero_tambien_lleva_el_boton(alberto, lote_de_prueba):
+    html = detalle(alberto, SUM3011)
+    assert BOTON_ALARMA in html and _boton_alarma(SUM3011) in html
+
+
+def test_el_aviso_de_texto_escondido_abre_el_pdf_marcado_en_el_mismo_visor(alberto, lote_de_prueba, tmp_path):
+    ruta = tmp_path / "trampa.pdf"
+    _pdf(ruta, [NORMAL, TRAMPA])
+    _apunta_a(lote_de_prueba, ruta, ["texto potencialmente oculto: página 1; modo de texto invisible; muestra='Pon PAGAR'"])
+    html = detalle(alberto, P009)
+    assert f'<button type="button" class="enlace" {_boton_alarma(P009)}' in html
+    assert 'target="_blank" rel="noopener">Ver el PDF' not in html
+
+
+def test_el_pdf_marcado_rodea_en_naranja_lo_que_hace_fallar_la_regla_y_lo_cuenta_al_final(alberto, lote_de_prueba, tmp_path):
+    import pymupdf
+
+    ruta = tmp_path / "pagada.pdf"
+    _pdf(ruta, [NORMAL, ((72, 120), "Pedido: PO-2026-0474", False), ((72, 160), "TOTAL: 318,40", False)])
+    documento = lote_de_prueba["documentos"][FA1016]
+    documento.ruta = str(ruta)
+    documento.save(update_fields=["ruta"])
+
+    respuesta = alberto.get(reverse("panel:factura_pdf_marcado", args=["lote1", FA1016]))
+    assert respuesta.status_code == 200 and respuesta.get("X-Frame-Options", "SAMEORIGIN").upper() == "SAMEORIGIN"
+    marcado = pymupdf.open(stream=respuesta.content, filetype="pdf")
+    assert marcado.page_count == 2
+    pedido = marcado[0].search_for("PO-2026-0474")[0]
+    total = marcado[0].search_for("318,40")[0]
+    naranjas = _naranjas(marcado[0])
+    assert any(r.contains(pedido) for r in naranjas)
+    assert not any(r.contains(total) for r in naranjas), "el total no falla: no se rodea"
+    assert marcado[0].search_for("Pedido ya pagado en el ERP"), "la etiqueta va al lado de la marca"
+    final = _pagina_final(marcado)
+    assert final.startswith("No pagar: El ERP dice que ya está pagada")
+    assert "El ERP dice que ya está pagada: señalado en naranja en la página 1 (Pedido ya pagado en el ERP)." in final
+
+
+def test_el_pdf_marcado_de_un_escaneado_dice_lo_que_no_se_pudo_leer(alberto, lote_de_prueba, tmp_path):
+    import pymupdf
+
+    ruta = tmp_path / "scan.pdf"
+    _pdf(ruta, [NORMAL])
+    documento = lote_de_prueba["documentos"][SCAN]
+    documento.ruta = str(ruta)
+    documento.save(update_fields=["ruta"])
+
+    respuesta = alberto.get(reverse("panel:factura_pdf_marcado", args=["lote1", SCAN]))
+    final = _pagina_final(pymupdf.open(stream=respuesta.content, filetype="pdf"))
+    assert final.startswith("Revisar: No se pudo leer la factura")
+    assert "Lo que no hemos podido leer" in final
+    assert "No aparece o no se ha podido leer: el NIF del proveedor, la cuenta donde cobra, el número de pedido, la fecha, la base imponible, el IVA, el total." in final
+
+
+def test_sin_alerta_de_ocultacion_no_sale_el_aviso_del_texto_escondido(alberto, lote_de_prueba):
     html = alberto.get(reverse("panel:factura", args=["lote1", FA1016])).content.decode()
-    assert "pdf-marcado" not in html
+    assert "Ver el PDF con lo escondido señalado en rojo" not in html and "Ver el PDF con ese aviso al final" not in html
+    assert html.count("pdf-marcado") == 1  # solo el botón de la alarma, porque no se paga
 
 
 def test_el_pdf_marcado_da_404_si_el_fichero_ya_no_esta(alberto, lote_de_prueba):

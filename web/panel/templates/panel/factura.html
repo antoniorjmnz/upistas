@@ -53,7 +53,7 @@
     {% if con_oculto or sin_comprobar %}
       <p>{% if con_oculto %}Esta factura lleva texto que no se ve al abrirla.{% endif %}
         {% if sin_comprobar %}No hemos podido comprobar si lleva texto escondido{% if con_oculto %} en todas sus páginas{% endif %}.{% endif %}
-        <a href="{% url 'panel:factura_pdf_marcado' documento.lote documento.file_id %}" target="_blank" rel="noopener">{% if con_oculto %}Ver el PDF con lo escondido señalado en rojo{% else %}Ver el PDF con ese aviso al final{% endif %}</a></p>
+        <button type="button" class="enlace" data-pdf="{% url 'panel:factura_pdf_marcado' documento.lote documento.file_id %}" data-titulo="{{ documento.file_id }} · con las alarmas señaladas">{% if con_oculto %}Ver el PDF con lo escondido señalado en rojo{% else %}Ver el PDF con ese aviso al final{% endif %}</button></p>
     {% endif %}
   </div>
 </div>
@@ -64,6 +64,7 @@
     <h2>La factura</h2>
     <span class="acciones">
       {% include "panel/_previsualizar.html" with documento=documento grande=True %}
+      {% if decision.resultado != "PAGAR" or alertas %}{% include "panel/_marcado_boton.html" with documento=documento grande=True %}{% endif %}
       <a class="boton suave" href="{% url 'panel:factura_pdf' documento.lote documento.file_id %}" target="_blank" rel="noopener">{% icono "externo" 16 %}Abrir en otra pestaña</a>
     </span>
   </div>

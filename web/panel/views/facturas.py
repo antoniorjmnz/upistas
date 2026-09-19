@@ -269,9 +269,12 @@ def pdf(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     return FileResponse(open(documento.ruta, "rb"), content_type="application/pdf")
 
 
+@xframe_options_sameorigin  # se enseña en el mismo visor que Previsualizar
 def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
-    """El mismo PDF, con cada trozo de texto escondido rodeado en rojo y, al final, una página nueva
-    que lo transcribe. Lo hace el caso de uso `marcar_pdf`; aquí solo se busca el fichero y se sirve la copia.
+    """El mismo PDF con lo que hace saltar la alarma rodeado en naranja (con su etiqueta), el texto escondido
+    en rojo y, al final, una página nueva con el resultado, las alarmas, la transcripción de lo escondido y
+    lo que no se pudo leer. Lo hace el caso de uso `marcar_pdf`; aquí solo se juntan los datos de la última
+    decisión y se sirve la copia.
     """
     from upistas.infra import contenedor
 
@@ -279,8 +282,12 @@ def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     ruta = Path(documento.ruta)
     if not ruta.is_file():
         raise Http404(f"El PDF ya no está donde lo dejamos ({documento.ruta}). Vuelva a copiar la carpeta de facturas.")
+    ejecucion = consultas.ultima_ejecucion(lote)
+    decision = Decision.objects.filter(ejecucion=ejecucion, documento=documento).select_related("documento").first() if ejecucion else None
+    lectura = consultas.lecturas_por_sha([documento.sha256]).get(documento.sha256)
+    alarmas = consultas.alarmas_de(decision, lectura) if decision else None
     try:
-        marcado = marcar_pdf(ruta, contenedor.marcador_pdf())
+        marcado = marcar_pdf(ruta, contenedor.marcador_pdf(), alarmas)
     except PdfNoMarcable as exc:  # cifrado, roto o enorme: se dice, no se revienta
         raise Http404(str(exc)) from exc
     respuesta = HttpResponse(marcado.datos, content_type="application/pdf")

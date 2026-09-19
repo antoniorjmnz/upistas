@@ -110,6 +110,8 @@ h2 { margin: 0; font: 600 17px/1.3 var(--f-titulo); }
 .boton.nopagar:hover { background: var(--nopagar-fondo); color: var(--nopagar); }
 .boton.suave { background: var(--panel); color: var(--tinta); border-color: var(--linea); }
 .boton.suave:hover { background: var(--hover); border-color: #D1D5DB; color: var(--tinta); }
+.boton.suave.alarma { color: var(--revisar); border-color: var(--revisar-borde); background: var(--revisar-fondo); }
+.boton.suave.alarma:hover { background: #FEF0C7; border-color: var(--revisar-solido); color: var(--revisar); }
 .boton.grande { min-height: 48px; font-size: 16px; padding: 0 22px; }
 .boton.pequeno { min-height: 34px; font-size: 13px; padding: 0 12px; gap: 6px; }
 .enlace { font: inherit; background: none; border: 0; color: var(--marca); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
