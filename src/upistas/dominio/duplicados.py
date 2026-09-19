@@ -15,19 +15,24 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
     por_hash, por_pedido = defaultdict(list), defaultdict(list)
     copias = set()
 
+    # Las mismas prioridades que la norma: lo no verificable manda sobre el incumplimiento probado,
+    # y el incumplimiento probado sobre la revisión por notas o por contenido oculto.
+    NO_VERIFICABLE = ("R0_lectura", "R3_datos_fiscales", "R6_evaluacion_disponible", "R6_maestro_verificable")
+    PROBADO = ("R1_nif_iban", "R2_pedido_importe", "R3_iva_total")
+
     def bloquear(file_id, regla, detalle, resultado):
         actual = salida[file_id]
-        iva_probado = any(not c.ok and c.regla == "R3_iva_total" for c in actual.comprobaciones)
+        probado = any(not c.ok and c.regla in PROBADO for c in actual.comprobaciones)
         if resultado == Resultado.ESCALAR and actual.resultado == Resultado.NO_PAGAR:
-            if not actual.comprobaciones or any(not c.ok and c.regla in (
-                "R5_no_pagada", "R5_hash_previo", "R5_copia_hash", "R5_reenvio", "R3_iva_total",
+            if not actual.comprobaciones or probado or any(not c.ok and c.regla in (
+                "R5_no_pagada", "R5_hash_previo", "R5_copia_hash", "R5_reenvio",
             ) for c in actual.comprobaciones):
                 resultado = Resultado.NO_PAGAR
-        if any(not c.ok and c.regla in ("R0_lectura", "R3_datos_fiscales", "R6_evaluacion_disponible") for c in actual.comprobaciones):
+        if any(not c.ok and c.regla in NO_VERIFICABLE for c in actual.comprobaciones):
             resultado = Resultado.ESCALAR
-        elif not iva_probado and any(not c.ok and c.regla == "R6_contenido_oculto" for c in actual.comprobaciones):
+        elif not probado and any(not c.ok and c.regla == "R6_contenido_oculto" for c in actual.comprobaciones):
             resultado = Resultado.ESCALAR
-        elif not iva_probado and actual.resultado == Resultado.ESCALAR and any(not c.ok and c.regla == "R6_notas" for c in actual.comprobaciones):
+        elif not probado and actual.resultado == Resultado.ESCALAR and any(not c.ok and c.regla == "R6_notas" for c in actual.comprobaciones):
             resultado = Resultado.ESCALAR
         motivo = detalle if actual.resultado == Resultado.PAGAR else f"{actual.motivo}; {detalle}"
         salida[file_id] = replace(actual, resultado=resultado, motivo=motivo,
