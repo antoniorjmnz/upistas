@@ -16,6 +16,9 @@ FINAL_v7_DEFINITIVO_ahorasi.xlsx
 __pycache__/
 *.pyc
 .venv/
+.venv-real/
+.uvcache/
+uvtmp/
 .pytest_cache/
 
 # Node

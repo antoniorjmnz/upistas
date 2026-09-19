@@ -1,7 +1,8 @@
 # Norma de pagos v3 (hoja Norma_Pagos_v3 del Excel de Alberto).
-# Cada regla: qué resultado provoca si falla y con qué prioridad. Si fallan varias, gana la de
-# prioridad más alta; a igual prioridad, la más restrictiva (NO_PAGAR > ESCALAR > PAGAR).
-# Las reglas viven en src/upistas/dominio/reglas/. El criterio está en docs/adr/002-criterio.md.
+# Cada regla: qué resultado provoca si falla. Si fallan varias gana la de mayor prioridad, y a
+# igual prioridad la más restrictiva (NO_PAGAR > ESCALAR > PAGAR).
+# Escalones: 400 no se puede verificar · 350 incumplimiento probado · 300 revisión por el
+# contenido del documento · 100 pago previo · 50 avisos. Reglas en src/upistas/dominio/reglas/. El criterio está en docs/adr/002-criterio.md.
 version = "v3"
 
 [reglas.R1_nif_iban]
@@ -43,6 +44,10 @@ prioridad = 300
 si_falla = "ESCALAR"
 prioridad = 400
 
+[reglas.R6_maestro_verificable]
+si_falla = "ESCALAR"
+prioridad = 400
+
 [reglas.R6_proveedor_referencias]
 si_falla = "ESCALAR"
 prioridad = 50
@@ -76,5 +81,6 @@ prioridad = 350
 # R5_no_pagada → NO_PAGAR: pedido ya pagado en el ERP o aprobado en otro lote; nunca pagar dos veces.
 # R5_hash_previo → NO_PAGAR: el mismo documento ya se aprobó en otro lote.
 # R6_proveedor_referencias → ESCALAR: Excel y ERP se contradicen sobre el proveedor, el maestro no permite contrastarlo o el pedido es de otro proveedor.
+# R6_maestro_verificable → ESCALAR: el maestro no permite contrastar el NIF o el IBAN del proveedor del pedido; sin dato no se prueba nada.
 # R6_revision_interna → ESCALAR: pedido apuntado por Alberto en pendiente_revisar.
 # R5_erp_pendiente → ESCALAR: sin asiento en el ERP o estado no pendiente; falta la referencia oficial.

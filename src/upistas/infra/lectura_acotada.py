@@ -48,6 +48,8 @@ def leer(ruta: Path, configuracion: Settings, documento: DocumentoInspeccionado 
     peticion = {
         "ruta": str(ruta.resolve()), "sha256": doc.sha256,
         "ocr": configuracion.usar_ocr, "outputs_dir": str(configuracion.outputs_dir.resolve()),
+        "firecrawl_api_key": configuracion.firecrawl_api_key,
+        "firecrawl_base_url": configuracion.firecrawl_base_url,
     }
     try:
         proceso = subprocess.run(
@@ -80,7 +82,10 @@ def _ejecutar():
 
     try:
         peticion = json.load(sys.stdin)
-        contenedor.configurar(replace(contenedor.settings, usar_ocr=peticion["ocr"], outputs_dir=Path(peticion["outputs_dir"])))
+        contenedor.configurar(replace(contenedor.settings, usar_ocr=peticion["ocr"],
+                                      outputs_dir=Path(peticion["outputs_dir"]),
+                                      firecrawl_api_key=peticion.get("firecrawl_api_key", ""),
+                                      firecrawl_base_url=peticion.get("firecrawl_base_url", "https://api.firecrawl.dev")))
         with redirect_stdout(sys.stderr):
             lectura = leer_documento(Path(peticion["ruta"]), contenedor.inspector(), contenedor.lectores())
         respuesta = {

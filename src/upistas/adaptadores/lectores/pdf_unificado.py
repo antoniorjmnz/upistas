@@ -10,10 +10,10 @@ from tempfile import NamedTemporaryFile
 
 import pymupdf
 
-from upistas.adaptadores.lectores.campos import MODELO_OCR, extraer_campos
+from upistas.adaptadores.lectores.campos import extraer_campos
 from upistas.puertos import DocumentoInspeccionado, LecturaFallida
 
-VERSION = "unificado-4"
+VERSION = "unificado-5"
 
 
 def texto_util(texto: str) -> bool:
@@ -23,7 +23,7 @@ def texto_util(texto: str) -> bool:
 
 
 def _campos_insuficientes(pagina: dict) -> bool:
-    extraida = extraer_campos("pagina", [{"page": pagina.get("page", 1), "route": pagina.get("route", "fal_ocr"),
+    extraida = extraer_campos("pagina", [{"page": pagina.get("page", 1), "route": pagina.get("route", "firecrawl_ocr"),
                                          "text": pagina.get("text", ""), "error": pagina.get("error")}])
     if extraida.errores:
         return True
@@ -35,7 +35,7 @@ def _discrepancias(pagina: dict) -> list[str]:
     if not ocr.strip() or not vision.strip():
         return []
     indice = pagina.get("page", 1)
-    a = extraer_campos("ocr", [{"page": indice, "route": "fal_ocr", "text": ocr}])
+    a = extraer_campos("ocr", [{"page": indice, "route": "firecrawl_ocr", "text": ocr}])
     b = extraer_campos("vision", [{"page": indice, "route": "vision_llm", "text": vision}])
     avisos = []
     for nombre in ("numero_factura", "nif", "iban", "pedido", "fecha", "base", "iva_pct", "iva", "total"):
@@ -59,7 +59,8 @@ class LectorPdfUnificado:
 
     def _clave(self, sha: str) -> str:
         vision = getattr(self.vision, "version", "vision") if self.vision else "no-vision"
-        return f"{sha}-{VERSION}-{'ocr' if self.ocr else 'nativo'}-{vision}"
+        ocr = getattr(self.ocr, "nombre", "ocr") if self.ocr else "nativo"
+        return f"{sha}-{VERSION}-{ocr}-{vision}"
 
     def acepta(self, ruta: Path | DocumentoInspeccionado) -> bool:
         return ruta.legible if isinstance(ruta, DocumentoInspeccionado) else ruta.suffix.lower() == ".pdf"
@@ -101,7 +102,7 @@ class LectorPdfUnificado:
                     temporal.replace(cache)
             extraida = extraer_campos(ruta.name, raw["pages"], documento={
                 "sha256": sha,
-                "tipo": inspeccion.tipo if inspeccion else ("escaneado" if any(p["route"] in ("fal_ocr", "vision_llm") for p in raw["pages"]) else "texto"),
+                "tipo": inspeccion.tipo if inspeccion else ("escaneado" if any(p["route"].endswith("ocr") or p["route"] == "vision_llm" for p in raw["pages"]) else "texto"),
                 "paginas": raw["page_count"],
                 "bytes": len(contenido),
                 "alertas": list(inspeccion.alertas) if inspeccion else [],
@@ -148,13 +149,13 @@ class LectorPdfUnificado:
                     if texto_util(texto):
                         traza["text"] = texto
                     else:
-                        traza["route"] = "fal_ocr"
+                        traza["route"] = getattr(self.ocr, "ruta", "ocr")
                         if self.ocr is None:
                             raise LecturaFallida("Página sin texto útil; OCR no habilitado")
                         if pagina.rect.width * pagina.rect.height * (200 / 72) ** 2 > 16_000_000:
                             raise LecturaFallida("Página demasiado grande para OCR")
                         imagen = pagina.get_pixmap(dpi=200, alpha=False).tobytes("png")
-                        traza["model"] = MODELO_OCR
+                        traza["model"] = getattr(self.ocr, "modelo", "ocr")
                         texto_ocr = ocr_previo.get(indice) or self.ocr(imagen)
                         if not isinstance(texto_ocr, str) or not texto_ocr.strip():
                             raise LecturaFallida("OCR sin texto")
@@ -167,6 +168,7 @@ class LectorPdfUnificado:
                                     raise LecturaFallida("Visión sin texto")
                                 traza["text_vision"] = texto_vision
                                 traza["text"] = texto_vision
+                                traza["modelo_ocr"] = traza.get("model")
                                 traza["route"] = "vision_llm"
                                 traza["model"] = uso.get("modelo") or getattr(self.vision, "version", None)
                                 traza["tokens_in"] = uso.get("tokens_in") or 0

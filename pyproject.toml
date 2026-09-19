@@ -23,9 +23,6 @@ dev = [
     "import-linter>=2.3",
     "pytest-django>=4.11",
 ]
-ocr = [
-    "fal-client==0.10.0",
-]
 
 [project.scripts]
 upistas = "upistas.cli:main"

@@ -137,7 +137,7 @@ def test_total_con_caracteres_invisibles_conserva_evidencia():
 def test_conflicto_entre_paginas_no_elige_la_primera():
     factura = extraer_campos("a.pdf", [
         {"page": 1, "route": "native_text", "text": TEXTO},
-        {"page": 2, "route": "fal_ocr", "text": "TOTAL 200,00 EUR"},
+        {"page": 2, "route": "firecrawl_ocr", "text": "TOTAL 200,00 EUR"},
     ])
     assert factura.campos.total.valor is None
     assert any("total" in error for error in factura.errores)
@@ -169,7 +169,7 @@ def test_fecha_invalida_y_otra_valida_es_contradiccion():
 def test_pagina_ocr_fallida_no_desaparece():
     factura = extraer_campos("a.pdf", [
         {"page": 1, "route": "native_text", "text": TEXTO},
-        {"page": 2, "route": "fal_ocr", "text": "", "error": "timeout"},
+        {"page": 2, "route": "firecrawl_ocr", "text": "", "error": "timeout"},
     ])
     assert any("timeout" in error for error in factura.errores)
 
@@ -370,16 +370,22 @@ def test_coste_acumula_ocr_y_vision_con_los_tokens_de_la_api(tmp_path):
     ruta = tmp_path / "scan.pdf"
     crear_pdf(ruta, None)
     vision = VisionHelmcode("k", URL, "qwen3.6", cliente=cliente_vision(respuesta_vision(tokens_in=1200, tokens_out=300)))
-    factura = LectorPdfUnificado(ocr=lambda imagen: "FACTURA ILEGIBLE\nTOTAL 121,00 EUR", vision=vision).leer(ruta)
+    class OcrFalso:
+        modelo = "ocr-falso"
+
+        def __call__(self, imagen):
+            return "FACTURA ILEGIBLE" + chr(10) + "TOTAL 121,00 EUR"
+
+    factura = LectorPdfUnificado(ocr=OcrFalso(), vision=vision).leer(ruta)
     assert factura.metodo.value == "vision_llm"
-    assert factura.coste.modelo == "fal-ai/got-ocr/v2 + qwen3.6"
+    assert factura.coste.modelo == "ocr-falso + qwen3.6"
     assert (factura.coste.tokens_in, factura.coste.tokens_out) == (1200, 300)
 
 
 def test_coste_suma_los_tokens_de_todas_las_paginas():
     factura = extraer_campos("a.pdf", [
-        {"page": 1, "route": "vision_llm", "text": TEXTO, "model": "qwen3.6", "tokens_in": 1000, "tokens_out": 200},
-        {"page": 2, "route": "vision_llm", "text": "Página 2 de 3", "model": "qwen3.6", "tokens_in": 500, "tokens_out": 100},
+        {"page": 1, "route": "vision_llm", "text": TEXTO, "model": "qwen3.6", "modelo_ocr": "fal-ai/got-ocr/v2", "tokens_in": 1000, "tokens_out": 200},
+        {"page": 2, "route": "vision_llm", "text": "Página 2 de 3", "model": "qwen3.6", "modelo_ocr": "fal-ai/got-ocr/v2", "tokens_in": 500, "tokens_out": 100},
         {"page": 3, "route": "fal_ocr", "text": "Página 3 de 3", "model": "fal-ai/got-ocr/v2"},
     ])
     assert factura.coste.modelo == "fal-ai/got-ocr/v2 + qwen3.6"
@@ -418,17 +424,14 @@ def test_vision_helmcode_transcribe_sin_fuentes():
     assert "maestro" not in enviados[1]["content"][0]["image_url"]["url"]
 
 
-def test_adaptador_fal_con_respuesta_simulada(monkeypatch):
-    import sys
+def test_adaptador_ocr_con_respuesta_simulada():
     from types import SimpleNamespace
     from unittest.mock import Mock
 
-    from upistas.adaptadores.lectores.fal_ocr import FalOCR
+    from upistas.adaptadores.lectores.firecrawl_ocr import FirecrawlOCR
 
-    subir = Mock(return_value="imagen-simulada")
-    consultar = Mock(return_value={"outputs": [TEXTO]})
-    monkeypatch.setitem(sys.modules, "fal_client", SimpleNamespace(upload_file=subir, subscribe=consultar))
-    assert FalOCR()(b"imagen simulada") == TEXTO
-    subir.assert_called_once()
-    assert consultar.call_args.args == ("fal-ai/got-ocr/v2",)
-    assert consultar.call_args.kwargs["arguments"]["input_image_urls"] == ["imagen-simulada"]
+    respuesta = SimpleNamespace(status_code=200, headers={},
+                                json=Mock(return_value={"success": True, "data": {"markdown": TEXTO}}))
+    ocr = FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=Mock(return_value=respuesta)))
+    png = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 20, 20)).tobytes("png")
+    assert ocr(png) == TEXTO.strip()

@@ -20,23 +20,45 @@ def lectura_suficiente(factura, refs, params):
     return Comprobacion("R0_lectura", not faltan, "Campos no verificables: " + ", ".join(faltan) if faltan else "")
 
 
-@regla("R6_proveedor_referencias")
-def proveedor_coherente(factura, refs, params):
-    nombre = "R6_proveedor_referencias"
+def _identidad_del_pedido(factura, refs):
+    """Asiento y fila del pedido, y la ficha del maestro del proveedor que el ERP les asigna."""
     asiento = refs.asiento(factura.pedido)
     pedido = refs.pedidos.get(factura.pedido)
+    if asiento is None or pedido is None or not asiento.proveedor_id or not pedido.proveedor_id:
+        return asiento, pedido, None
+    proveedores = {_id(p.id): p for p in (refs.proveedores_por_id or refs.proveedores).values()}
+    return asiento, pedido, proveedores.get(_id(asiento.proveedor_id))
+
+
+@regla("R6_maestro_verificable")
+def maestro_verificable(factura, refs, params):
+    """Sin estos datos no se puede probar un incumplimiento de identidad: es duda, no infracción.
+
+    Va por encima de R1 y R2 para que un maestro incompleto nunca acabe en NO_PAGAR.
+    """
+    nombre = "R6_maestro_verificable"
+    asiento, pedido, proveedor = _identidad_del_pedido(factura, refs)
     if asiento is None:
         return Comprobacion(nombre, True)
     if pedido is None or not asiento.proveedor_id or not pedido.proveedor_id:
         return Comprobacion(nombre, False, "No se puede contrastar el proveedor del pedido entre Excel y ERP")
-    if _id(pedido.proveedor_id) != _id(asiento.proveedor_id):
-        return Comprobacion(nombre, False, f"Proveedor contradictorio: Excel {pedido.proveedor_id}, ERP {asiento.proveedor_id}")
-    proveedores = {_id(p.id): p for p in (refs.proveedores_por_id or refs.proveedores).values()}
-    proveedor = proveedores.get(_id(asiento.proveedor_id))
     if proveedor is None or not proveedor.nif:
         return Comprobacion(nombre, False, f"El maestro no permite verificar el NIF del proveedor {asiento.proveedor_id}")
     if not proveedor.iban:
         return Comprobacion(nombre, False, f"El maestro no permite verificar el IBAN del proveedor {asiento.proveedor_id}")
+    return Comprobacion(nombre, True)
+
+
+@regla("R6_proveedor_referencias")
+def proveedor_coherente(factura, refs, params):
+    nombre = "R6_proveedor_referencias"
+    asiento, pedido, proveedor = _identidad_del_pedido(factura, refs)
+    if asiento is None or pedido is None or not asiento.proveedor_id or not pedido.proveedor_id:
+        return Comprobacion(nombre, True)
+    if _id(pedido.proveedor_id) != _id(asiento.proveedor_id):
+        return Comprobacion(nombre, False, f"Proveedor contradictorio: Excel {pedido.proveedor_id}, ERP {asiento.proveedor_id}")
+    if proveedor is None or not proveedor.nif:
+        return Comprobacion(nombre, True)
     if factura.nif and _id(factura.nif) != _id(proveedor.nif):
         return Comprobacion(nombre, False, "El NIF de la factura no corresponde al proveedor del ERP")
     for origen, registro in (("Excel", pedido), ("ERP", asiento)):

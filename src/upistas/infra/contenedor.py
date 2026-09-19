@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import date
 from functools import cache
@@ -18,7 +19,6 @@ from upistas.adaptadores.fuentes.erp_http import ClienteErpHttp
 from upistas.adaptadores.fuentes.excel import MaestroExcel
 from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.fuentes.snapshot import ErpSnapshot
-from upistas.adaptadores.lectores.fal_ocr import FalOCR
 from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnificado
 from upistas.adaptadores.pdf_marcado import MarcadorPdfMuPDF
@@ -40,6 +40,16 @@ def inspector() -> Inspector:
     return InspectorPdf()
 
 
+def _ocr() -> Callable[[bytes], str] | None:
+    """El OCR para escaneados: Firecrawl /parse (httpx, sin extra)."""
+    if not settings.usar_ocr:
+        return None
+    from upistas.adaptadores.lectores.firecrawl_ocr import FirecrawlOCR
+
+    return FirecrawlOCR(settings.firecrawl_api_key, settings.firecrawl_base_url,
+                        cerrojo=settings.outputs_dir / ".firecrawl.lock")
+
+
 @cache
 def marcador_pdf() -> MarcadorPdf:
     """Para la web: el PDF con el texto escondido rodeado en rojo (caso de uso `marcar_pdf`)."""
@@ -55,7 +65,7 @@ def lectores() -> tuple[LectorPdfUnificado, ...]:
         settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_vision, timeout=settings.vision_timeout_s,
     ) if settings.usar_ocr and settings.helmcode_api_key else None
     return (LectorPdfUnificado(
-        ocr=FalOCR() if settings.usar_ocr else None,
+        ocr=_ocr(),
         vision=vision,
         cache_dir=settings.outputs_dir / "extracciones",
     ),)

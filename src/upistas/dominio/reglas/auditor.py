@@ -28,11 +28,13 @@ def nif_iban(factura, refs, params):
 
 @regla("R2_pedido_importe")
 def pedido_importe(factura, refs, params):
-    """Pedido inexistente o importe distinto: incumplimiento seguro. Que el pedido sea de otro
-    proveedor es una contradicción entre fuentes y la escala R6_proveedor_referencias."""
+    """Pedido inexistente, de otro proveedor o con importe distinto: incumplimiento seguro (regla 2)."""
     pedido = refs.asiento(factura.pedido) or refs.pedidos.get(factura.pedido)
+    proveedor = refs.proveedores.get(factura.nif)
     if pedido is None:
         return Comprobacion("R2_pedido_importe", False, "Pedido ausente o no encontrado")
+    if proveedor is None or pedido.proveedor_id != proveedor.id or (pedido.nif and pedido.nif != factura.nif):
+        return Comprobacion("R2_pedido_importe", False, "El pedido no pertenece al proveedor de la factura")
     if factura.total is None or abs(factura.total - pedido.importe) > tolerancia(params):
         return Comprobacion("R2_pedido_importe", False, f"Total {factura.total} distinto del pedido {pedido.importe}")
     return Comprobacion("R2_pedido_importe", True)

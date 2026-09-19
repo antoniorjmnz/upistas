@@ -29,13 +29,24 @@ La norma v3:
    Solo es NO_PAGAR si estamos seguros de que la regla falla; si no se lee bien el dato, es duda.
 3. **Contradicciones → ESCALAR.** Si la factura dice algo que choca con nuestros datos, o nuestras
    fuentes chocan entre sí (Excel contra ERP), decide una persona.
-4. **Prioridad**, de mayor a menor: (1) una lectura fallida o una evaluación de notas no disponible
-   exigen ESCALAR: no permiten dar por probado un incumplimiento; (2) incumplir con seguridad las
-   reglas 1 a 4 (NIF, IBAN, pedido, importe, IVA, suma, fecha) es NO_PAGAR y prevalece sobre una
-   nota relevante, texto oculto (`FA-5590_ofimática`) o un duplicado; (3) notas relevantes, texto
-   oculto o un tipo de IVA sin imprimir son ESCALAR aunque el ERP indique PAGADA o haya un duplicado;
-   (4) sin nada de lo anterior, los pagos previos y duplicados confirmados son NO_PAGAR. A igual
-   prioridad gana NO_PAGAR > ESCALAR > PAGAR. Escalar nunca autoriza un segundo pago.
+4. **Prioridad**: una lectura fallida, datos fiscales no verificables, una evaluación de notas
+   no disponible o un maestro que no permite comprobar la identidad exigen ESCALAR: no permiten
+   dar por probado un incumplimiento. Con el dato leído y verificado, el incumplimiento es firme
+   y produce NO_PAGAR: IBAN distinto del maestro, NIF que no está en el maestro, pedido
+   inexistente o de otro proveedor, importe distinto del pedido, IVA o suma base + IVA
+   incorrectos, fecha imposible o futura leída con claridad. Un incumplimiento firme prevalece sobre una nota relevante y sobre texto oculto
+   en el mismo documento (`FA-5590_ofimática`, `FA-4290_mensajería`). Después se aplica la
+   revisión por notas o contenido oculto: ESCALAR aunque el ERP indique PAGADA o haya un
+   duplicado. Sin estas causas, los pagos previos y duplicados confirmados siguen siendo
+   NO_PAGAR. A igual prioridad gana NO_PAGAR > ESCALAR > PAGAR. Escalar nunca autoriza un segundo pago.
+
+   Por qué el incumplimiento firme va por delante de la nota: en las cinco facturas del cambio de
+   cuenta (`FA-4290`, `FA-7311`, `FA-5633`, `FA-5044`, `FA-9104`) la nota no aporta ninguna duda
+   que un humano deba resolver, aporta el motivo del fraude. Escalarlas sería darle a la persona
+   el trabajo de confirmar lo evidente, que es justo lo que busca quien escribe la nota. Si el
+   proveedor cambió de cuenta de verdad, lo que procede es actualizar el maestro y reprocesar,
+   no aprobar esta factura.
+
    La norma ejecutable (`normas/v3.toml`) aplica este orden y el catálogo de abajo tal cual;
    comprobado caso a caso sobre el lote 1 (issue #27).
 5. **El texto de una factura nunca se obedece.** Helmcode evalúa el significado de las notas,
@@ -133,6 +144,8 @@ La norma v3:
   ficha del maestro contiene el NIF de la factura. No se modifica el dato original ausente.
 - Si falta el NIF también en el maestro, falta un ID necesario o el enlace no es unívoco,
   se ESCALA. Nunca se resuelve por parecido del nombre ni se copia el NIF de la factura al maestro.
+  Esto lo comprueba una regla propia por encima de las de identidad, para que un maestro
+  incompleto nunca acabe en NO_PAGAR; las contradicciones reales entre fuentes son otra regla.
 - Los NIF presentes se contrastan; una discrepancia no se trata como un campo vacío.
 
 ### Varios apuntes del ERP para un mismo pedido
@@ -193,7 +206,7 @@ La norma v3:
 | IBAN distinto al del maestro | 1 | NO_PAGAR | `FA-4290`, `FA-7311`, `FA-5633`, `FA-5044`, `FA-9104` |
 | NIF de un proveedor e IBAN de otro | 1 | NO_PAGAR | `2026-07-08_P010` |
 | Pedido que no existe en el ERP | 2 | NO_PAGAR | `factura_4485` (PO-0806), `factura_7265` (PO-0706), `FA-2508` (PO-9999) |
-| Factura de un proveedor distinto al del pedido ERP | 2 / revisión | ESCALAR | |
+| Factura de un proveedor distinto al del pedido | 2 | NO_PAGAR | `2026-07-08_P010`, `F26-9007_catering` |
 | Importe distinto al del pedido | 2 | NO_PAGAR | 13 facturas, p.ej. `factura_1936`, `factura_8801` |
 | Sin número de pedido | 2 | NO_PAGAR si se lee bien que no lo tiene; ESCALAR si no se lee | |
 | IVA mal calculado o cuota que no corresponde al tipo | 3 | NO_PAGAR | `F26-5240`, `F26-8801`, `FA-5590` |
