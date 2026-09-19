@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("panel", "0005_proveedor_nif_extranjero"),
+        ("panel", "0006_importacion"),
     ]
 
     operations = [
