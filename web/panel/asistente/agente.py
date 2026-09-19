@@ -11,6 +11,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from urllib.parse import urlencode
 
 from django.urls import reverse
 
@@ -94,7 +95,7 @@ def _fuentes(nombre: str, datos: dict | None) -> list[dict]:
     """Los enlaces a las pantallas que enseñan lo mismo que la herramienta, si existen."""
     datos = datos or {}
     if nombre == "estado_pedido" and datos.get("pedido"):
-        return [{"titulo": f"Asiento {datos['pedido']} en el ERP", "url": reverse("panel:asientos") + f"?q={datos['pedido']}"}]
+        return [{"titulo": f"Asiento {datos['pedido']} en el ERP", "url": reverse("panel:asientos") + "?" + urlencode({"q": datos["pedido"]})}]
     if nombre == "estado_pedido":
         return [{"titulo": "Asientos del ERP", "url": reverse("panel:asientos")}]
     if nombre == "cambios_erp" and datos.get("de") and datos.get("a"):
@@ -160,6 +161,8 @@ def responder(pregunta: str, historial: list[dict], completar: Completar) -> Res
                     fuentes[f["url"]] = f
                 mensajes.append({"role": "tool", "tool_call_id": ll.id,
                                  "content": json.dumps(resultado, ensure_ascii=False, default=str)})
+        salida.ok = False
+        salida.error = f"la IA agotó las {MAX_RONDAS} rondas de consulta sin responder"
         salida.texto = "Me he liado consultando los datos. Prueba a preguntarlo de otra forma."
     except SinCliente as e:  # falta la clave: es configuración, no un fallo pasajero
         salida.ok = False

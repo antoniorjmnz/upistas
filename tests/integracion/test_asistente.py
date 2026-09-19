@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from tests.integracion.conftest import ASIENTOS, ClienteFalso
 from web.panel.asistente.agente import (
-    MENSAJE_FUERA_DE_TEMA, REINTENTOS, SISTEMA, Llamada, RespuestaModelo, SinCliente, responder,
+    MAX_RONDAS, MENSAJE_FUERA_DE_TEMA, REINTENTOS, SISTEMA, Llamada, RespuestaModelo, SinCliente, responder,
 )
 from web.panel.asistente.herramientas import ejecutar
 from web.panel import consultas
@@ -216,6 +216,27 @@ def test_pendientes_y_resumen_enlazan_a_su_pantalla(lote_asistente):
     for herramienta, url in (("pendientes_revision", reverse("panel:cola")), ("resumen_lote", reverse("panel:facturas"))):
         r = responder("¿qué hay?", [], _pide(herramienta, {}, RespuestaModelo(texto="esto")))
         assert [f["url"] for f in r.fuentes] == [url], herramienta
+
+
+def test_si_se_agotan_las_rondas_se_avisa_y_no_cuenta_como_ok(lote_asistente):
+    """Una IA que pide herramientas sin parar se corta a las MAX_RONDAS y queda registrado como fallo."""
+    llamadas = []
+
+    def insaciable(mensajes, herramientas):
+        llamadas.append(1)
+        return RespuestaModelo(llamadas=(Llamada(f"call_{len(llamadas)}", "resumen_lote", "{}"),), tokens_in=1)
+
+    r = responder("¿cuántas se pagan?", [], insaciable)
+    assert not r.ok and "rondas" in r.error and "liado" in r.texto
+    assert len(llamadas) == MAX_RONDAS and r.tokens_in == MAX_RONDAS
+    assert [f["url"] for f in r.fuentes] == [reverse("panel:facturas")]  # lo consultado sigue enlazado
+
+
+def test_el_enlace_al_erp_escapa_el_pedido(copia_erp):
+    from web.panel.asistente.agente import _fuentes
+
+    [f] = _fuentes("estado_pedido", {"pedido": "PO-2026 0474&x=1"})
+    assert f["url"] == reverse("panel:asientos") + "?q=PO-2026+0474%26x%3D1"
 
 
 def test_si_la_ia_falla_la_web_sigue(lote_asistente):
