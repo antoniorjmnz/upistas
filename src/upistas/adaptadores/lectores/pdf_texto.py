@@ -1,28 +1,21 @@
-"""Lector de PDFs con capa de texto (471 de 500 en La Caja). Sin LLM: rápido y gratis."""
+"""Lector de PDFs con capa de texto (471 de 500 en La Caja). Sin IA: rápido y gratis.
+
+Pendiente (#23, equipo de lectura): el parser de las ~10 plantillas de La Caja. Mientras tanto
+acepta los PDFs con texto y devuelve "no implementado", así el pipeline sigue y esas facturas
+acaban en ESCALAR con ese motivo.
+"""
 from __future__ import annotations
 
-from pathlib import Path
-
-import pymupdf
-
 from upistas.contracts.factura_extraida import FacturaExtraida
-from upistas.puertos import LecturaFallida
-
-
-def texto_pdf(ruta: Path) -> str:
-    with pymupdf.open(ruta) as doc:
-        return "".join(pagina.get_text() for pagina in doc)
+from upistas.puertos import DocumentoInspeccionado, LecturaFallida
 
 
 class LectorPdfTexto:
     nombre = "pdf_texto"
+    metodo = "texto_determinista"
 
-    def acepta(self, ruta: Path) -> bool:
-        return ruta.suffix.lower() == ".pdf"
+    def acepta(self, doc: DocumentoInspeccionado) -> bool:
+        return doc.tipo == "texto"
 
-    def leer(self, ruta: Path) -> FacturaExtraida:
-        texto = texto_pdf(ruta)
-        if len(texto.strip()) < 30:
-            raise LecturaFallida("PDF sin capa de texto (escaneado)")
-        # Pendiente: parser de las plantillas de La Caja (issue del extractor determinista).
-        raise LecturaFallida("Parser de plantillas aún no implementado")
+    def leer(self, doc: DocumentoInspeccionado) -> FacturaExtraida:
+        raise LecturaFallida("parser de plantillas pendiente (#23)")

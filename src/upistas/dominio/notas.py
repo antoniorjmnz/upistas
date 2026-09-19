@@ -37,7 +37,7 @@ _PATRONES = {
         r"verificacion cruzada", r"fecha de recepcion", r"sello de entrada",
     ],
     "urgencia": [
-        r"urgente", r"inmediat", r"cada minuto", r"depende (el futuro|que)", r"paz mundial", r"salvate", r"pierde una hora",
+        r"(?<!transporte )urgente", r"inmediat", r"cada minuto", r"depende (el futuro|que)", r"paz mundial", r"salvate", r"pierde una hora",
     ],
 }
 _COMPILADOS = {cat: [re.compile(p) for p in pats] for cat, pats in _PATRONES.items()}

@@ -33,7 +33,7 @@ resiliencia 10 · calidad 10 · bonus 10. El bonus es una mejora extra para Albe
 necesaria para el flujo principal.
 
 ## Los datos (resumen de [analisis-caja.md](analisis-caja.md))
-- **Facturas**: 500 PDF en unas 10 plantillas distintas. 471 tienen texto; 29 son escaneos (hace falta IA con visión). Alguno está corrupto.
+- **Facturas**: 500 PDF en unas 10 plantillas distintas. 471 tienen texto; 29 son escaneos (hace falta IA con visión). Si ya clonaste La Caja en Windows sin `-c core.autocrlf=false`, dentro de `../caja` haz `git config core.autocrlf false && git rm -r -q --cached . && git reset --hard`.
 - **Excel** `FINAL_v7_DEFINITIVO_ahorasi.xlsx`: proveedores, pedidos y, escondida, la hoja **`Norma_Pagos_v3`** con las reglas. El resto de hojas es basura.
 - **ERP**: se arranca en local (`make erp` en el repo oficial). Lento, con errores aleatorios que hay que reintentar y sesiones que caducan. Es la referencia oficial cuando no coincide con el Excel.
 - **Trampas**: pedidos ya pagados, facturas duplicadas, proveedores falsos, importes que no cuadran, IBAN con caracteres invisibles y unas 28 facturas con notas que intentan manipular la decisión. Todas en [trampas.md](trampas.md).
@@ -84,7 +84,7 @@ Reglas completas en [AGENTS.md](../AGENTS.md) y chuleta de comandos en [CONTRIBU
 ## Arrancar en tu PC
 ```bash
 git clone https://github.com/antoniorjmnz/upistas && cd upistas
-git clone https://github.com/ikurotime/500-sombras-de-alberto ../caja
+git -c core.autocrlf=false clone https://github.com/ikurotime/500-sombras-de-alberto ../caja   # sin -c, en Windows git rompe los PDF
 cp .env.example .env        # y pon HELMCODE_API_KEY
 sh scripts/setup.sh         # formato de commits
 uv sync --extra dev         # instala todo (necesitas uv: https://docs.astral.sh/uv/)
