@@ -246,7 +246,9 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
             for n in (decision.notas or [])
         ],
         "alertas": alertas,
-        "con_oculto": any(a.startswith(("texto potencialmente oculto", "visibilidad del texto no verificable")) for a in alertas),
+        # Dos cosas distintas: encontramos texto escondido, o no pudimos mirar si lo había.
+        "con_oculto": any(a.startswith("texto potencialmente oculto") for a in alertas),
+        "sin_comprobar": any(a.startswith("visibilidad del texto no verificable") for a in alertas),
         "tipo": TIPO.get(documento.tipo, documento.tipo),
         "metodo": METODO.get(lectura.metodo, lectura.metodo) if lectura else METODO["ninguno"],
         "historial": Decision.objects.filter(documento=documento).select_related("ejecucion").order_by("ejecucion__inicio"),
@@ -268,6 +270,7 @@ def pdf(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
 
 # La página final del PDF marcado: lo que decía el texto escondido, dicho como se lo diríamos a Alberto.
 TITULO_ESCONDIDO = "Texto escondido que hemos encontrado"
+SIN_COMPROBAR = "No hemos podido comprobar si lleva texto escondido"  # la misma frase que en el detalle
 INTRO_ESCONDIDO = (
     "Estos trozos estaban en la factura, pero no se veían al abrirla. Los hemos rodeado en rojo en su página. "
     "No se tienen en cuenta para decidir: se decide con los datos."
@@ -367,14 +370,18 @@ def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
 
     original = pymupdf.open(ruta)
     try:
-        frases = []
+        frases, sin_comprobar = [], []
         for pagina in original:
-            ocultos, _ = ocultos_de_pagina(pagina)
+            ocultos, aviso = ocultos_de_pagina(pagina)
+            if aviso:
+                sin_comprobar.append(f"{SIN_COMPROBAR} en la página {pagina.number + 1}: mírela usted.")
             for s in ocultos:
                 pagina.draw_rect(s["caja"], color=ROJO, width=1.2)
                 frases.append(_frase_escondida(pagina.number + 1, s["motivos"], s["texto"]))
         if frases:
-            _pagina_final(original, [TITULO_ESCONDIDO, INTRO_ESCONDIDO, *frases])
+            _pagina_final(original, [TITULO_ESCONDIDO, INTRO_ESCONDIDO, *frases, *sin_comprobar])
+        elif sin_comprobar:
+            _pagina_final(original, [SIN_COMPROBAR, *sin_comprobar])
         datos = original.tobytes()
     finally:
         original.close()
