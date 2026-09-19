@@ -20,13 +20,15 @@ from upistas.adaptadores.fuentes.snapshot import ErpSnapshot
 from upistas.adaptadores.lectores.fal_ocr import FalOCR
 from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnificado
+from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
+from upistas.adaptadores.persistencia.django_lecturas import RepositorioLecturasDjango
 from upistas.config import ROOT, Settings, settings
 from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
 from upistas.dominio.versiones import version_asientos
 from upistas.infra import django_setup
-from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, Inspector
+from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, Inspector, RepositorioDecisiones, RepositorioLecturas
 
 
 @cache
@@ -69,6 +71,8 @@ def maestro() -> FuenteMaestro:
 @cache
 def cliente_erp() -> ClienteERP:
     """El bridge de 2009 en vivo. Solo lo usa la sincronización."""
+    if settings.erp_snapshot is not None:
+        return ErpSnapshot(settings.erp_snapshot)
     return ClienteErpHttp(settings.erp_url, settings.erp_user, settings.erp_password)
 
 
@@ -87,6 +91,18 @@ def erp() -> FuenteERP:
 
 
 @cache
+def lecturas() -> RepositorioLecturas:
+    django_setup.configurar()
+    return RepositorioLecturasDjango()
+
+
+@cache
+def decisiones() -> RepositorioDecisiones:
+    django_setup.configurar()
+    return RepositorioDecisionesDjango()
+
+
+@cache
 def norma(version: str) -> Norma:
     return Norma.desde_toml(ROOT / "normas" / f"{version}.toml")
 
@@ -102,7 +118,7 @@ def referencias() -> Referencias:
         pedidos={p.id: p for p in fuente.pedidos()},
         asientos={a.pedido: a for a in asientos},
         hoy=settings.hoy or date.today(),
-        marcados_por_alberto=fuente.marcados_para_revisar() if isinstance(fuente, MaestroExcel) else frozenset(),
+        marcados_por_alberto=fuente.marcados_para_revisar(),
         version_datos=f"{getattr(fuente, 'version', '')}:{version_asientos(asientos)}",
     )
 
@@ -110,19 +126,22 @@ def referencias() -> Referencias:
 def configurar(nuevos: Settings) -> None:
     global settings
     settings = nuevos
-    for funcion in (lectores, maestro, erp, cliente_erp, almacen_erp, norma, referencias):
+    for funcion in (inspector, lectores, maestro, erp, cliente_erp, almacen_erp, lecturas, decisiones, norma, referencias, huella_lectores):
         funcion.cache_clear()
 
 
-def huella(version: str) -> str:
-    codigo = hashlib.sha256()
+@cache
+def huella_lectores() -> str:
+    codigo = hashlib.sha256(f"{VERSION}:{settings.usar_ocr}".encode())
     for ruta in sorted((ROOT / "src" / "upistas").rglob("*.py")):
         codigo.update(ruta.relative_to(ROOT).as_posix().encode() + b"\0" + ruta.read_bytes() + b"\0")
+    return codigo.hexdigest()[:24]
+
+
+def huella(version: str) -> str:
     contenido = json.dumps({
-        "codigo": codigo.hexdigest(),
+        "codigo": huella_lectores(),
         "referencias": asdict(referencias()),
         "norma": asdict(norma(version)),
-        "extractor": VERSION,
-        "ocr": settings.usar_ocr,
     }, sort_keys=True, default=lambda v: sorted(v) if isinstance(v, (set, frozenset)) else str(v))
     return hashlib.sha256(contenido.encode()).hexdigest()

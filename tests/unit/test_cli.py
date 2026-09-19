@@ -35,18 +35,30 @@ def test_run_sin_fuentes_no_emite_decisiones_enganosas(opciones, monkeypatch, ca
 
 
 def test_run_sin_erp_no_emite_decisiones(opciones, monkeypatch, capsys):
-    monkeypatch.setattr(contenedor, "referencias", cache(lambda: SimpleNamespace(proveedores={"B12345678": object()}, asientos={})))
-    monkeypatch.setattr(pipeline, "iniciar", lambda: pytest.fail("No debe iniciar una auditoría sin ERP"))
+    monkeypatch.setattr(contenedor, "maestro", cache(lambda: SimpleNamespace(proveedores=lambda: [object()])))
+    monkeypatch.setattr(pipeline, "iniciar", lambda: None)
+
+    def sin_erp(*args, **kwargs):
+        raise RuntimeError("No hay ninguna copia del ERP")
+
+    monkeypatch.setattr(pipeline, "procesar_lote", sin_erp)
     assert cli.cmd_run(opciones) == 2
     assert "ERP" in capsys.readouterr().err
 
 
 def test_resumen_compatible_con_consola_windows(opciones, monkeypatch):
-    referencias = SimpleNamespace(proveedores={"B12345678": object()}, asientos={"PO-2026-0001": object()})
-    monkeypatch.setattr(contenedor, "referencias", cache(lambda: referencias))
+    monkeypatch.setattr(contenedor, "maestro", cache(lambda: SimpleNamespace(proveedores=lambda: [object()])))
     monkeypatch.setattr(pipeline, "iniciar", lambda: None)
     resultado = {"file_id": "a.pdf", "result": "PAGAR", "motivo": "Cumple", "norma": "v3", "reglas": []}
-    monkeypatch.setattr(pipeline, "encolar_lote", lambda *args: [SimpleNamespace(get_result=lambda: resultado)])
+    informe = SimpleNamespace(
+        sincronizacion=None, avisos=[], leidos_ahora=1, desde_cache=0, anterior=None,
+        segundos_lectura=0.1, segundos_decision=0.01,
+        ejecucion=SimpleNamespace(id=1, version_erp="erp", version_excel="excel", resumen={
+            "PAGAR": 1, "NO_PAGAR": 0, "ESCALAR": 0, "tokens_in": 0, "coste_eur": 0,
+        }),
+        decisiones=[SimpleNamespace(file_id="a.pdf", resultado="PAGAR", motivo="Cumple", alertas=(), outcome=resultado)],
+    )
+    monkeypatch.setattr(pipeline, "procesar_lote", lambda *args, **kwargs: informe)
     buffer = io.BytesIO()
     consola = io.TextIOWrapper(buffer, encoding="cp1252")
     monkeypatch.setattr(cli.sys, "stdout", consola)

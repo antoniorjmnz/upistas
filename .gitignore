@@ -31,3 +31,6 @@ Thumbs.db
 
 # Estado local de plugins de Claude Code
 .omc/
+
+# Copia de La Caja que usa la CI
+caja/

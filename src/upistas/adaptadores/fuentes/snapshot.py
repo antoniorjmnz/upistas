@@ -4,11 +4,15 @@ from pathlib import Path
 
 from upistas.dominio.importes import parse_fecha
 from upistas.dominio.modelos import Asiento
+from upistas.puertos import DescargaERP, EstadisticasDescarga
 
 
 class ErpSnapshot:
     def __init__(self, ruta: Path):
         self.ruta = ruta
+
+    def descargar(self) -> DescargaERP:
+        return DescargaERP(tuple(self.asientos()), False, EstadisticasDescarga())
 
     def asientos(self) -> list[Asiento]:
         datos = json.loads(self.ruta.read_text(encoding="utf-8"))

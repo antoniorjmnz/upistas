@@ -41,7 +41,9 @@ def base_de_datos_django(url: str) -> dict:
         return {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": str(ruta_sqlite(url)),
-            "OPTIONS": {"timeout": 20, "init_command": "PRAGMA journal_mode=WAL;"},
+            # WAL: los lectores no bloquean. IMMEDIATE: cada transacción coge el bloqueo de escritura al
+            # empezar, así los 16 workers de DBOS esperan su turno (timeout) en vez de fallar con "database is locked".
+            "OPTIONS": {"timeout": 20, "init_command": "PRAGMA journal_mode=WAL;", "transaction_mode": "IMMEDIATE"},
         }
     u = urlparse(url)
     if u.scheme not in ("postgresql", "postgres"):

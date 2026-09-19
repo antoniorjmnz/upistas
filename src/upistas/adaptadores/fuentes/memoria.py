@@ -11,12 +11,17 @@ from upistas.puertos import Sincronizacion
 class MaestroEnMemoria:
     lista_proveedores: list[Proveedor] = field(default_factory=list)
     lista_pedidos: list[Pedido] = field(default_factory=list)
+    marcados: frozenset[str] = frozenset()
+    version: str = "memoria"
 
     def proveedores(self) -> list[Proveedor]:
         return self.lista_proveedores
 
     def pedidos(self) -> list[Pedido]:
         return self.lista_pedidos
+
+    def marcados_para_revisar(self) -> frozenset[str]:
+        return self.marcados
 
 
 @dataclass

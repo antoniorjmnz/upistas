@@ -6,6 +6,7 @@ no cambian.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -56,9 +57,15 @@ class LectorDocumento(Protocol):
 class FuenteMaestro(Protocol):
     """Datos de proveedores y pedidos (hoy: el Excel de Alberto)."""
 
+    version: str  # cambia si cambia el fichero: forma parte de la versión de los datos
+
     def proveedores(self) -> list[Proveedor]: ...
 
     def pedidos(self) -> list[Pedido]: ...
+
+    def marcados_para_revisar(self) -> frozenset[str]:
+        """Pedidos que Alberto apuntó a mano para mirar (hoja pendiente_revisar)."""
+        ...
 
 
 class FuenteERP(Protocol):
@@ -142,4 +149,102 @@ class ModeloLenguaje(Protocol):
 
     def extraer_json(self, instrucciones: str, texto: str | None = None, imagenes: list[bytes] | None = None) -> tuple[dict, dict]:
         """Devuelve (json, uso). `uso` trae tokens_in, tokens_out, modelo y segundos."""
+        ...
+
+
+# --- Lo que se guarda: lecturas, ejecuciones y decisiones -----------------------------------
+
+
+@dataclass(frozen=True)
+class RegistroLectura:
+    """La lectura de un documento tal como se guarda: es la caché y la traza a la vez."""
+
+    lote: str
+    file_id: str
+    ruta: str
+    sha256: str
+    bytes: int
+    tipo: str
+    paginas: int
+    alertas: tuple[str, ...]
+    extraida: FacturaExtraida | None
+    intentos: tuple[tuple[str, str], ...] = ()
+    segundos: float = 0.0
+    tokens_in: int = 0
+    tokens_out: int = 0
+    coste_eur: float = 0.0
+    modelo: str = ""
+    cuando: datetime | None = None
+
+    @property
+    def leida(self) -> bool:
+        return self.extraida is not None
+
+    @property
+    def metodo(self) -> str:
+        return self.extraida.metodo.value if self.extraida else "ninguno"
+
+    def documento(self) -> DocumentoInspeccionado:
+        return DocumentoInspeccionado(self.file_id, self.ruta, self.sha256, self.bytes, self.tipo, self.paginas, (), self.alertas)
+
+
+class RepositorioLecturas(Protocol):
+    def guardar(self, registro: RegistroLectura) -> None: ...
+
+    def por_sha(self, sha256: str) -> RegistroLectura | None:
+        """La lectura de ese contenido, venga del lote que venga: no se lee dos veces lo mismo."""
+        ...
+
+    def del_lote(self, lote: str) -> list[RegistroLectura]: ...
+
+
+@dataclass(frozen=True)
+class Ejecucion:
+    """Una pasada completa por un lote con una norma y una versión de los datos."""
+
+    id: int
+    lote: str
+    norma: str
+    version_erp: str
+    version_excel: str
+    inicio: datetime
+    fin: datetime | None = None
+    estado: str = "en_curso"  # en_curso | terminada | interrumpida
+    hardware: dict = field(default_factory=dict)
+    resumen: dict = field(default_factory=dict)
+
+    @property
+    def version_datos(self) -> str:
+        return f"{self.version_erp}+{self.version_excel}"
+
+
+@dataclass(frozen=True)
+class DecisionGuardada:
+    file_id: str
+    resultado: str
+    motivo: str
+    pedido: str | None
+    metodo: str
+    outcome: dict  # la línea de outcomes.jsonl, con reglas y alertas
+    notas: tuple[dict, ...] = ()
+    alertas: tuple[str, ...] = ()
+
+
+class RepositorioDecisiones(Protocol):
+    def iniciar_ejecucion(self, lote: str, norma: str, version_erp: str, version_excel: str, hardware: dict) -> Ejecucion: ...
+
+    def guardar_decisiones(self, ejecucion_id: int, decisiones: Sequence[DecisionGuardada]) -> None: ...
+
+    def terminar_ejecucion(self, ejecucion_id: int, resumen: dict) -> Ejecucion: ...
+
+    def ejecuciones(self, lote: str | None = None) -> list[Ejecucion]:
+        """De la más reciente a la más antigua."""
+        ...
+
+    def decisiones(self, ejecucion_id: int) -> list[DecisionGuardada]: ...
+
+    def pedidos_aprobados(self, excepto_lote: str) -> frozenset[str]:
+        """Pedidos aprobados para pago en la última ejecución terminada de cada otro lote,
+        más los aprobados a mano por una persona. El ERP no se entera de lo que pagamos:
+        esta es nuestra memoria para no pagar dos veces."""
         ...
