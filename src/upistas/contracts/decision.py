@@ -41,7 +41,7 @@ class Decision(BaseModel):
     metodo: Annotated[
         str | None,
         Field(
-            description='Cómo se leyó el documento: texto_determinista, texto_llm, vision_llm o ninguno'
+            description='Cómo se leyó el documento: texto_determinista, ocr_determinista, texto_llm, vision_llm o ninguno'
         ),
     ] = None
     version_datos: Annotated[
