@@ -70,10 +70,13 @@ Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X"
 ## Estado actual
 El backend funciona de punta a punta ([backend.md](backend.md)): sincroniza el ERP (copia local
 versionada, [ADR-003](adr/003-erp-copia-local.md)), lee cada documento de forma duradera, decide
-el lote con la norma, guarda todo con su traza y genera `outputs/outcomes.jsonl`. Pero todavía
-**todas salen ESCALAR**, porque faltan los lectores de PDF (#23, #24) y casi todas las reglas (#27).
-Eso es el milestone **Lote 1**. Lo que hay pendiente está en el
-[tablero](https://github.com/users/antoniorjmnz/projects/2), agrupado por milestone.
+el lote con la norma, guarda todo con su traza y genera `outputs/outcomes.jsonl`. La lectura de los
+PDF (texto y OCR, #23 y #24) y las reglas (#27) las lleva el equipo de lectura y siguen cambiando;
+el criterio acordado está en [ADR-002](adr/002-criterio.md).
+La web de Alberto ([web.md](web.md)) tiene Resumen, Facturas con toda su traza, Para revisar,
+Ejecuciones con la descarga del outcomes y las pantallas del ERP; falta el asistente (#39, Fran).
+Lo que hay pendiente está en el [tablero](https://github.com/users/antoniorjmnz/projects/2),
+agrupado por milestone.
 
 ## Cómo trabajar
 1. Coge una tarjeta de **To do** del tablero y asígnatela. Con Claude Code: `/tarea 25`.
