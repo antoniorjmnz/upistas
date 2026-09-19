@@ -51,7 +51,7 @@ svg { flex: 0 0 auto; }
 .persona { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; }
 .persona .av { width: 34px; height: 34px; }
 .persona small { display: block; font-size: 12px; color: var(--suave); }
-.contenido { min-width: 0; }
+.contenido { min-width: 0; container-type: inline-size; } /* las rejillas miran el ancho del contenido, no el de la ventana (cuenta el panel Preguntar abierto) */
 main { max-width: var(--ancho); margin: 0 auto; padding: 32px 32px 64px; display: flex; flex-direction: column; gap: 22px; }
 
 /* ---- Cabecera de cada pantalla ---- */
@@ -67,7 +67,10 @@ h2 { margin: 0; font: 600 17px/1.3 var(--f-titulo); }
 /* ---- Tarjetas, cifras y el gráfico del lote ---- */
 .tarjeta { background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); padding: 20px 22px; }
 .tarjeta.ajustada { padding: 14px 18px; }
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr) 1.15fr; gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr) 1.5fr; gap: 16px; }
+/* Cuatro tarjetas mientras quepan; dos cuando el contenido baja de 1100 px (portátil pequeño o panel abierto); una en móvil */
+@container (max-width: 1100px) { .kpis { grid-template-columns: 1fr 1fr; } }
+@container (max-width: 560px) { .kpis { grid-template-columns: 1fr; } .kpi .n { font-size: 34px; } }
 .kpi { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); color: var(--tinta); text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
 .kpi:hover { transform: translateY(-2px); box-shadow: var(--sombra-2); text-decoration: none; color: var(--tinta); }
 .kpi .arriba { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--suave); font-weight: 600; font-size: 14px; }
@@ -304,7 +307,6 @@ details.conversaciones[open] summary svg { transform: rotate(180deg); }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
 .girando { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: girar .8s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
-@media (max-width: 1000px) { .kpis { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 900px) {
   .app { grid-template-columns: 76px 1fr; }
   .lado { padding: 16px 10px; }
@@ -326,8 +328,6 @@ details.conversaciones[open] summary svg { transform: rotate(180deg); }
   .persona, .estado-erp { display: none; }
   main { padding: 20px 16px 40px; }
   h1 { font-size: 24px; }
-  .kpis { grid-template-columns: 1fr; }
-  .kpi .n { font-size: 34px; }
   .tarjeta { padding: 16px; }
   .fila, .fila-factura { grid-template-columns: auto 1fr; }
   .fila .importe, .fila-factura .importe { grid-column: 2; }
