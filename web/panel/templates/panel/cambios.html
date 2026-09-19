@@ -24,7 +24,7 @@
 
 {% if d.modificados %}
 <section class="tarjeta">
-  <h2>Datos modificados</h2>
+  <div class="cabecera-tarjeta"><h2>Datos modificados</h2></div>
   <div class="tabla-caja">
     <table>
       <thead><tr><th>Asiento</th><th>Dato</th><th>Antes</th><th>Ahora</th></tr></thead>
@@ -40,7 +40,7 @@
 
 {% if nuevos %}
 <section class="tarjeta">
-  <h2>Asientos nuevos</h2>
+  <div class="cabecera-tarjeta"><h2>Asientos nuevos</h2></div>
   <div class="tabla-caja">
     <table>
       <thead><tr><th>Asiento</th><th>Pedido</th><th>Proveedor</th><th class="num">Importe</th><th>Estado</th></tr></thead>
@@ -60,7 +60,7 @@
 
 {% if eliminados %}
 <section class="tarjeta">
-  <h2>Asientos que ya no están</h2>
+  <div class="cabecera-tarjeta"><h2>Asientos que ya no están</h2></div>
   <ul class="lista">
     {% for a in eliminados %}
     <li class="fila-factura">

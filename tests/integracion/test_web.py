@@ -95,6 +95,7 @@ def test_asientos_ensena_el_filtro_que_esta_puesto(alberto, con_copia):
     html = alberto.get(reverse("panel:asientos"), {"estado": "PAGADA"}).content.decode()
     assert 'id="estado-pagada" value="PAGADA" checked' in html
     assert "Ya pagados" in html and "Pendientes" in html and "Todos" in html
+    assert "registro.css" not in html  # los chips-radio ya están en panel.css, sin hoja aparte
 
 
 def test_asientos_sin_resultados_lo_dice(alberto, con_copia):
