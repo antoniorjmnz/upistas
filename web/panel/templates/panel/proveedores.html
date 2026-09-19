@@ -18,6 +18,7 @@
   </div>
   <button class="boton suave" type="submit">Buscar</button>
   <a class="boton" href="{% url 'panel:proveedor_nuevo' %}">{% icono "mas" 18 %}Nuevo proveedor</a>
+  <a class="boton suave" href="{% url 'panel:proveedor_importar' %}">{% icono "subir" 18 %}Importar fichero</a>
 </form>
 {% endif %}
 
@@ -33,7 +34,8 @@
         <p class="grande">Todavía no hay ningún proveedor</p>
         <p class="suave">Dé de alta a quien le manda facturas: con su NIF y su cuenta, el sistema ya sabe
           a quién puede pagar.</p>
-        <p style="margin-top: 16px;"><a class="boton" href="{% url 'panel:proveedor_nuevo' %}">{% icono "mas" 18 %}Nuevo proveedor</a></p>
+        <p style="margin-top: 16px;"><a class="boton" href="{% url 'panel:proveedor_nuevo' %}">{% icono "mas" 18 %}Nuevo proveedor</a>
+          <a class="boton suave" href="{% url 'panel:proveedor_importar' %}">{% icono "subir" 18 %}Importar fichero</a></p>
       {% endif %}
     </div>
   {% else %}

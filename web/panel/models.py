@@ -244,6 +244,23 @@ class Pedido(models.Model):
         return f"{self.numero} · {self.proveedor.codigo}"
 
 
+class Importacion(models.Model):
+    """Cada vez que Alberto aplica un fichero de proveedores o de pedidos desde «Importar datos»."""
+
+    cuando = models.DateTimeField(auto_now_add=True)
+    ficheros = models.CharField(max_length=255)  # los nombres con los que llegaron, separados por coma
+    nuevos = models.PositiveIntegerField(default=0)
+    cambiados = models.PositiveIntegerField(default=0)
+    invalidos = models.PositiveIntegerField(default=0)  # filas que se quedaron fuera
+
+    class Meta:
+        ordering = ["-cuando", "-id"]
+        verbose_name_plural = "importaciones"
+
+    def __str__(self) -> str:
+        return f"{self.cuando:%d/%m %H:%M} · {self.ficheros}"
+
+
 # --- Asistente (chatbot de «Preguntar») -------------------------------------------------------
 
 

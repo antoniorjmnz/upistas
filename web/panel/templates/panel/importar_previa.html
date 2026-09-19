@@ -1,0 +1,60 @@
+{% extends "panel/base.html" %}
+{% load panel_extras %}
+{% block titulo %}Vista previa de la importación · Pagos de Alberto{% endblock %}
+{% block contenido %}
+
+<section class="hero">
+  <a class="volver" href="{% url 'panel:proveedor_importar' %}">Volver a importar</a>
+  <h1>Vista previa</h1>
+  <p class="lead">Esto es lo que trae: <b>{{ vista.recuento }}</b>. Todavía no se ha guardado nada.
+    {% if vista.hay_algo_que_aplicar %}Si le parece bien, pulse «Aplicar»: entra lo válido y las filas que no
+    valen se quedan fuera.{% else %}No hay nada que aplicar.{% endif %}</p>
+</section>
+
+{% for aviso in vista.avisos %}
+  <div class="aviso ojo">{% icono "alerta" 18 %}<div>{{ aviso }}</div></div>
+{% endfor %}
+
+{% for v in vista.ficheros %}
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>{{ v.fichero.titulo }} · {{ v.fichero.nombre }}</h2>
+    <span class="suave">{{ v.resumen }}</span>
+  </div>
+  <div class="tabla-caja">
+    <table>
+      <thead>
+        <tr><th class="num">Fila</th><th>{% if v.fichero.tipo == "proveedores" %}Código{% else %}Pedido{% endif %}</th><th>Qué trae</th><th>Qué pasa</th><th>Detalle</th></tr>
+      </thead>
+      <tbody>
+      {% for f in v.filas %}
+        <tr>
+          <td class="num suave">{{ f.numero }}</td>
+          <td class="mono" style="white-space: nowrap;">{{ f.clave|default:"—" }}</td>
+          <td>{{ f.texto|default:"—" }}</td>
+          <td><span class="pildora {{ f.pildora }}">{{ f.etiqueta }}</span></td>
+          <td class="porque">
+            {% if f.motivo %}{{ f.motivo }}
+            {% elif f.cambios %}{% for c in f.cambios %}{{ c.campo }}: <span class="mono">{{ c.antes }}</span> → <span class="mono">{{ c.despues }}</span>{% if not forloop.last %}<br>{% endif %}{% endfor %}
+            {% elif f.estado == "igual" %}<span class="suave">No hace nada</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+
+<section class="tarjeta">
+  <form class="formulario" method="post" action="{% url 'panel:proveedor_importar_previa' token %}">
+    {% csrf_token %}
+    <div class="pie-formulario">
+      <button class="boton grande" type="submit" name="accion" value="aplicar"{% if not vista.hay_algo_que_aplicar %} disabled{% endif %}>{% icono "check" 18 %}Aplicar</button>
+      <button class="boton suave" type="submit" name="accion" value="cancelar">Cancelar</button>
+      <span class="ayuda">Lo que usted haya marcado o anotado en un pedido no se toca.</span>
+    </div>
+  </form>
+</section>
+{% endblock %}

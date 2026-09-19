@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from web.panel.models import (
-    AsientoERP, Decision, Documento, Ejecucion, Lectura, Pedido, Pregunta, Proveedor, RevisionHumana,
+    AsientoERP, Decision, Documento, Ejecucion, Importacion, Lectura, Pedido, Pregunta, Proveedor, RevisionHumana,
     SincronizacionERP, VersionERP,
 )
 
@@ -69,6 +69,12 @@ class PedidoAdmin(admin.ModelAdmin):
     list_display = ("numero", "proveedor", "importe", "fecha", "revisar", "actualizado")
     list_filter = ("revisar", "proveedor")
     search_fields = ("numero", "proveedor__nombre", "proveedor__nif")
+
+
+@admin.register(Importacion)
+class ImportacionAdmin(admin.ModelAdmin):
+    list_display = ("cuando", "ficheros", "nuevos", "cambiados", "invalidos")
+    readonly_fields = ("cuando",)
 
 
 @admin.register(Pregunta)
