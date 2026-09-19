@@ -89,6 +89,7 @@ class Fila:
     clave: str  # el código del proveedor o el número del pedido
     texto: str  # lo que trae, en una línea
     motivo: str = ""  # si no vale, por qué
+    aviso: str = ""  # vale y entra, pero trae algo que Alberto debería saber
     cambios: list[dict] = field(default_factory=list)  # [{"campo", "antes", "despues"}]
 
     @property
@@ -97,7 +98,7 @@ class Fila:
 
     @property
     def pildora(self) -> str:
-        return PILDORAS[self.estado]
+        return "ojo" if self.aviso else PILDORAS[self.estado]
 
 
 @dataclass
@@ -305,6 +306,7 @@ def _pedidos(fichero: Fichero, conocidos: dict[str, Proveedor], envio: dict, a_a
         fila.motivo = _fallo_pedido(p, datos, proveedor)
         if fila.motivo:
             continue
+        fila.aviso = _reparo_pedido(p, proveedor)
         existente = existentes.get(pid)
         if existente is None:
             fila.estado = NUEVO
@@ -350,14 +352,21 @@ def _fallo_pedido(p: Pedido, datos: dict, proveedor: Proveedor | None) -> str:
     fecha_cruda = texto(datos.get("fechapedido"))
     if fecha_cruda and p.fecha is None:
         return f"La fecha «{fecha_cruda}» no se entiende."
-    if p.estado not in ESTADOS_PEDIDO:
-        return f"El estado «{p.estado}» no se conoce."
+    if PATRON_PEDIDO.match(p.estado):
+        return f"En la columna del estado viene otro pedido ({p.estado}): las columnas no cuadran."
     if not p.proveedor_id:
         return "No trae el código del proveedor."
     if proveedor is None:
         return f"El proveedor {p.proveedor_id} no está dado de alta ni viene en este envío."
+    return ""
+
+
+def _reparo_pedido(p: Pedido, proveedor: Proveedor) -> str:
+    """Lo que no impide importar (el pedido no guarda ni estado ni NIF) pero conviene que Alberto vea."""
+    if p.estado not in ESTADOS_PEDIDO:
+        return f"El estado «{p.estado}» no se conoce; el pedido entra igual, el estado no se guarda."
     if p.nif and p.nif != proveedor.nif:
-        return f"El NIF {p.nif} no es el de {proveedor.nombre} ({proveedor.id})."
+        return f"El NIF {p.nif} no es el de {proveedor.nombre} ({proveedor.id}); el pedido entra con {proveedor.id}."
     return ""
 
 

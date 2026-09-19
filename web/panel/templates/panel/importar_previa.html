@@ -35,9 +35,10 @@
           <td><span class="pildora {{ f.pildora }}">{{ f.etiqueta }}</span></td>
           <td class="porque">
             {% if f.motivo %}{{ f.motivo }}
-            {% elif f.cambios %}{% for c in f.cambios %}{{ c.campo }}: <span class="mono">{{ c.antes }}</span> → <span class="mono">{{ c.despues }}</span>{% if not forloop.last %}<br>{% endif %}{% endfor %}
-            {% elif f.estado == "igual" %}<span class="suave">No hace nada</span>
-            {% endif %}
+            {% else %}{% if f.aviso %}{{ f.aviso }}{% if f.cambios %}<br>{% endif %}{% endif %}
+            {% if f.cambios %}{% for c in f.cambios %}{{ c.campo }}: <span class="mono">{{ c.antes }}</span> → <span class="mono">{{ c.despues }}</span>{% if not forloop.last %}<br>{% endif %}{% endfor %}
+            {% elif f.estado == "igual" and not f.aviso %}<span class="suave">No hace nada</span>
+            {% endif %}{% endif %}
           </td>
         </tr>
       {% endfor %}

@@ -178,13 +178,14 @@ def test_los_pedidos_se_clasifican_y_avisan_del_proveedor_desconocido(alberto, m
         + "PO-2026-0501,P404,,10.00,ABIERTO,2026-08-17\n"  # proveedor desconocido
         + "PO-2026-0502,P001,B46102331,mil,ABIERTO,2026-08-17\n"  # importe no numérico
         + "PO-2026-0503,P001,B46102331,10.00,ABIERTO,31/02/2026\n"  # fecha inválida
-        + "PO-2026-0504,P001,B46102331,10.00,PERDIDO,2026-08-17\n"  # estado desconocido
+        + "PO-2026-0504,P001,B46102331,10.00,PERDIDO,2026-08-17\n"  # estado desconocido: entra, con aviso
         + "PO-2026-0500,P003,B30455812,1.00,ABIERTO,2026-08-17\n"  # repetido
-        + "PO-2026-0505,P001,B30455812,10.00,ABIERTO,2026-08-17\n"  # NIF que no es el del proveedor
+        + "PO-2026-0505,P001,B30455812,10.00,PAGADA,2026-08-17\n"  # NIF que no es el del proveedor: entra, con aviso
+        + "PO-2026-0506,P001,B46102331,10.00,PO-2026-0507,2026-08-17\n"  # otro pedido donde va el estado: columnas corridas
         + "pedido 12,P001,B46102331,10.00,ABIERTO,2026-08-17\n"))  # número raro
     html = previa(alberto, token)
 
-    assert "<b>1 pedido nuevo, 1 cambia, 7 filas inválidas</b>" in html
+    assert "<b>3 pedidos nuevos, 1 cambia, 6 filas inválidas</b>" in html
     assert "Fichero de pedidos · pedidos.csv" in html
     assert "Importe: <span class=\"mono\">880,55 €</span> → <span class=\"mono\">900,00 €</span>" in html
     assert "Fecha: <span class=\"mono\">—</span> → <span class=\"mono\">20/01/2026</span>" in html
@@ -192,14 +193,17 @@ def test_los_pedidos_se_clasifican_y_avisan_del_proveedor_desconocido(alberto, m
     assert "El proveedor P404 no está dado de alta ni viene en este envío." in html
     assert "El importe «mil» no es un número." in html
     assert "La fecha «31/02/2026» no se entiende." in html
-    assert "El estado «PERDIDO» no se conoce." in html
+    assert "El estado «PERDIDO» no se conoce; el pedido entra igual, el estado no se guarda." in html
     assert "Repetido: ya venía en la fila 4." in html
-    assert "El NIF B30455812 no es el de Suministros Levante S.L. (P001)." in html
+    assert "El NIF B30455812 no es el de Suministros Levante S.L. (P001); el pedido entra con P001." in html
+    assert "En la columna del estado viene otro pedido (PO-2026-0507): las columnas no cuadran." in html
     assert "El número «PEDIDO 12» no tiene la forma PO-2026-0001." in html
+    assert html.count('<span class="pildora ojo">Nuevo</span>') == 2  # los dos con aviso, en naranja
 
     r = aplicar(alberto, token)
-    assert "Importado pedidos.csv: 1 nuevo, 1 cambiado, 7 filas sin importar." in r.content.decode()
-    assert Pedido.objects.count() == 3
+    assert "Importado pedidos.csv: 3 nuevos, 1 cambiado, 6 filas sin importar." in r.content.decode()
+    assert Pedido.objects.count() == 5
+    assert Pedido.objects.get(numero="PO-2026-0505").proveedor.codigo == "P001"
     marcado = Pedido.objects.get(numero="PO-2026-0007")
     assert marcado.importe == Decimal("900.00") and marcado.fecha == date(2026, 1, 20)
     assert marcado.revisar is True and marcado.nota == "Llamar antes de pagar"  # lo de Alberto no se pisa
