@@ -128,7 +128,7 @@ class FacturaExtraida(BaseModel):
     metodo: Annotated[
         Metodo,
         Field(
-            description='Cómo se obtuvo la mayoría de campos: texto del PDF, OCR, o un modelo de lenguaje'
+            description='Cómo se obtuvo la mayoría de campos: texto del PDF, OCR o un modelo de lenguaje'
         ),
     ]
     lector: Annotated[
