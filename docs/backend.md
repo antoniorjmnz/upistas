@@ -31,6 +31,9 @@ de cada una, con su porqué". La web solo enseña lo que el backend guarda.
 
 **Comandos**: `upistas erp sync`, `upistas erp estado`, `upistas run [--lote] [--norma] [--carpeta] [--limit] [--sin-sync]`.
 
+**También desde la web**: Alberto sube sus PDF en «Subir facturas» y el mismo pipeline los decide en un hilo
+del servidor, con barra de progreso; DBOS arranca ahí, dentro del proceso web, en el primer repaso (ver [web.md](web.md)).
+
 ## Qué se ha tenido en cuenta
 
 **El ERP de 2009.** Se descarga entero una vez (el detalle es por número de asiento, no por

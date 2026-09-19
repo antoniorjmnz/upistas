@@ -11,9 +11,9 @@ No hay usuarios ni contraseña: la web se abre y ya está. Alberto es quien la a
 uv run python manage.py migrate
 uv run python manage.py runserver      # http://127.0.0.1:8000
 ```
-Los datos los pone el pipeline: `uv run upistas run` deja el lote decidido y la web lo enseña. Sin
-ninguna ejecución, la portada lo explica y dice cómo lanzarla. Funciona sin internet: htmx, el CSS y las
-letras van en el repo.
+Los datos los pone el pipeline: `uv run upistas run` deja el lote decidido y la web lo enseña, o los
+sube Alberto desde «Subir facturas». Sin ninguna ejecución, la portada lo explica y dice cómo lanzarla.
+Funciona sin internet: htmx, el CSS y las letras van en el repo.
 
 ## Cómo se escribe cada pantalla
 Alberto tiene 60 años y no sabe de informática. De ahí tres reglas que valen para toda la web:
@@ -33,6 +33,16 @@ iconos son un tag de plantilla, `{% icono "nombre" %}`, sin ficheros ni red.
 ## Pantallas
 Arriba en la barra lateral, las de Alberto:
 
+- **Subir facturas**: Alberto suelta ahí sus PDF (o un zip con varios dentro), elige el lote y el repaso
+  empieza solo, con una barra que se refresca cada segundo hasta que termina y entonces le dice cuántas
+  se pagan, cuántas no y cuántas tiene que mirar. Los ficheros se guardan en `almacen/facturas/` con su
+  huella por nombre (`MEDIA_ROOT`, fuera de git): la misma factura subida dos veces no ocupa dos veces, y
+  lo que no empieza por `%PDF` se rechaza diciéndolo. Se repasa el lote entero, no solo lo nuevo, porque
+  leer se cachea por contenido y lo ya leído no se vuelve a leer. El repaso corre en un hilo del propio
+  servidor web, y ahí es donde arranca DBOS: en el primer repaso del proceso, una sola vez. Solo se hace
+  uno a la vez y su avance vive en memoria (ninguna tabla nueva), así que reiniciar el servidor se lleva
+  la barra, no el trabajo: la ejecución y las decisiones ya están guardadas. La misma pasada se puede
+  pedir desde la portada con «Repasar ahora», sin subir nada.
 - **Hoy**: la portada. De las N facturas del lote, cuántas se pagan, cuántas no y cuántas esperan su
   decisión; lo primero que tiene que mirar; qué cambió desde el repaso anterior.
 - **Facturas**: la lista con filtros (resultado, revisadas o no, búsqueda por fichero, pedido, proveedor o
@@ -88,5 +98,6 @@ cliente que abre la web) y `lote_de_prueba` (cinco facturas con todos los casos 
 que haya cambios que enseñar).
 
 ## Lo que no hace (todavía)
-- Lanzar el pipeline desde la web: se lanza con `uv run upistas run` y la web lo refleja.
+- Guardar el avance de un repaso: vive en la memoria del servidor, así que al reiniciarlo se pierde la
+  barra de progreso (lo repasado no, eso está en la base de datos).
 - Usuarios ni permisos por pantalla: la web es de Alberto y se abre sin entrar.
