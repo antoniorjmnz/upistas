@@ -299,8 +299,9 @@ def test_sin_ajustes_del_asistente_se_usa_helmcode(config_recargada, monkeypatch
 def test_sin_clave_del_asistente_ni_de_helmcode_se_avisa_como_siempre(config_recargada, monkeypatch):
     from web.panel.asistente import helmcode
 
-    monkeypatch.delenv("ASISTENTE_API_KEY", raising=False)
-    monkeypatch.delenv("HELMCODE_API_KEY", raising=False)
+    # Vacías, no borradas: el .env del repo las volvería a poner al recargar la configuración
+    monkeypatch.setenv("ASISTENTE_API_KEY", "")
+    monkeypatch.setenv("HELMCODE_API_KEY", "")
     ajustes = config_recargada()
     assert ajustes.asistente_api_key == ""
     with pytest.raises(SinCliente, match="ASISTENTE_API_KEY o HELMCODE_API_KEY"):
