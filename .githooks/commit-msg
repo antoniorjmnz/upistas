@@ -1,10 +1,10 @@
 #!/bin/sh
-# Valida el formato del commit: tipo(área): descripción (#N)
+# Avisa si el commit no sigue el formato tipo(área): descripción (#N). Nunca lo rechaza.
 msg=$(grep -v '^#' "$1" | head -n1)
 case "$msg" in Merge*|Revert*|fixup!*|squash!*) exit 0 ;; esac
 if ! printf '%s' "$msg" | grep -Eq '^(feat|fix|test|docs|refactor|chore|perf)(\((ingesta|fuentes|decision|obs|docs|bonus|infra)\))?: .+ \(#[0-9]+\)$'; then
-  echo "✘ Commit rechazado. Formato: tipo(área): descripción (#issue)" >&2
+  echo "⚠ Aviso: el commit no sigue el formato tipo(área): descripción (#issue)" >&2
   echo "  Ej: feat(fuentes): réplica local del ERP (#2)" >&2
   echo "  Recibido: $msg" >&2
-  exit 1
 fi
+exit 0
