@@ -12,7 +12,8 @@ from django.db.models import QuerySet
 
 from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
 from upistas.aplicacion.lote import Cambio, comparar
-from web.panel.models import Decision, Ejecucion, Lectura, RevisionHumana
+from upistas.dominio.importes import normaliza_iban
+from web.panel.models import Decision, Ejecucion, Lectura, Proveedor, RevisionHumana
 
 CLASE = {"PAGAR": "bien", "NO_PAGAR": "mal", "ESCALAR": "ojo"}
 ETIQUETA = {"PAGAR": "Pagar", "NO_PAGAR": "No pagar", "ESCALAR": "Revisar"}
@@ -381,7 +382,7 @@ def buscar_facturas(texto: str, limite: int = 10) -> dict:
         return {"aviso": "no has dicho qué buscar"}
     shas = Lectura.objects.filter(
         Q(extraida__campos__numero_factura__valor__icontains=texto)
-        | Q(extraida__campos__proveedor_nombre__icontains=texto)
+        | Q(extraida__campos__proveedor_nombre__valor__icontains=texto)
         | Q(extraida__campos__nif__valor__icontains=texto)
     ).values("sha256")
     canon = _canon_pedido(texto)
@@ -417,6 +418,10 @@ def detalle_factura(file_id: str) -> dict:
     lectura = Lectura.objects.filter(sha256=documento.sha256).first()
     revision = RevisionHumana.objects.filter(documento=documento).first()
     campos_leidos = campos(lectura)
+    # La cuenta bancaria no se le cuenta entera a la IA: solo el final y si es la del maestro.
+    iban_leido = normaliza_iban(campos_leidos.get("iban"))
+    nif_leido = str(campos_leidos.get("nif") or "").upper().replace(" ", "")
+    proveedor = Proveedor.objects.filter(nif=nif_leido).first() if nif_leido else None
     return {
         "file_id": documento.file_id,
         "lote": documento.lote,
@@ -434,8 +439,9 @@ def detalle_factura(file_id: str) -> dict:
                 "tokens": lectura.tokens_in + lectura.tokens_out,
                 "coste_eur": lectura.coste_eur,
                 "campos": {
-                    n: campos_leidos.get(n)
-                    for n in ("numero_factura", "proveedor_nombre", "nif", "iban", "pedido", "fecha", "base", "iva", "total")
+                    **{n: campos_leidos.get(n) for n in ("numero_factura", "proveedor_nombre", "nif", "pedido", "fecha", "base", "iva", "total")},
+                    "iban": f"…{iban_leido[-4:]}" if iban_leido else None,
+                    "iban_coincide": (iban_leido == proveedor.iban) if iban_leido and proveedor else None,
                 },
             }
             if lectura else None

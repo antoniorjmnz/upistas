@@ -62,6 +62,25 @@ def test_detalle_explica_la_decision(lote_asistente):
     assert d["lectura"]["campos"]["numero_factura"] == "FA-1016"
 
 
+def test_buscar_por_nombre_de_proveedor(lote_asistente):
+    """Busca en el valor leído, no en el JSON entero del campo."""
+    assert [f["file_id"] for f in consultas.buscar_facturas("ruzafa")["encontradas"]] == ["factura_pagada.pdf"]
+    assert consultas.buscar_facturas("confianza")["encontradas"] == []  # una clave del JSON no es un proveedor
+
+
+def test_el_detalle_no_ensena_el_iban_entero(lote_asistente):
+    from web.panel.models import Proveedor
+
+    campos = consultas.detalle_factura("factura_pagada.pdf")["lectura"]["campos"]
+    assert campos["iban"] == "…0000" and campos["iban_coincide"] is None  # sin proveedor en el maestro
+    assert "ES2100000000000000000000" not in json.dumps(consultas.detalle_factura("factura_pagada.pdf"), default=str)
+
+    Proveedor.objects.create(codigo="P007", nombre="Papelería Ruzafa", nif="J40112358", iban="ES21 0000 0000 0000 0000 0000")
+    assert consultas.detalle_factura("factura_pagada.pdf")["lectura"]["campos"]["iban_coincide"] is True
+    Proveedor.objects.filter(codigo="P007").update(iban="ES9999999999999999999999")
+    assert consultas.detalle_factura("factura_pagada.pdf")["lectura"]["campos"]["iban_coincide"] is False
+
+
 def test_detalle_desconocida_sugiere_parecidas(lote_asistente):
     d = consultas.detalle_factura("pagada")
     assert "aviso" in d and "factura_pagada.pdf" in d["parecidas"]
