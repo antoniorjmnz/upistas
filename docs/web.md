@@ -12,8 +12,8 @@ uv run python manage.py migrate
 uv run python manage.py runserver      # http://127.0.0.1:8000
 ```
 Los datos los pone el pipeline: `uv run upistas run` deja el lote decidido y la web lo enseña. Sin
-ninguna ejecución, la portada lo explica y dice cómo lanzarla. Funciona sin internet: htmx y el CSS van
-en el repo.
+ninguna ejecución, la portada lo explica y dice cómo lanzarla. Funciona sin internet: htmx, el CSS y las
+letras van en el repo.
 
 ## Cómo se escribe cada pantalla
 Alberto tiene 60 años y no sabe de informática. De ahí tres reglas que valen para toda la web:
@@ -21,17 +21,17 @@ Alberto tiene 60 años y no sabe de informática. De ahí tres reglas que valen 
 - **Una frase por pantalla.** Arriba del todo, un `.hero`: el título y una sola frase que dice qué es esto
   y qué se puede hacer aquí. Nada de párrafos.
 - **Tres colores fijos, siempre con el mismo significado.** Verde se paga, rojo no se paga, ámbar lo decide
-  Alberto. El mismo color en la píldora, en el montón y en el punto del filtro.
+  Alberto. El mismo color en la píldora, en el kpi de la portada y en el punto del filtro.
 - **Lo técnico, plegado.** Los ids, las huellas, los tokens, el coste, el hardware y los reintentos del ERP
   van dentro de un `details.mas` («Detalles técnicos», «Historial de conexiones»). Fuera del pliegue, solo
   palabras que Alberto usaría.
 
-El sistema de diseño entero está en `static/panel/panel.css` (hero, montones, cifras, tarjetas, píldoras,
-botones, barra de búsqueda con chips, listas, tablas, avisos, estados vacíos y pliegues) y los iconos son
-un tag de plantilla, `{% icono "nombre" %}`, sin ficheros ni red.
+El sistema de diseño entero está en `static/panel/panel.css` (hero, kpis, cifras, tarjetas, píldoras,
+botones, barra de búsqueda con chips, avatares, listas, tablas, avisos, estados vacíos y pliegues) y los
+iconos son un tag de plantilla, `{% icono "nombre" %}`, sin ficheros ni red.
 
 ## Pantallas
-En la cabecera, las de Alberto:
+Arriba en la barra lateral, las de Alberto:
 
 - **Hoy**: la portada. De las N facturas del lote, cuántas se pagan, cuántas no y cuántas esperan su
   decisión; lo primero que tiene que mirar; qué cambió desde el repaso anterior.
@@ -45,7 +45,10 @@ En la cabecera, las de Alberto:
 - **Preguntar**: Alberto pregunta en su idioma y la web contesta con los datos que tiene, con enlace a la
   pantalla donde está la respuesta. Lo hace Fran (#39); el diseño está en [asistente.md](asistente.md).
 
-En el pie, las de quien lleva el sistema (mismo cuidado, más datos):
+Donde salga una factura hay un botón **Previsualizar**: abre su PDF encima de la página, sin salir de la
+lista ni descargar nada. Se cierra con el botón Cerrar, con Escape o pulsando fuera.
+
+Abajo en la barra lateral, las de quien lleva el sistema (mismo cuidado, más datos):
 
 - **Registro de repasos**: cada pasada por un lote en una línea (cuándo, lote, facturas, se pagan, no se
   pagan, para revisar, duración y estado) y el detalle de una: la misma frase de la portada, las cuatro
@@ -64,8 +67,20 @@ En el pie, las de quien lleva el sistema (mismo cuidado, más datos):
 - htmx (vendorizado en `static/panel/`) para filtros, paginación y la decisión de Alberto sin recargar la
   página; cada vista devuelve solo el fragmento cuando llega la cabecera `HX-Request`. Todo funciona
   también sin JavaScript: los formularios se envían y las páginas se recargan.
-- CSS propio en `static/panel/panel.css`; si una pantalla necesita algo suyo, va en
+- La piel se llama **Nítida**: una herramienta de trabajo, no un folleto. Barra lateral fija con las
+  pantallas de Alberto arriba y las de quien lleva el sistema abajo, cada una con su icono; blanco y gris,
+  tarjetas de borde fino, avatares con las iniciales del proveedor y etiquetas con un punto de color. Tres
+  colores con significado fijo (verde se paga, rojo no se paga, ámbar lo decide Alberto) e índigo para lo
+  que se pulsa. Todo en `static/panel/panel.css`; si una pantalla necesita algo suyo, va en
   `static/panel/<pantalla>.css` y es poco.
+- Las letras van en el repo, en `static/panel/fuentes/`: Inter para el texto y Sora para los títulos y las
+  cifras, las dos con licencia SIL Open Font License 1.1 (quién es quién, en `fuentes/LICENCIA.txt`). Así
+  la web se ve igual sin internet: no se llama a ningún CDN, ni para las letras ni para nada.
+- El único JavaScript propio es `static/panel/panel.js`, y solo hace el visor de facturas: cualquier botón
+  con `data-pdf` abre ese PDF en el `<dialog>` que está al final de `base.html`, encima de la página. Si el
+  navegador no sabe de `<dialog>`, el visor no se activa y la factura se sigue abriendo desde su detalle.
+- El gráfico del lote de la portada es un SVG escrito en la plantilla: una rosca con un arco por resultado,
+  el total en medio y el reparto en palabras al lado. Sin librería de gráficos.
 
 ## Tests
 `tests/integracion/test_web*.py`, con las fixtures de `tests/integracion/conftest.py`: `alberto` (el
