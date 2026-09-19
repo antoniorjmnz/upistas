@@ -1,0 +1,7 @@
+{# Un campo del maestro: su etiqueta, la casilla y, debajo, la ayuda o el error. Espera `campo`; `ancho` ocupa la fila entera. #}
+<div class="campo{% if campo.errors %} con-error{% endif %}{% if ancho %} ancho{% endif %}">
+  <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+  {{ campo }}
+  {% if campo.errors %}<span class="ayuda">{{ campo.errors.0 }}</span>
+  {% elif campo.help_text %}<span class="ayuda">{{ campo.help_text }}</span>{% endif %}
+</div>

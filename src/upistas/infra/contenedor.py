@@ -23,6 +23,7 @@ from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnifica
 from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.adaptadores.persistencia.django_lecturas import RepositorioLecturasDjango
+from upistas.adaptadores.persistencia.django_maestro import MaestroDjango
 from upistas.config import ROOT, Settings, settings
 from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
@@ -56,16 +57,34 @@ def rutas_maestro() -> tuple[Path, ...]:
     ))
 
 
+def _maestro_propio() -> FuenteMaestro | None:
+    """Nuestras tablas, si Alberto tiene proveedores dados de alta en la web (#38).
+
+    Sin base de datos a mano (tests unitarios sin Django) no hay maestro propio y se sigue con el Excel.
+    """
+    from django.db import Error
+
+    try:
+        django_setup.configurar()
+        return MaestroDjango() if MaestroDjango.hay_datos() else None
+    except (Error, RuntimeError):
+        return None
+
+
 @cache
 def maestro() -> FuenteMaestro:
+    """Manda el Excel si lo piden a mano; si no, el maestro de la web; si tampoco, el Excel que se encuentre."""
     if settings.excel_path is not None:
         return MaestroExcel(settings.excel_path)
+    propio = _maestro_propio()
+    if propio is not None:
+        return propio
     candidatas = list(dict.fromkeys(r.resolve() for r in rutas_maestro() if r.is_file()))
     if len(candidatas) > 1:
         raise ValueError("Hay varios maestros Excel; indica cuál usar mediante --excel o EXCEL_PATH")
     if candidatas:
         return MaestroExcel(candidatas[0])
-    return MaestroEnMemoria()  # Pendiente: adaptador del Excel de Alberto (#25)
+    return MaestroEnMemoria()
 
 
 @cache
