@@ -37,7 +37,7 @@ Pendiente de revisar: los 29 escaneos (hay que leerlos primero) y el lote 2 del 
 
 ## Facturas
 - 500 PDF: 471 con texto y 29 escaneados (`scan_001`…`scan_029` sin el 019, 020 ni 024, más `copia_2026_0518`, `fax_2026_0411` y `reimpresion_0712`).
-- **492 de 500 tienen la estructura interna rota** (xref). MuPDF la repara y se leen bien. `factura_4635` está más dañada, pero también se lee.
+- **Ojo al clonar en Windows**: git trata los PDF como texto y con `core.autocrlf=true` convierte los finales de línea al clonar, lo que rompe la estructura interna de 492 de 500 (MuPDF los repara, pero la huella sha256 cambia). En el repositorio están intactos. Clonar La Caja con `git -c core.autocrlf=false clone ...`. `factura_4635` sí trae algún error propio, pero se lee.
 - Unas 10 plantillas distintas: etiquetas diferentes para lo mismo, importes `2.489,99` y `1498.30`, fechas `15 de enero de 2026`.
 - Todas las facturas con texto usan IVA del 21 %.
 - **Misma factura enviada dos veces**: `factura_41082` (F26-0233, 7 de abril, la original) y `2026-0233-A_catering` (11 de abril). Mismo proveedor, número, pedido PO-0492 e importe.
