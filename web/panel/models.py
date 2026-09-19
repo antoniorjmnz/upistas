@@ -281,3 +281,24 @@ class Pregunta(models.Model):
 
     def __str__(self) -> str:
         return f"{self.cuando:%d/%m %H:%M} · {self.texto[:60]}"
+
+
+class AccionAsistente(models.Model):
+    """Cada cosa que el asistente propuso y Alberto confirmó: cuándo, qué, con qué datos y en qué quedó.
+
+    El asistente nunca escribe por su cuenta: la fila se crea al pulsar «Confirmar» (ver docs/asistente.md).
+    """
+
+    cuando = models.DateTimeField(auto_now_add=True)
+    tipo = models.CharField(max_length=40)
+    datos = models.JSONField(default=dict, blank=True)
+    resultado = models.TextField(blank=True)
+    ok = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-cuando", "-id"]
+        verbose_name = "acción del asistente"
+        verbose_name_plural = "acciones del asistente"
+
+    def __str__(self) -> str:
+        return f"{self.cuando:%d/%m %H:%M} · {self.tipo} · {self.resultado[:60]}"

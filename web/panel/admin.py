@@ -1,8 +1,8 @@
 from django.contrib import admin
 
 from web.panel.models import (
-    AsientoERP, Decision, Documento, Ejecucion, Importacion, Lectura, Pedido, Pregunta, Proveedor, RevisionHumana,
-    SincronizacionERP, VersionERP,
+    AccionAsistente, AsientoERP, Decision, Documento, Ejecucion, Importacion, Lectura, Pedido, Pregunta, Proveedor,
+    RevisionHumana, SincronizacionERP, VersionERP,
 )
 
 
@@ -82,4 +82,12 @@ class PreguntaAdmin(admin.ModelAdmin):
     list_display = ("cuando", "texto", "ok", "tokens_in", "tokens_out", "segundos")
     list_filter = ("ok",)
     search_fields = ("texto", "respuesta", "error")
+    readonly_fields = ("cuando",)
+
+
+@admin.register(AccionAsistente)
+class AccionAsistenteAdmin(admin.ModelAdmin):
+    list_display = ("cuando", "tipo", "resultado", "ok")
+    list_filter = ("tipo", "ok")
+    search_fields = ("resultado",)
     readonly_fields = ("cuando",)
