@@ -272,3 +272,48 @@ def test_duplicados_por_hash_y_por_pedido():
     otra = replace(copia, sha256="b" * 64, numero="F-002")
     decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(otra, REFS)], {"a.pdf": factura, "b.pdf": otra})
     assert all(d.resultado == Resultado.ESCALAR for d in decisiones)
+
+
+def test_dos_lecturas_fiables_del_mismo_pedido_escalan_las_dos():
+    """2026-0233-A_catering y factura_41082: mismo pedido, números distintos, las dos bien leídas."""
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    factura = replace(FACTURA, sha256="a" * 64, numero="F-001")
+    otra = replace(FACTURA, file_id="b.pdf", sha256="b" * 64, numero="F-002")
+    decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(otra, REFS)], {"a.pdf": factura, "b.pdf": otra})
+    assert {d.file_id: d.resultado for d in decisiones} == {"a.pdf": Resultado.ESCALAR, "b.pdf": Resultado.ESCALAR}
+    assert all(any(not c.ok and c.regla == "R5_duplicado" for c in d.comprobaciones) for d in decisiones)
+
+
+def test_lectura_fallida_no_bloquea_por_pedido_a_la_que_si_se_leyo():
+    """2026-03-11_P004 y scan_004: del escaneo no nos creemos ningún campo, tampoco el pedido."""
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    factura = replace(FACTURA, sha256="a" * 64, numero="F-001")
+    escaneo = replace(FACTURA, file_id="b.pdf", sha256="b" * 64, numero="F-002",
+                      errores_lectura=("Discrepancia OCR/visión en nif", "Discrepancia OCR/visión en iban"))
+    decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(escaneo, REFS)], {"a.pdf": factura, "b.pdf": escaneo})
+    por_id = {d.file_id: d for d in decisiones}
+    assert por_id["a.pdf"].resultado == Resultado.PAGAR
+    assert not any(c.regla == "R5_duplicado" for c in por_id["a.pdf"].comprobaciones)
+    assert por_id["b.pdf"].resultado == Resultado.ESCALAR
+    assert any(not c.ok and c.regla == "R0_lectura" for c in por_id["b.pdf"].comprobaciones)
+    assert not any(c.regla == "R5_duplicado" for c in por_id["b.pdf"].comprobaciones)
+    assert any(PEDIDO.id in a and "a.pdf" in a for a in por_id["b.pdf"].alertas)
+
+
+def test_lectura_fallida_no_participa_pero_la_copia_por_hash_si_bloquea():
+    """R5_copia_hash no depende de la lectura: una copia exacta sigue siendo NO_PAGAR."""
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    factura = replace(FACTURA, sha256="a" * 64, numero="F-001")
+    copia = replace(factura, file_id="b.pdf")
+    escaneo = replace(FACTURA, file_id="c.pdf", sha256="c" * 64, numero="F-003", errores_lectura=("OCR sin texto",))
+    decisiones = resolver_duplicados(
+        [norma.evaluar(factura, REFS), norma.evaluar(copia, REFS), norma.evaluar(escaneo, REFS)],
+        {"a.pdf": factura, "b.pdf": copia, "c.pdf": escaneo},
+    )
+    assert {d.file_id: d.resultado for d in decisiones} == {"a.pdf": Resultado.PAGAR, "b.pdf": Resultado.NO_PAGAR, "c.pdf": Resultado.ESCALAR}

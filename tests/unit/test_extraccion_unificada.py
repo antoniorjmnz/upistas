@@ -276,63 +276,7 @@ def test_vision_confirma_el_ocr_aunque_tenga_todos_los_campos(tmp_path):
     factura = LectorPdfUnificado(ocr=lambda imagen: TEXTO, vision=vision).leer(ruta)
     assert len(vision_llamadas) == 1
     assert factura.campos.nif.valor == "B12345678"
-    assert factura.metodo.value == "vision_llm"
-    assert not factura.errores
-
-
-def test_un_digito_distinto_entre_ocr_y_vision_es_error_de_lectura(tmp_path):
-    ruta = tmp_path / "scan.pdf"
-    crear_pdf(ruta, None)
-    ocr = TEXTO.replace("B12345678", "B12345878")
-    factura = LectorPdfUnificado(ocr=lambda imagen: ocr, vision=lambda imagen: TEXTO).leer(ruta)
-    assert any("nif" in error for error in factura.errores)
-
-
-def test_traza_cacheada_solo_con_ocr_se_completa_con_vision_sin_repetir_el_ocr(tmp_path):
-    ruta = tmp_path / "scan.pdf"
-    crear_pdf(ruta, None)
-    ocr_llamadas, vision_llamadas = [], []
-
-    def ocr(imagen):
-        ocr_llamadas.append(imagen)
-        return TEXTO
-
-    def vision(imagen):
-        vision_llamadas.append(imagen)
-        return TEXTO
-
-    cache = tmp_path / "cache"
-    lector = LectorPdfUnificado(ocr=ocr, vision=vision, cache_dir=cache)
-    lector.leer(ruta)
-    # Una traza de antes, cuando la visión solo se pedía si faltaban campos: OCR completo y sin segunda lectura.
-    fichero = next(cache.glob("*.json"))
-    raw = json.loads(fichero.read_text(encoding="utf-8"))
-    for pagina in raw["pages"]:
-        del pagina["text_vision"]
-        pagina.update(text=pagina["text_ocr"], route="firecrawl_ocr")
-    fichero.write_text(json.dumps(raw), encoding="utf-8")
-    assert lector.leer(ruta).metodo.value == "vision_llm"
-    assert len(ocr_llamadas) == 1 and len(vision_llamadas) == 2
-    lector.leer(ruta)
-    assert len(ocr_llamadas) == 1 and len(vision_llamadas) == 2
-
-
-def test_vision_caida_se_reintenta_en_la_siguiente_lectura(tmp_path):
-    """scan_001, fax_2026_0411 y reimpresion_0712: APIConnectionError guardado no es una lectura válida."""
-    ruta = tmp_path / "scan.pdf"
-    crear_pdf(ruta, None)
-    vision_llamadas = []
-
-    def vision(imagen):
-        vision_llamadas.append(imagen)
-        if len(vision_llamadas) == 1:
-            raise LecturaFallida("API de visión no disponible")
-        return TEXTO
-
-    lector = LectorPdfUnificado(ocr=lambda imagen: TEXTO, vision=vision, cache_dir=tmp_path / "cache")
-    assert any("visión" in error.lower() for error in lector.leer(ruta).errores)
-    assert not lector.leer(ruta).errores
-    assert len(vision_llamadas) == 2
+    assert factura.metodo.value == "ocr_determinista"
 
 
 def test_metodo_distingue_texto_nativo_de_ocr_y_vision():

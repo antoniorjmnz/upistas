@@ -150,6 +150,19 @@ class LectorPdfUnificado:
                         traza["text"] = texto_ocr
                         traza["text_ocr"] = texto_ocr
                         traza["route_ocr"] = traza["route"]  # la visión puede sobrescribir route; quién hizo el OCR se conserva
+                        if self.vision is not None and _campos_insuficientes(traza):
+                            try:
+                                texto_vision = self.vision(imagen)
+                                if not isinstance(texto_vision, str) or not texto_vision.strip():
+                                    raise LecturaFallida("Visión sin texto")
+                                traza["text_vision"] = texto_vision
+                                traza["text"] = texto_vision
+                                traza["route"] = "vision_llm"
+                                traza["model"] = getattr(self.vision, "version", None)
+                            except LecturaFallida as exc:
+                                traza["vision_error"] = str(exc)
+                            except Exception:
+                                traza["vision_error"] = "Respaldo visual no disponible"
                 except Exception as exc:
                     traza["error"] = str(exc)
                 traza["latency_ms"] = round((time.perf_counter() - inicio) * 1000)

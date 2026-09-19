@@ -17,8 +17,11 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
 
     # Las mismas prioridades que la norma: lo no verificable manda sobre el incumplimiento probado,
     # y el incumplimiento probado sobre la revisión por notas o por contenido oculto.
-    NO_VERIFICABLE = ("R0_lectura", "R3_datos_fiscales", "R6_evaluacion_disponible", "R6_maestro_verificable")
+    LECTURA_FALLIDA = "R0_lectura"
+    NO_VERIFICABLE = (LECTURA_FALLIDA, "R3_datos_fiscales", "R6_evaluacion_disponible", "R6_maestro_verificable")
     PROBADO = ("R1_nif_iban", "R2_pedido_importe", "R3_iva_total")
+    # Si no nos creemos sus campos, tampoco su pedido: no puede bloquear a una factura que sí se leyó.
+    no_fiables = {d.file_id for d in decisiones if any(not c.ok and c.regla == LECTURA_FALLIDA for c in d.comprobaciones)}
 
     def bloquear(file_id, regla, detalle, resultado):
         actual = salida[file_id]
@@ -63,6 +66,14 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
 
     for pedido, grupo in por_pedido.items():
         candidatos = [fid for fid in grupo if fid not in copias]
+        if len(candidatos) < 2:
+            continue
+        for fid in candidatos:
+            if fid in no_fiables:
+                otros = ", ".join(sorted(f for f in candidatos if f != fid))
+                aviso = f"Pedido {pedido} también en {otros}; esta lectura falló y no bloquea a las demás"
+                salida[fid] = replace(salida[fid], alertas=salida[fid].alertas + (aviso,))
+        candidatos = [fid for fid in candidatos if fid not in no_fiables]
         if len(candidatos) < 2:
             continue
         documentos = [datos.get(fid) for fid in candidatos]

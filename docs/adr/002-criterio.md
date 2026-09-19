@@ -188,6 +188,14 @@ La norma v3:
   los reenvíos son NO_PAGAR. En un empate se usa el nombre del archivo para que sea reproducible.
 - Si varias facturas distintas comparten pedido y no puede demostrarse cuál es un reenvío,
   se ESCALAN todas las candidatas, sin escoger una por el orden de ejecución.
+- Un documento cuya lectura falló (`R0_lectura`) no cuenta como candidato por pedido: si no nos
+  creemos su NIF ni su IBAN, tampoco nos creemos su pedido, y no puede bloquear a una factura
+  que sí se leyó (`2026-03-11_P004` frente a `scan_004`). El ilegible conserva su ESCALAR y lleva
+  la coincidencia de pedido como alerta para que quien lo revise no lo pague dos veces. Si quedan
+  menos de dos candidatas fiables, no hay bloqueo por pedido. Los duplicados por hash y los
+  aprobados en lotes anteriores no dependen de la lectura y se aplican igual. Riesgo asumido:
+  si el pedido está realmente duplicado y una de las copias es un escaneo ilegible, el bloqueo
+  automático no salta, pero el ilegible ya va a revisión humana con el aviso.
 - La candidata original todavía tiene que pasar todas las reglas. Ser la primera no autoriza pagar.
 - Se consultan también los hashes y pedidos aprobados en lotes anteriores. Una coincidencia con
   un pago ya aprobado produce NO_PAGAR. Reprocesar el mismo lote no cuenta como un pago nuevo.
