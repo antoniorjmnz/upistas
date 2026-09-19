@@ -11,7 +11,7 @@ from django.shortcuts import redirect, render
 from django.urls import Resolver404, resolve
 from django.views.decorators.http import require_POST
 
-from web.panel.models import Pregunta, Proveedor
+from web.panel.models import Documento, Pregunta, Proveedor
 
 MAX_MENSAJES = 20  # la sesión no es un archivo: se conserva lo último
 MAX_PENDIENTES = 20  # propuestas sin confirmar ni descartar que se recuerdan
@@ -43,7 +43,12 @@ def _olvidar_propuesta(request: HttpRequest, historial: list[dict], nonce: str |
 
 
 def contexto_de(ruta: str | None) -> dict | None:
-    """En qué pantalla está Alberto, a partir de la ruta que manda el panel. Solo rutas de esta web."""
+    """En qué pantalla está Alberto, a partir de la ruta que manda el panel. Solo rutas de esta web.
+
+    Al modelo le llega la pantalla resuelta y sus identificadores comprobados contra la base de datos
+    (lote y file_id de una factura que existe, nombre y código de un proveedor del maestro): nunca la
+    ruta tal cual ni lo que lleve detrás del «?», que lo escribe quien quiera.
+    """
     if not ruta or not ruta.startswith("/") or ruta.startswith("//"):
         return None
     try:
@@ -52,11 +57,14 @@ def contexto_de(ruta: str | None) -> dict | None:
         return None
     if coincidencia.namespace != "panel":
         return None
-    contexto = {"ruta": ruta[:300], "pantalla": coincidencia.url_name}
-    contexto.update({k: str(v) for k, v in coincidencia.kwargs.items()})
+    contexto = {"pantalla": coincidencia.url_name}
+    kwargs = coincidencia.kwargs
+    if coincidencia.url_name == "factura":
+        if Documento.objects.filter(lote=kwargs.get("lote", ""), file_id=kwargs.get("file_id", "")).exists():
+            contexto.update({"lote": kwargs["lote"], "file_id": kwargs["file_id"]})
     if coincidencia.url_name in ("proveedor", "proveedor_editar"):
-        p = Proveedor.objects.filter(pk=coincidencia.kwargs.get("id")).first()
-        contexto["proveedor"] = f"{p.nombre} ({p.codigo})" if p else f"nº {coincidencia.kwargs.get('id')}"
+        p = Proveedor.objects.filter(pk=kwargs.get("id")).first()
+        contexto["proveedor"] = f"{p.nombre} ({p.codigo})" if p else f"nº {kwargs.get('id')}"
     return contexto
 
 

@@ -85,7 +85,9 @@ PANTALLAS = {
 
 
 def frase_de_contexto(contexto: dict | None) -> str:
-    """«Alberto está ahora en …», o nada si no se sabe dónde está."""
+    """«Alberto está ahora en …», o nada si no se sabe dónde está.
+
+    Solo entra la pantalla y los identificadores que `contexto_de` comprobó; nunca la ruta tal cual."""
     if not contexto or not contexto.get("pantalla"):
         return ""
     plantilla = PANTALLAS.get(contexto["pantalla"], "la pantalla {pantalla}")
@@ -93,10 +95,7 @@ def frase_de_contexto(contexto: dict | None) -> str:
         donde = plantilla.format(**contexto)
     except (KeyError, IndexError):
         donde = plantilla.split(" {")[0]
-    frase = f"Alberto está ahora en {donde}"
-    if contexto.get("ruta"):
-        frase += f" (ruta {contexto['ruta']})"
-    return frase + "."
+    return f"Alberto está ahora en {donde}."
 
 
 class SinCliente(Exception):
