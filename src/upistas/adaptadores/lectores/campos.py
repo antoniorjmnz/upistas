@@ -146,7 +146,7 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
 
     return FacturaExtraida.model_validate({
         "file_id": file_id,
-        "metodo": "vision_llm" if any(p.get("route") == "vision_llm" for p in paginas) else "texto_determinista",
+        "metodo": _metodo(paginas),
         "lector": "pdf_unificado",
         "documento": documento or {
             "sha256": hashlib.sha256("\n".join(p.get("text", "") for p in paginas).encode()).hexdigest(),
@@ -159,6 +159,16 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
         "errores": errores,
         "coste": coste_de(paginas),
     })
+
+
+def _metodo(paginas: list[dict]) -> str:
+    """Quién leyó el documento, según la ruta real de cada página: visión > OCR > texto nativo."""
+    rutas = {str(p.get("route", "")) for p in paginas}
+    if "vision_llm" in rutas:
+        return "vision_llm"
+    if any(ruta.endswith("ocr") for ruta in rutas):
+        return "ocr_determinista"
+    return "texto_determinista"
 
 
 def _coste(paginas: list[dict]) -> dict | None:

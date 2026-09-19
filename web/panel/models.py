@@ -106,7 +106,7 @@ class Lectura(models.Model):
     lote = models.CharField(max_length=40)
     ok = models.BooleanField()
     lector = models.CharField(max_length=40, blank=True)
-    metodo = models.CharField(max_length=20)  # texto_determinista | texto_llm | vision_llm | ninguno
+    metodo = models.CharField(max_length=20)  # texto_determinista | ocr_determinista | texto_llm | vision_llm | ninguno
     extraida = models.JSONField(null=True, blank=True)  # el contrato factura_extraida
     intentos = models.JSONField(default=list, blank=True)  # [(lector, por qué no pudo)]
     segundos = models.FloatField(default=0)

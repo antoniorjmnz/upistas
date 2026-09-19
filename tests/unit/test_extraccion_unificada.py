@@ -291,7 +291,22 @@ def test_vision_no_se_usa_si_el_ocr_ya_es_suficiente(tmp_path):
 
     factura = LectorPdfUnificado(ocr=lambda imagen: TEXTO, vision=vision).leer(ruta)
     assert factura.campos.nif.valor == "B12345678"
-    assert factura.metodo.value == "texto_determinista"
+    assert factura.metodo.value == "ocr_determinista"
+
+
+def test_metodo_distingue_texto_nativo_de_ocr_y_vision():
+    """scan_013 y compañía: leídos por Firecrawl, no pueden salir como texto_determinista."""
+    nativo = extraer_campos("a.pdf", [{"page": 1, "route": "native_text", "text": TEXTO}])
+    assert nativo.metodo.value == "texto_determinista"
+    ocr = extraer_campos("a.pdf", [{"page": 1, "route": "firecrawl_ocr", "text": TEXTO, "model": "firecrawl/parse"}])
+    assert ocr.metodo.value == "ocr_determinista"
+    mixto = extraer_campos("a.pdf", [
+        {"page": 1, "route": "native_text", "text": TEXTO},
+        {"page": 2, "route": "firecrawl_ocr", "text": "Gracias por su compra."},
+    ])
+    assert mixto.metodo.value == "ocr_determinista"
+    vision = extraer_campos("a.pdf", [{"page": 1, "route": "vision_llm", "text": TEXTO}])
+    assert vision.metodo.value == "vision_llm"
 
 
 def test_vision_no_sustituye_un_ocr_caido(tmp_path):

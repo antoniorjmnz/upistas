@@ -1,0 +1,20 @@
+{
+  "file_id": "scan_013.pdf",
+  "metodo": "ocr_determinista",
+  "lector": "pdf_unificado",
+  "documento": { "sha256": "9c4e1a7b2d8f6053e1b9a4c7d2f8e6a1b3c5d7e9f0a2b4c6d8e0f1a3b5c7d9e1", "tipo": "escaneado", "paginas": 1, "bytes": 184320, "alertas": [] },
+  "campos": {
+    "numero_factura": { "valor": "2026/0489", "confianza": 1, "fuente": "FACTURA 2026/0489" },
+    "nif": { "valor": "B46102331", "confianza": 1, "fuente": "NIF: B46102331" },
+    "iban": { "valor": "ES2100491500051234567890", "confianza": 1 },
+    "pedido": { "valor": "PO-2026-0489", "confianza": 1 },
+    "fecha": { "valor": "2026-03-10", "confianza": 1 },
+    "base": { "valor": 2050, "confianza": 1 },
+    "iva_pct": { "valor": 21, "confianza": 1 },
+    "iva": { "valor": 430.5, "confianza": 1 },
+    "total": { "valor": 2480.5, "confianza": 1 }
+  },
+  "notas": [],
+  "checks": { "total_cuadra": true, "iva_cuadra": true, "lineas_cuadran": null },
+  "coste": { "modelo": "firecrawl/parse", "segundos": 41.3 }
+}

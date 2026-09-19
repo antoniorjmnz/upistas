@@ -142,7 +142,7 @@ class Factura:
     notas: tuple[Nota, ...] = ()
     alertas: tuple[str, ...] = ()  # del fichero: estructura reparada, JavaScript, caracteres invisibles...
     tipo_documento: str = "texto"  # texto | escaneado | blanco | roto | cifrado | otro
-    metodo: str = "texto_determinista"  # texto_determinista | texto_llm | vision_llm | ninguno
+    metodo: str = "texto_determinista"  # texto_determinista | ocr_determinista | texto_llm | vision_llm | ninguno
     ausentes: frozenset[str] = frozenset()
     no_leidos: frozenset[str] = frozenset()
     sha256: str = ""
