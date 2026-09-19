@@ -254,3 +254,11 @@ dialog.visor iframe { display: block; width: 100%; height: calc(92vh - 57px); bo
 .factura-cola .fila, .factura-cola .fila-factura { border-bottom: 0; padding-bottom: 4px; }
 .quien-factura { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 td.porque { max-width: 42ch; }
+
+/* El buscador: sitio para la lupa (gana a la regla general de los inputs, que va después de .buscador) */
+.buscador input[type=search], .buscador input[type=text] { padding-left: 42px; }
+.buscador.grande input[type=search] { padding-left: 52px; }
+
+/* Filas de facturas: columnas fijas para que nombres, importes y botones queden alineados */
+.fila, .fila-factura { grid-template-columns: 36px minmax(0, 1fr) auto auto; }
+.fila .importe, .fila-factura .importe { min-width: 112px; text-align: right; }

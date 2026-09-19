@@ -79,8 +79,8 @@
       {% for d in pendientes %}
       <li class="fila">
         <span class="av {{ d.proveedor|color_avatar }}">{{ d.proveedor|iniciales }}</span>
-        <span class="quien"><a href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">{{ d.proveedor|default:d.documento.file_id }}</a>
-          <small>{% if d.proveedor %}{{ d.documento.file_id }}{% endif %}{% if d.pedido %} · pedido {{ d.pedido }}{% endif %}</small></span>
+        <span class="quien"><a href="{% url 'panel:factura' d.documento.lote d.documento.file_id %}">{{ d.proveedor|default:"Proveedor sin leer" }}</a>
+          <small>{{ d.documento.file_id }}{% if d.pedido %} · pedido {{ d.pedido }}{% endif %}</small></span>
         <span class="importe">{{ d.total|euros }}</span>
         <span class="accion acciones">
           {% include "panel/_previsualizar.html" with documento=d.documento %}
