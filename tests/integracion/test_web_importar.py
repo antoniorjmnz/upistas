@@ -138,6 +138,23 @@ def test_los_proveedores_se_clasifican_fila_a_fila(alberto, maestro, almacen):
     assert not list(almacen.glob("importaciones/*.json"))  # al aplicar, la vista previa se borra
 
 
+def test_un_campo_mas_largo_que_su_columna_no_vale_y_dice_el_tope(alberto, maestro, almacen):
+    """SQLite guardaría un código de 32 letras sin rechistar; la vista previa lo para antes."""
+    codigo_largo = "P" + "0" * 31
+    ciudad_larga = "Villa" * 20
+    token = subir(alberto, fichero("largos.csv", CABECERA_PROVEEDORES
+        + f"{codigo_largo},Largos S.L.,B11111111,ES9121000418450200051332,Murcia,30 dias\n"
+        + f"P020,Lejos S.L.,B22222222,ES9121000418450200051332,{ciudad_larga},30 dias\n"
+        + "P021,Bien S.L.,B33333333,ES9121000418450200051332,Murcia,30 dias\n"))
+    html = previa(alberto, token)
+    assert "<b>1 proveedor nuevo, 0 cambian, 2 filas inválidas</b>" in html
+    assert f"El código «{codigo_largo}» es demasiado largo: como mucho 10 caracteres." in html
+    assert f"La ciudad «{ciudad_larga}» es demasiado largo: como mucho 80 caracteres." in html
+
+    aplicar(alberto, token)
+    assert set(Proveedor.objects.values_list("codigo", flat=True)) == {"P001", "P003", "P021"}
+
+
 def test_un_proveedor_que_cambia_solo_toca_los_campos_que_trae_el_fichero(alberto, maestro, almacen):
     token = subir(alberto, fichero("cuentas.csv", "ID;Razon Social;NIF;IBAN\nP001;Suministros Levante S.A.;B46102331;ES91 2100 0418 4502 0005 1332\n"))
     html = previa(alberto, token)

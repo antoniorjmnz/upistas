@@ -49,6 +49,14 @@ PATRON_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,32}$")
 CARPETA = "importaciones"
 UN_DIA = 24 * 3600
 
+# Lo más largo que cabe en cada columna de la tabla de proveedores (SQLite no lo impide; nosotros sí).
+# El número de pedido no hace falta: PATRON_PEDIDO ya lo deja en 12 letras, y la columna admite 20.
+TOPES_PROVEEDOR = tuple(
+    (campo, FilaProveedor._meta.get_field(columna).max_length, etiqueta)
+    for columna, campo, etiqueta in (("codigo", "id", "El código"), ("nombre", "nombre", "El nombre"), ("nif", "nif", "El NIF"),
+                                     ("iban", "iban", "La cuenta"), ("ciudad", "ciudad", "La ciudad"))
+)
+
 # Columna del fichero → campo del proveedor → cómo se le llama a Alberto.
 CAMPOS_PROVEEDOR = (
     ("razonsocial", "nombre", "Nombre"),
@@ -258,6 +266,9 @@ def _fallo_proveedor(p: Proveedor, existentes: dict, por_nif: dict, envio: dict,
         return "No trae el nombre."
     if not p.nif:
         return "No trae el NIF."
+    for campo, tope, etiqueta in TOPES_PROVEEDOR:
+        if len(getattr(p, campo)) > tope:
+            return f"{etiqueta} «{getattr(p, campo)}» es demasiado largo: como mucho {tope} caracteres."
     if not nif_valido(p.nif):
         return f"El NIF «{p.nif}» no tiene un formato conocido."
     if not p.iban:
