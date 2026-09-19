@@ -12,21 +12,33 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
+      - name: La PR enlaza una issue
+        if: github.event_name == 'pull_request'
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "$BODY" | grep -Eiq '(closes|fixes|resolves|refs) #[0-9]+' \
+            || { echo "::error::Falta 'Closes #N' o 'Refs #N' en la descripción de la PR"; exit 1; }
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
-        if: hashFiles('package.json') != ''
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Dependencias (desde uv.lock, con caché)
+        run: uv sync --extra dev --frozen
+      - name: La Caja (con caché)
+        id: caja
+        uses: actions/cache@v4
         with:
-          node-version: "22"
-      - name: Instalar dependencias del proyecto
-        run: |
-          if [ -f pyproject.toml ]; then pip install -e ".[dev]" || pip install -e . pytest; fi
-          if [ -f package.json ]; then npm ci; fi
-      - name: La Caja (repo oficial, público)
-        run: git clone --depth 1 https://github.com/ikurotime/500-sombras-de-alberto ../caja
-      - name: Checks
-        run: python scripts/check.py
+          path: caja
+          key: caja-2026-09-19
+      - name: Clonar La Caja si no está en caché
+        if: steps.caja.outputs.cache-hit != 'true'
+        run: git -c core.autocrlf=false clone --depth 1 --quiet https://github.com/ikurotime/500-sombras-de-alberto caja
+      - name: Checks (contratos, capas, outcomes, secretos, tests)
+        env:
+          CAJA_DIR: ${{ github.workspace }}/caja
+        run: uv run python scripts/check.py
