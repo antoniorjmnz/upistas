@@ -2,6 +2,8 @@
 
 Todo lo que necesitas para ponerte a trabajar en upistas sin preguntar. Léelo una vez entero (10 min).
 
+Más a fondo: [reto.md](reto.md) (lo que piden, la rúbrica y la defensa) y [trampas.md](trampas.md) (todo lo raro que hay en los datos).
+
 ## El reto en una frase
 Alberto recibe facturas en PDF y tiene que decidir cuáles **PAGAR**, cuáles **NO_PAGAR** y cuáles
 **ESCALAR** a una persona, cruzándolas con un Excel caótico y un ERP de 2009. Nosotros construimos
@@ -34,7 +36,7 @@ necesaria para el flujo principal.
 - **Facturas**: 500 PDF en unas 10 plantillas distintas. 471 tienen texto; 29 son escaneos (hace falta IA con visión). Alguno está corrupto.
 - **Excel** `FINAL_v7_DEFINITIVO_ahorasi.xlsx`: proveedores, pedidos y, escondida, la hoja **`Norma_Pagos_v3`** con las reglas. El resto de hojas es basura.
 - **ERP**: se arranca en local (`make erp` en el repo oficial). Lento, con errores aleatorios que hay que reintentar y sesiones que caducan. Es la referencia oficial cuando no coincide con el Excel.
-- **Trampas vistas**: IBAN distintos al del maestro, pedidos ya pagados, NIF desconocidos, pedidos de otro proveedor, IVA mal calculado, un proveedor duplicado en el Excel.
+- **Trampas**: pedidos ya pagados, facturas duplicadas, proveedores falsos, importes que no cuadran, IBAN con caracteres invisibles y unas 28 facturas con notas que intentan manipular la decisión. Todas en [trampas.md](trampas.md).
 
 ## La norma v3
 1. NIF en el maestro y el IBAN de la factura igual al del maestro.
