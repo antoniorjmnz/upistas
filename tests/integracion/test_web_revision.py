@@ -53,11 +53,26 @@ def test_cada_factura_lleva_a_su_detalle_y_se_puede_previsualizar(alberto, lote_
     assert f'data-pdf="{reverse("panel:factura_pdf", args=["lote1", ESCANEADA])}"' in html
 
 
-def test_cada_ficha_lleva_el_boton_pequeno_de_ver_en_el_pdf_que_hizo_saltar_la_alarma(alberto, lote_de_prueba):
+def test_solo_la_ficha_con_algo_que_rodear_lleva_el_boton_pequeno_de_ver_en_el_pdf_que_hizo_saltar_la_alarma(alberto, lote_de_prueba):
     html = cola(alberto)
-    assert html.count("Ver en el PDF qué ha hecho saltar la alarma") == 2
-    for file_id in (ESCALADA, ESCANEADA):
-        assert f'class="boton pequeno suave alarma" data-pdf="{reverse("panel:factura_pdf_marcado", args=["lote1", file_id])}"' in html
+    assert html.count("Ver en el PDF qué ha hecho saltar la alarma") == 1
+    assert f'class="boton pequeno suave alarma" data-pdf="{reverse("panel:factura_pdf_marcado", args=["lote1", ESCALADA])}"' in html
+    assert reverse("panel:factura_pdf_marcado", args=["lote1", ESCANEADA]) not in html  # abriría un PDF sin marcas
+
+
+def test_una_factura_que_solo_falla_por_lectura_no_lleva_el_boton_pero_con_avisos_del_fichero_si(alberto, lote_de_prueba):
+    d = lote_de_prueba["decisiones"][ESCANEADA]
+    boton = reverse("panel:factura_pdf_marcado", args=["lote1", ESCANEADA])
+    d.outcome = {**d.outcome, "reglas": [{"id": "R0_lectura", "ok": False, "detalle": "ningún lector acepta un escaneado"}]}
+    d.save()
+    assert boton not in cola(alberto)
+    d.alertas = ["ficheros incrustados"]
+    d.save()
+    assert boton in cola(alberto)
+    d.alertas = []
+    d.outcome = {**d.outcome, "reglas": d.outcome["reglas"] + [{"id": "R9_destinatario", "ok": False, "detalle": "Va dirigida a otro cliente"}]}
+    d.save()
+    assert boton in cola(alberto)
 
 
 def test_los_chips_separan_lo_pendiente_de_lo_ya_decidido(alberto, lote_de_prueba):

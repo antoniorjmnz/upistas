@@ -41,6 +41,7 @@ def _grupos(motivos: list[tuple[str, Decision]], revisiones: dict[int, RevisionH
             "revision": revisiones.get(decision.documento_id),
             "proveedor": consultas.nombre_proveedor(campos, por_nif),
             "total": campos.get("total"),
+            "marcable": consultas.hay_algo_que_marcar(decision),  # sin nada que rodear, el botón sobra
         })
     return grupos
 

@@ -186,6 +186,15 @@ NOMBRE_CAMPO = {
 }
 
 
+def hay_algo_que_marcar(decision: Decision) -> bool:
+    """Si el PDF marcado enseñaría algo: alguna comprobación que falla y no es solo que no se pudo leer,
+    o avisos del fichero. Una escaneada que solo falla por lectura abriría un PDF sin ninguna marca."""
+    reglas = (decision.outcome or {}).get("reglas") or []
+    if any(not r.get("ok") and r.get("id") != "R0_lectura" for r in reglas):
+        return True
+    return bool((decision.documento.alertas or []) + (decision.alertas or []))
+
+
 def alarmas_de(decision: Decision, lectura: Lectura | None):
     """Lo que hizo saltar las alarmas en esa decisión, listo para que `marcar_pdf` lo señale en el PDF:
     las comprobaciones que fallan (en palabras de Alberto), los datos leídos con su texto literal, las notas,
