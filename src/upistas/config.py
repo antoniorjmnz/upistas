@@ -79,6 +79,7 @@ class Settings:
     erp_snapshot: Path | None = Path(os.environ["ERP_SNAPSHOT"]) if os.getenv("ERP_SNAPSHOT") else None
     usar_ocr: bool = False
     usar_erp_http: bool = False
+    lectura_timeout_s: float = float(os.getenv("LECTURA_TIMEOUT_S", "300"))
     # Fecha de referencia para "no futura". Fijarla (HOY=2026-09-18) hace los resultados reproducibles.
     hoy: date | None = date.fromisoformat(os.environ["HOY"]) if os.getenv("HOY") else None
 

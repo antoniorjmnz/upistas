@@ -37,7 +37,7 @@ class InspectorPdf:
         if not ruta.is_file():
             return DocumentoInspeccionado(ruta.name, str(ruta), "", 0, "otro", alertas=("el fichero no existe",))
         tamano = ruta.stat().st_size
-        sha = sha256_de(ruta)
+        sha = sha256_de(ruta) if tamano <= MAX_BYTES else ""
 
         def doc(tipo: str, paginas: int = 0, texto: tuple[str, ...] = (), extra: list[str] | None = None) -> DocumentoInspeccionado:
             return DocumentoInspeccionado(ruta.name, str(ruta), sha, tamano, tipo, paginas, texto, tuple(alertas + (extra or [])))

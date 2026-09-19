@@ -62,21 +62,40 @@ class RepositorioDecisionesDjango:
             for d in Decision.objects.filter(ejecucion_id=ejecucion_id).select_related("documento")
         ]
 
-    def pedidos_aprobados(self, excepto_lote: str) -> frozenset[str]:
-        from web.panel.models import Decision, Ejecucion as M, RevisionHumana
+    @staticmethod
+    def _ultimas_aprobadas(excepto_lote):
+        from django.db.models import OuterRef, Subquery
+        from web.panel.models import Decision
 
-        aprobados: set[str] = set()
-        lotes = M.objects.filter(estado="terminada").exclude(lote=excepto_lote).values_list("lote", flat=True).distinct()
-        for lote in lotes:
-            ultima = M.objects.filter(lote=lote, estado="terminada").first()  # la más reciente
-            aprobados.update(
-                Decision.objects.filter(ejecucion=ultima, resultado="PAGAR").exclude(pedido="").values_list("pedido", flat=True)
-            )
+        ultima = Decision.objects.filter(documento_id=OuterRef("documento_id"), ejecucion__estado="terminada")
+        ultima = ultima.order_by("-ejecucion__inicio", "-ejecucion_id", "-id").values("id")[:1]  # la más reciente
+        return Decision.objects.filter(id=Subquery(ultima), resultado="PAGAR").exclude(ejecucion__lote=excepto_lote)
+
+    def pedidos_aprobados(self, excepto_lote: str) -> frozenset[str]:
+        from web.panel.models import RevisionHumana
+
+        aprobados = set(self._ultimas_aprobadas(excepto_lote).exclude(pedido="").values_list("pedido", flat=True))
         aprobados.update(
             p for p in RevisionHumana.objects.filter(resultado="PAGAR", decision__isnull=False)
             .exclude(decision__pedido="").values_list("decision__pedido", flat=True)
         )
         return frozenset(aprobados)
+
+    def hashes_aprobados(self, excepto_lote: str) -> frozenset[str]:
+        from itertools import chain
+        from web.panel.models import RevisionHumana
+
+        automaticas = self._ultimas_aprobadas(excepto_lote).values_list("outcome", "documento__sha256")
+        manuales = RevisionHumana.objects.filter(resultado="PAGAR", decision__isnull=False).values_list(
+            "decision__outcome", "decision__documento__sha256",
+        )
+        hashes = set()
+        for outcome, actual in chain(automaticas, manuales):
+            sha = next((c.get("detalle") for c in outcome.get("reglas", [])
+                        if c.get("id") == "D0_sha256" and c.get("ok") and c.get("detalle")), actual)
+            if sha:
+                hashes.add(sha)
+        return frozenset(hashes)
 
     @staticmethod
     def _ejecucion(m) -> Ejecucion:

@@ -14,6 +14,7 @@ import hashlib
 import os
 import platform
 import time
+import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -21,11 +22,11 @@ from pathlib import Path
 
 from dbos import DBOS, DBOSConfig, SetWorkflowID, WorkflowHandle
 
-from upistas.aplicacion import lote as lote_app, procesar
+from upistas.aplicacion import lote as lote_app
 from upistas.aplicacion.referencias import construir_referencias
 from upistas.aplicacion.sincronizar_erp import sincronizar_erp
 from upistas.config import settings
-from upistas.infra import contenedor, django_setup
+from upistas.infra import contenedor, django_setup, lectura_acotada
 from upistas.puertos import DecisionGuardada, Ejecucion, RegistroLectura, Sincronizacion
 
 COLA = "lecturas"
@@ -33,6 +34,10 @@ VERSION_LECTURA = "1"  # súbelo cuando cambien los lectores y haya que volver a
 
 _config: DBOSConfig = {"name": "upistas", "system_database_url": settings.dbos_url}
 DBOS(config=_config)
+
+_cerrojos = {}
+_guardia_cerrojos = threading.Lock()
+_fallos_lectura = {}
 
 
 # --- Lectura duradera ------------------------------------------------------------------------
@@ -47,21 +52,31 @@ def leer_y_guardar(lote: str, file_id: str, ruta: str) -> dict:
 
 
 def _leer_y_guardar(lote: str, file_id: str, ruta: str) -> dict:
+    doc = lectura_acotada.identificar(Path(ruta))
+    firma = contenedor.huella_lectores()
+    clave = (firma, doc.sha256 or doc.ruta)
+    with _guardia_cerrojos:
+        cerrojo = _cerrojos.setdefault(clave, threading.Lock())
+    with cerrojo:
+        return _leer_identificado(lote, file_id, ruta, doc, firma, clave)
+
+
+def _leer_identificado(lote, file_id, ruta, doc, firma, clave):
     t0 = time.perf_counter()
     repo = contenedor.lecturas()
-    doc = contenedor.inspector().inspeccionar(Path(ruta))
-    firma = contenedor.huella_lectores()
     previa = repo.por_sha(doc.sha256) if doc.sha256 else None
-    if previa is not None and previa.leida and (previa.extraida.lector or "").endswith(f"@{firma}"):  # mismo contenido ya leído: se reutiliza
+    if previa is not None and previa.leida and not previa.extraida.errores and (previa.extraida.lector or "").endswith(f"@{firma}"):  # mismo contenido ya leído: se reutiliza
         registro = RegistroLectura(
-            lote=lote, file_id=file_id, ruta=ruta, sha256=doc.sha256, bytes=doc.bytes, tipo=doc.tipo, paginas=doc.paginas,
-            alertas=doc.alertas, extraida=previa.extraida.model_copy(update={"file_id": file_id}), intentos=previa.intentos,
+            lote=lote, file_id=file_id, ruta=ruta, sha256=doc.sha256, bytes=doc.bytes, tipo=previa.tipo, paginas=previa.paginas,
+            alertas=previa.alertas, extraida=previa.extraida.model_copy(update={"file_id": file_id}), intentos=previa.intentos,
             segundos=previa.segundos, tokens_in=previa.tokens_in, tokens_out=previa.tokens_out, coste_eur=previa.coste_eur, modelo=previa.modelo,
         )
         repo.guardar(registro)
         return {"file_id": file_id, "leida": True, "metodo": registro.metodo, "cache": True, "segundos": round(time.perf_counter() - t0, 3)}
 
-    lectura = procesar.leer_documento(Path(ruta), contenedor.inspector(), contenedor.lectores())
+    lectura = _fallos_lectura.get(clave) or lectura_acotada.leer(Path(ruta), contenedor.settings, doc)
+    if lectura.extraida is None:
+        _fallos_lectura[clave] = lectura
     extraida = lectura.extraida
     if extraida is not None:
         extraida = extraida.model_copy(update={"lector": f"{(extraida.lector or 'lector')[:15]}@{firma}"})
@@ -93,11 +108,8 @@ def encolar_lecturas(lote: str, rutas: Sequence[Path]) -> list[WorkflowHandle]:
     handles = []
     firma = contenedor.huella_lectores()
     for ruta in rutas:
-        try:
-            with ruta.open("rb") as fichero:
-                contenido = hashlib.file_digest(fichero, "sha256").hexdigest()
-        except OSError:
-            contenido = "ausente"
+        identificado = lectura_acotada.identificar(ruta)
+        contenido = identificado.sha256 or f"no_legible:{identificado.bytes}"
         identidad = hashlib.sha256(f"{ruta.resolve()}:{contenido}".encode()).hexdigest()
         with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{firma}:{lote}:{ruta.name}:{identidad}"):
             handles.append(cola.enqueue(leer_documento, lote, ruta.name, str(ruta)))
@@ -159,6 +171,7 @@ def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincroni
     refs = construir_referencias(
         maestro, contenedor.erp(), lecturas, contenedor.settings.hoy or date.today(),
         ultima.version or "", repo_dec.pedidos_aprobados(excepto_lote=lote),
+        repo_dec.hashes_aprobados(excepto_lote=lote),
     )
     decisiones = lote_app.decidir_lote(lecturas, refs, contenedor.norma(version_norma))
     repo_dec.guardar_decisiones(ejecucion.id, decisiones)

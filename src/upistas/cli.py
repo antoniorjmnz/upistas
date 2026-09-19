@@ -10,7 +10,6 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-from upistas.aplicacion.procesar import leer_documento
 from upistas.config import settings
 
 
@@ -72,15 +71,16 @@ def guardar_jsonl(filas: list[dict], nombre: str) -> Path:
 
 
 def cmd_extract(args: argparse.Namespace) -> int:
-    from upistas.infra import contenedor
+    from upistas.infra import contenedor, lectura_acotada
 
-    contenedor.configurar(replace(settings, usar_ocr=args.ocr))
+    contenedor.configurar(replace(settings, usar_ocr=args.ocr,
+                                  lectura_timeout_s=getattr(args, "timeout_lectura", settings.lectura_timeout_s)))
     pdfs = documentos(args)
     if not pdfs:
         return 1
     filas = []
     for ruta in pdfs:
-        lectura = leer_documento(ruta, contenedor.inspector(), contenedor.lectores())
+        lectura = lectura_acotada.leer(ruta, contenedor.settings)
         extraida = lectura.extraida
         filas.append({
             "file_id": ruta.name,
@@ -102,6 +102,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         erp_url=getattr(args, "erp_url", None) or settings.erp_url,
         usar_erp_http=bool(getattr(args, "erp_url", None)),
         usar_ocr=args.ocr,
+        lectura_timeout_s=getattr(args, "timeout_lectura", settings.lectura_timeout_s),
     ))
     rutas = documentos(args)
     if not rutas:
@@ -183,6 +184,7 @@ def main() -> None:
     run.add_argument("--erp-url", default=settings.erp_url, help="URL del bridge HTTP; por defecto ERP_URL o http://127.0.0.1:8009")
     run.add_argument("--ocr", action="store_true", help="Habilita Fal GOT-OCR para escaneos; requiere FAL_KEY y el extra ocr")
     run.add_argument("--norma", default="v3")
+    run.add_argument("--timeout-lectura", type=float, default=settings.lectura_timeout_s, help="Segundos máximos por documento, incluida la llamada OCR")
     run.add_argument("--salida", help="Opcional: guardar además un informe JSONL en outputs")
     run.add_argument("--limit", type=int, default=0, help="Procesar solo los N primeros (pruebas)")
     run.add_argument("--sin-sync", action="store_true", help="No hablar con el ERP: usar la última copia")
@@ -191,6 +193,7 @@ def main() -> None:
     extract.add_argument("--facturas", type=Path, help="Carpeta de PDFs; por defecto CAJA_DIR/facturas")
     extract.add_argument("--ocr", action="store_true", help="Habilita OCR de pago con Fal; requiere FAL_KEY y el extra ocr")
     extract.add_argument("--limit", type=int, default=0)
+    extract.add_argument("--timeout-lectura", type=float, default=settings.lectura_timeout_s)
     extract.add_argument("--salida", default="extraidas.jsonl")
     extract.set_defaults(func=cmd_extract)
     erp = sub.add_parser("erp", help="Conexión con el ERP de Alberto")

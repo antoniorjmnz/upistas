@@ -53,7 +53,8 @@ def procesar(ruta):
 def test_pdf_a_outcome_con_ambos_enfoques(entorno):
     resultado = procesar(documento(entorno / "a.pdf"))
     assert resultado["result"] == "PAGAR"
-    assert len(resultado["reglas"]) == 6
+    assert {r["id"] for r in resultado["reglas"]} == {r.nombre for r in contenedor.norma("v3").reglas}
+    assert all(r["ok"] for r in resultado["reglas"])
     assert list((entorno / "extracciones").glob("*.json"))
 
 

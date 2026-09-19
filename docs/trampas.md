@@ -40,7 +40,7 @@ Pendiente de revisar: los 29 escaneos (hay que leerlos primero) y el lote 2 del 
 - **Ojo al clonar en Windows**: git trata los PDF como texto y con `core.autocrlf=true` convierte los finales de línea al clonar, lo que rompe la estructura interna de 492 de 500 (MuPDF los repara, pero la huella sha256 cambia). En el repositorio están intactos. Clonar La Caja con `git -c core.autocrlf=false clone ...`. Con el clon limpio ningún PDF necesita reparación.
 - Unas 10 plantillas distintas: etiquetas diferentes para lo mismo, importes `2.489,99` y `1498.30`, fechas `15 de enero de 2026`.
 - Todas las facturas con texto usan IVA del 21 %.
-- **Misma factura enviada dos veces**: `factura_41082` (F26-0233, 7 de abril, la original) y `2026-0233-A_catering` (11 de abril). Mismo proveedor, número, pedido PO-0492 e importe.
+- **Mismo pedido e importe, con números distintos**: `factura_41082` lleva `F26-0233` (7 de abril) y `2026-0233-A_catering` lleva `2026/0233-A` (11 de abril). Coinciden proveedor, pedido PO-0492, IBAN e importe, pero no el número literal de factura ni los conceptos. Es un posible reenvío que debe revisarse; no se equiparan automáticamente esos números ni se aprueban ambos documentos.
 - **Pedidos que no existen** en el ERP: `FA-2508_consultoría` (PO-9999), `factura_4485` (PO-0806) y `factura_7265` (PO-0706). Proveedores que no están en el maestro y **los tres comparten IBAN**.
 - **13 facturas con importe distinto** al del pedido.
 - **Importe desorbitado**: `2026-07-01_P009` (Construcciones Benimaclet, PO-0497) por **84.700 €**, siete veces la siguiente más cara. Cuadra en ERP, Excel y factura, y trae "PAGO INMEDIATO REQUERIDO".

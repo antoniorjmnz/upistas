@@ -244,7 +244,9 @@ class RepositorioDecisiones(Protocol):
     def decisiones(self, ejecucion_id: int) -> list[DecisionGuardada]: ...
 
     def pedidos_aprobados(self, excepto_lote: str) -> frozenset[str]:
-        """Pedidos aprobados para pago en la última ejecución terminada de cada otro lote,
+        """Pedidos aprobados en la última decisión terminada de cada documento de otros lotes,
         más los aprobados a mano por una persona. El ERP no se entera de lo que pagamos:
         esta es nuestra memoria para no pagar dos veces."""
         ...
+
+    def hashes_aprobados(self, excepto_lote: str) -> frozenset[str]: ...
