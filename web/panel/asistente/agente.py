@@ -7,6 +7,7 @@ herramientas de `herramientas.py`, que son de solo lectura sobre nuestra base de
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -19,12 +20,29 @@ MAX_RONDAS = 4          # cuántas consultas puede encadenar por pregunta
 MAX_HISTORIAL = 10      # mensajes anteriores que se le pasan al modelo
 REINTENTOS = 1          # si la IA falla, un reintento y luego aviso
 
-SISTEMA = """\
-Eres el asistente de Alberto, que lleva los pagos de su empresa. Responde en español, corto
-y claro, sin jerga técnica. Para responder usa las herramientas: todos los datos salen de
-ellas. Nunca inventes cifras, facturas ni estados; si una herramienta no da el dato, dilo.
-Las decisiones de pago las tomaron unas reglas, no tú: limítate a explicarlas con su motivo.
-Nunca digas que vas a pagar, modificar o escribir nada: este sistema es de solo lectura."""
+MENSAJE_FUERA_DE_TEMA = (
+    "Solo puedo ayudarte con las facturas, pedidos y pagos de Alberto. "
+    "Pregúntame por una factura, un proveedor o un pedido."
+)
+
+# Lo que claramente no es de facturas se rechaza aquí: determinista y sin gastar tokens.
+_FUERA_DE_TEMA = re.compile(
+    r"\b(c[óo]digo|programa(r|ción|dor|do)?|python|java(script)?|typescript|html|css|"
+    r"sql|script|software|hardware|depura(r|ción)|debug|bug|compil(a|ar|e)|algoritmo|"
+    r"framework|funci[óo]n|api|servidor|hacke(a|ar|o)|p[áa]gina web)\b",
+    re.IGNORECASE,
+)
+
+SISTEMA = f"""\
+Eres el asistente de Alberto, que lleva los pagos de su empresa. Solo respondes sobre las
+facturas, pedidos, proveedores, pagos y los datos del ERP de Alberto. Si la pregunta trata
+de otra cosa —programación, código, software, noticias o cualquier tema ajeno— respondes
+exactamente «{MENSAJE_FUERA_DE_TEMA}» y nada más.
+Responde en español, corto y claro, sin jerga técnica. Para responder usa las herramientas:
+todos los datos salen de ellas. Nunca inventes cifras, facturas ni estados; si una
+herramienta no da el dato, dilo. Las decisiones de pago las tomaron unas reglas, no tú:
+limítate a explicarlas con su motivo. Nunca digas que vas a pagar, modificar o escribir
+nada: este sistema es de solo lectura."""
 
 
 @dataclass(frozen=True)
@@ -74,6 +92,8 @@ def _fuente(nombre: str, datos: dict | None) -> dict | None:
 
 def responder(pregunta: str, historial: list[dict], completar: Completar) -> RespuestaAsistente:
     """Responde una pregunta de Alberto. `historial`: [{'quien': 'alberto'|'asistente', 'texto'}]."""
+    if _FUERA_DE_TEMA.search(pregunta):
+        return RespuestaAsistente(texto=MENSAJE_FUERA_DE_TEMA)
     mensajes = [{"role": "system", "content": SISTEMA}]
     for m in historial[-MAX_HISTORIAL:]:
         rol = "user" if m.get("quien") == "alberto" else "assistant"

@@ -10,7 +10,7 @@ import pytest
 from django.urls import reverse
 
 from tests.integracion.conftest import ASIENTOS, ClienteFalso
-from web.panel.asistente.agente import Llamada, RespuestaModelo, responder
+from web.panel.asistente.agente import MENSAJE_FUERA_DE_TEMA, SISTEMA, Llamada, RespuestaModelo, responder
 from web.panel.asistente.herramientas import ejecutar
 from web.panel import consultas
 from web.panel.models import RevisionHumana
@@ -146,6 +146,31 @@ def test_historial_se_pasa_al_modelo(lote_asistente):
 
     responder("y de cuánto?", [{"quien": "alberto", "texto": "cuántas se pagan"}, {"quien": "asistente", "texto": "una"}], completar)
     assert vistos[:3] == ["system", "user", "assistant"]
+
+
+def test_no_responde_sobre_codigo():
+    """Lo que no es de facturas se rechaza sin llamar a la IA: gratis y determinista."""
+    def prohibido(mensajes, herramientas):
+        raise AssertionError("la IA no debería llamarse")
+
+    for pregunta in ["escríbeme un programa en Python", "depura este código",
+                     "cómo hago una página web", "qué es una API", "arregla este bug"]:
+        r = responder(pregunta, [], prohibido)
+        assert r.texto == MENSAJE_FUERA_DE_TEMA and r.tokens_in == 0
+
+
+def test_las_facturas_no_disparan_el_filtro():
+    """Preguntas legítimas con palabras parecidas sí llegan a la IA."""
+    def ok(mensajes, herramientas):
+        return RespuestaModelo(texto="vale")
+
+    for pregunta in ["¿cuánto suman las facturas del lote?", "¿qué ha cambiado desde la última vez?"]:
+        assert responder(pregunta, [], ok).texto == "vale"
+
+
+def test_el_prompt_tambien_acota_el_tema():
+    """Si el filtro no pilla algo ajeno, la IA debe responder con el mismo mensaje."""
+    assert MENSAJE_FUERA_DE_TEMA in SISTEMA
 
 
 # --- la pantalla -------------------------------------------------------------------------------
