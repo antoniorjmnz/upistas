@@ -1,0 +1,6 @@
+/* Las pantallas de quien lleva el sistema. Lo único que no cabía en panel.css:
+   los chips de estado son botones de radio de verdad (se pueden usar con el teclado y sin JavaScript),
+   con la etiqueta pintada como chip. */
+.chips input[type="radio"] { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+.chips input[type="radio"]:checked + .chip { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+.chips input[type="radio"]:focus-visible + .chip { outline: 3px solid #7FB8B5; outline-offset: 3px; }

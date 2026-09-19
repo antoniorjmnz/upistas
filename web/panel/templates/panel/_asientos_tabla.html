@@ -1,7 +1,19 @@
+{# La tabla de asientos de una copia del ERP. Se pinta sola (htmx) al buscar, filtrar o pasar de página. #}
+{% load panel_extras %}
 {% if not version %}
-  <p class="suave">Todavía no hay ninguna copia del ERP. Vaya a <a href="{% url 'panel:conexion' %}">Conexión con el ERP</a> y pulse «Sincronizar ahora».</p>
+  <div class="vacio">
+    <div class="icono">{% icono "reloj" 28 %}</div>
+    <p class="grande">Todavía no hay ninguna copia del ERP</p>
+    <p class="suave">Vaya a <a href="{% url 'panel:conexion' %}">Conexión con el ERP</a> y pulse «Sincronizar ahora».</p>
+  </div>
+{% elif not pagina %}
+  <div class="vacio">
+    <div class="icono">{% icono "buscar" 28 %}</div>
+    <p class="grande">Ningún asiento coincide con la búsqueda</p>
+    <p class="suave">Esta copia tiene {{ total_version }} asientos. Pruebe con otro pedido, otro proveedor o quite el filtro.</p>
+  </div>
 {% else %}
-  <p class="suave" style="margin-top: 0;">
+  <p class="suave" style="margin: 0 0 14px;">
     {% if q or estado %}{{ encontrados }} de {{ total_version }} asientos{% else %}{{ total_version }} asientos{% endif %}
   </p>
   <div class="tabla-caja">
@@ -17,20 +29,18 @@
           <td>{{ a.proveedor_id }}</td>
           <td class="mono">{% if a.nif %}{{ a.nif }}{% else %}<span class="pildora ojo">sin NIF</span>{% endif %}</td>
           <td>{{ a.fecha|date:"d/m/Y" }}</td>
-          <td class="num">{{ a.importe|floatformat:"2g" }} €</td>
+          <td class="num">{{ a.importe|euros }}</td>
           <td>{% if a.estado == "PAGADA" %}<span class="pildora mal">Ya pagado</span>{% else %}<span class="pildora bien">Pendiente</span>{% endif %}</td>
         </tr>
-      {% empty %}
-        <tr><td colspan="7" class="suave">Ningún asiento coincide con la búsqueda.</td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
   {% if pagina.paginator.num_pages > 1 %}
   <nav class="paginas" aria-label="Páginas">
-    {% if pagina.has_previous %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.previous_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.previous_page_number }}" hx-target="#tabla" hx-push-url="true">← Anterior</a>{% endif %}
+    {% if pagina.has_previous %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.previous_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.previous_page_number }}" hx-target="#tabla" hx-push-url="true">Anterior</a>{% endif %}
     <span class="suave">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
-    {% if pagina.has_next %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.next_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.next_page_number }}" hx-target="#tabla" hx-push-url="true">Siguiente →</a>{% endif %}
+    {% if pagina.has_next %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.next_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;version={{ version }}&amp;pagina={{ pagina.next_page_number }}" hx-target="#tabla" hx-push-url="true">Siguiente{% icono "flecha" 16 %}</a>{% endif %}
   </nav>
   {% endif %}
 {% endif %}

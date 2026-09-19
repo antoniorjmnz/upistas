@@ -1,13 +1,19 @@
 {% extends "panel/base.html" %}
+{% load panel_extras %}
 {% block titulo %}Qué cambió en el ERP · Pagos de Alberto{% endblock %}
 {% block contenido %}
-<div>
-  <p><a href="{% url 'panel:conexion' %}">← Conexión con el ERP</a></p>
+
+<section class="hero">
+  <a class="volver" href="{% url 'panel:conexion' %}">Volver a la conexión con el ERP</a>
   <h1>Qué cambió en el ERP</h1>
-  <p class="intro">Entre la copia del {{ antes.creada|date:"d/m H:i" }} (<span class="mono">{{ antes.version }}</span>)
-    y la del {{ despues.creada|date:"d/m H:i" }} (<span class="mono">{{ despues.version }}</span>).
+  <p class="lead">Entre la copia del {{ antes.creada|date:"j \d\e F" }} a las {{ antes.creada|date:"H:i" }}
+    y la del {{ despues.creada|date:"j \d\e F" }} a las {{ despues.creada|date:"H:i" }}.
     Las facturas de estos pedidos se vuelven a decidir; el resto no cambia.</p>
-</div>
+</section>
+
+{% if d.vacias %}
+<div class="aviso bien">{% icono "check" 20 %}<div>Las dos copias son iguales: no cambió nada.</div></div>
+{% endif %}
 
 <div class="cifras">
   <div class="cifra"><b>{{ d.nuevos|length }}</b><span>asientos nuevos</span></div>
@@ -19,33 +25,52 @@
 {% if d.modificados %}
 <section class="tarjeta">
   <h2>Datos modificados</h2>
-  <div class="tabla-caja"><table>
-    <thead><tr><th>Asiento</th><th>Dato</th><th>Antes</th><th>Ahora</th></tr></thead>
-    <tbody>{% for c in d.modificados %}
-      <tr><td class="mono">{{ c.asiento }}</td><td>{{ c.campo }}</td><td class="mono">{{ c.antes }}</td><td class="mono"><b>{{ c.despues }}</b></td></tr>
-    {% endfor %}</tbody>
-  </table></div>
+  <div class="tabla-caja">
+    <table>
+      <thead><tr><th>Asiento</th><th>Dato</th><th>Antes</th><th>Ahora</th></tr></thead>
+      <tbody>
+      {% for c in d.modificados %}
+        <tr><td class="mono">{{ c.asiento }}</td><td>{{ c.campo }}</td><td class="mono suave">{{ c.antes }}</td><td class="mono"><b>{{ c.despues }}</b></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 {% endif %}
 
 {% if nuevos %}
 <section class="tarjeta">
   <h2>Asientos nuevos</h2>
-  <div class="tabla-caja"><table>
-    <thead><tr><th>Asiento</th><th>Pedido</th><th>Proveedor</th><th class="num">Importe</th><th>Estado</th></tr></thead>
-    <tbody>{% for a in nuevos %}
-      <tr><td class="mono">{{ a.asiento_id }}</td><td class="mono">{{ a.pedido }}</td><td>{{ a.proveedor_id }}</td><td class="num">{{ a.importe|floatformat:"2g" }} €</td><td>{{ a.estado }}</td></tr>
-    {% endfor %}</tbody>
-  </table></div>
+  <div class="tabla-caja">
+    <table>
+      <thead><tr><th>Asiento</th><th>Pedido</th><th>Proveedor</th><th class="num">Importe</th><th>Estado</th></tr></thead>
+      <tbody>
+      {% for a in nuevos %}
+        <tr>
+          <td class="mono">{{ a.asiento_id }}</td><td class="mono">{{ a.pedido }}</td><td>{{ a.proveedor_id }}</td>
+          <td class="num">{{ a.importe|euros }}</td>
+          <td>{% if a.estado == "PAGADA" %}<span class="pildora mal">Ya pagado</span>{% else %}<span class="pildora bien">Pendiente</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 {% endif %}
 
 {% if eliminados %}
 <section class="tarjeta">
   <h2>Asientos que ya no están</h2>
-  <ul>{% for a in eliminados %}<li class="mono">{{ a.asiento_id }} · {{ a.pedido }}</li>{% endfor %}</ul>
+  <ul class="lista">
+    {% for a in eliminados %}
+    <li class="fila-factura">
+      <span class="pildora neutra">Ya no está</span>
+      <span class="quien mono">{{ a.asiento_id }}</span>
+      <span class="importe">{{ a.importe|euros }}</span>
+      <span class="porque">Pedido {{ a.pedido }} · proveedor {{ a.proveedor_id }}</span>
+    </li>
+    {% endfor %}
+  </ul>
 </section>
 {% endif %}
-
-{% if d.vacias %}<div class="aviso bien">Las dos copias son iguales.</div>{% endif %}
 {% endblock %}
