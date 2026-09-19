@@ -1,0 +1,55 @@
+{% extends "panel/base.html" %}
+{% load static humanize %}
+{% block titulo %}Ejecuciones · Pagos de Alberto{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'panel/resumen.css' %}">{% endblock %}
+{% block contenido %}
+<div>
+  <h1>Repasos hechos</h1>
+  <p class="intro">Cada vez que el sistema repasa un lote de facturas queda apuntado aquí: cuándo fue, con qué
+    norma y con qué copia de sus datos decidió, cuánto tardó y qué salió. Así puede volver a cualquier día
+    y ver exactamente lo que se hizo.</p>
+</div>
+
+<section class="tarjeta">
+  <div class="tabla-caja">
+    <table>
+      <thead>
+        <tr>
+          <th>Lote</th><th>Cuándo</th><th>Norma</th><th class="num">Duración</th>
+          <th class="num">Facturas</th><th class="num">Pagar</th><th class="num">No pagar</th><th class="num">Revisar</th>
+          <th class="num" title="Facturas de las que se pudo sacar el contenido">Leídas</th>
+          <th class="num">Por segundo</th><th class="num">Coste</th>
+          <th title="Qué copia del ERP y del Excel se usó">Copia de los datos</th>
+          <th>Estado</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for f in filas %}
+        <tr>
+          <td>{{ f.lote }}</td>
+          <td>{{ f.e.inicio|date:"d/m/Y H:i" }}<br><span class="suave">{{ f.e.inicio|naturaltime }}</span></td>
+          <td>{{ f.e.norma }}</td>
+          <td class="num">{% if f.c.segundos %}{{ f.c.segundos|floatformat:1 }} s{% else %}<span class="suave">—</span>{% endif %}</td>
+          <td class="num">{{ f.c.documentos }}</td>
+          <td class="num">{{ f.c.PAGAR }}</td>
+          <td class="num">{{ f.c.NO_PAGAR }}</td>
+          <td class="num">{{ f.c.ESCALAR }}</td>
+          <td class="num">{{ f.c.leidos }}</td>
+          <td class="num">{% if f.c.por_segundo %}{{ f.c.por_segundo|floatformat:1 }}{% else %}<span class="suave">—</span>{% endif %}</td>
+          <td class="num">{{ f.c.coste_eur|floatformat:2 }} €</td>
+          <td class="mono suave">{{ f.e.version_datos }}</td>
+          <td>
+            {% if f.e.estado == "terminada" %}<span class="pildora bien">Terminado</span>
+            {% elif f.e.estado == "en_curso" %}<span class="pildora neutra">En marcha</span>
+            {% else %}<span class="pildora mal">Se interrumpió</span>{% endif %}
+          </td>
+          <td><a href="{% url 'panel:ejecucion' f.e.id %}">Ver</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="14" class="suave">Todavía no se ha repasado ningún lote de facturas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
