@@ -31,13 +31,21 @@ def pedido_importe(factura, refs, params):
     return Comprobacion("R2_pedido_importe", True)
 
 
+@regla("R3_datos_fiscales")
+def datos_fiscales(factura, refs, params):
+    valores = (factura.base, factura.iva_pct, factura.iva, factura.total)
+    if any(v is None for v in valores):
+        return Comprobacion("R3_datos_fiscales", False, "Faltan datos legibles para verificar el cálculo del IVA")
+    if any(v < 0 for v in valores):
+        return Comprobacion("R3_datos_fiscales", False, "Importes negativos: requieren revisión antes de aplicar la regla de IVA")
+    return Comprobacion("R3_datos_fiscales", True)
+
+
 @regla("R3_iva_total")
 def iva_total(factura, refs, params):
     base, iva, total = factura.base, factura.iva, factura.total
-    if None in (base, iva, total):
-        return Comprobacion("R3_iva_total", False, "Base, IVA o total ilegibles")
-    if min(base, iva, total) < 0:
-        return Comprobacion("R3_iva_total", False, "Importe negativo: requiere revisión")
+    if None in (base, iva, total) or min(base, iva, total) < 0:
+        return Comprobacion("R3_iva_total", True)
     tipos = [factura.iva_pct] if factura.iva_pct is not None else params.get("tipos_iva", [21, 10, 4])
     esperados = [(base * Decimal(str(tipo)) / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for tipo in tipos]
     if not any(abs(iva - esperado) <= tolerancia(params) for esperado in esperados):

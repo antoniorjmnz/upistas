@@ -41,8 +41,14 @@ def inspector() -> Inspector:
 @cache
 def lectores() -> tuple[LectorPdfUnificado, ...]:
     # Del más barato al más caro: texto determinista → LLM texto → LLM visión.
+    from upistas.adaptadores.lectores.vision_helmcode import VisionHelmcode
+
+    vision = VisionHelmcode(
+        settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_vision,
+    ) if settings.usar_ocr and settings.helmcode_api_key else None
     return (LectorPdfUnificado(
         ocr=FalOCR() if settings.usar_ocr else None,
+        vision=vision,
         cache_dir=settings.outputs_dir / "extracciones",
     ),)
 
@@ -126,7 +132,8 @@ def evaluador_notas() -> EvaluadorNotas:
     from upistas.adaptadores.notas_helmcode import EvaluadorNotasHelmcode
 
     return EvaluadorNotasHelmcode(settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_notas,
-                                 timeout=settings.notas_timeout_s, cache_dir=settings.outputs_dir / "notas")
+                                 timeout=settings.notas_timeout_s, cache_dir=settings.outputs_dir / "notas",
+                                 max_tokens=settings.notas_max_tokens)
 
 
 @cache

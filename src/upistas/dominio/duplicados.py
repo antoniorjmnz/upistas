@@ -17,12 +17,17 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
 
     def bloquear(file_id, regla, detalle, resultado):
         actual = salida[file_id]
+        iva_probado = any(not c.ok and c.regla == "R3_iva_total" for c in actual.comprobaciones)
         if resultado == Resultado.ESCALAR and actual.resultado == Resultado.NO_PAGAR:
             if not actual.comprobaciones or any(not c.ok and c.regla in (
-                "R5_no_pagada", "R5_hash_previo", "R5_copia_hash", "R5_reenvio",
+                "R5_no_pagada", "R5_hash_previo", "R5_copia_hash", "R5_reenvio", "R3_iva_total",
             ) for c in actual.comprobaciones):
                 resultado = Resultado.NO_PAGAR
-        if any(not c.ok and c.regla in ("R0_lectura", "R6_notas", "R6_contenido_oculto") for c in actual.comprobaciones):
+        if any(not c.ok and c.regla in ("R0_lectura", "R3_datos_fiscales", "R6_evaluacion_disponible") for c in actual.comprobaciones):
+            resultado = Resultado.ESCALAR
+        elif not iva_probado and any(not c.ok and c.regla == "R6_contenido_oculto" for c in actual.comprobaciones):
+            resultado = Resultado.ESCALAR
+        elif not iva_probado and actual.resultado == Resultado.ESCALAR and any(not c.ok and c.regla == "R6_notas" for c in actual.comprobaciones):
             resultado = Resultado.ESCALAR
         motivo = detalle if actual.resultado == Resultado.PAGAR else f"{actual.motivo}; {detalle}"
         salida[file_id] = replace(actual, resultado=resultado, motivo=motivo,

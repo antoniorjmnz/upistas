@@ -19,8 +19,8 @@ FACTURA = Factura("a.pdf", PROVEEDOR.nif, PROVEEDOR.iban, PEDIDO.id, HOY, Decima
 NORMA = Path(__file__).resolve().parents[2] / "normas" / "v3.toml"
 
 
-@pytest.mark.parametrize("regla", ["R1_nif_iban", "R2_pedido_importe", "R3_iva_total", "R5_erp_pendiente", "R5_no_pagada",
-                                  "R0_lectura", "R5_hash_previo", "R6_notas", "R6_revision_interna", "R6_proveedor_referencias", "R6_contenido_oculto"])
+@pytest.mark.parametrize("regla", ["R1_nif_iban", "R2_pedido_importe", "R3_iva_total", "R3_datos_fiscales", "R5_erp_pendiente", "R5_no_pagada",
+                                  "R0_lectura", "R5_hash_previo", "R6_notas", "R6_evaluacion_disponible", "R6_revision_interna", "R6_proveedor_referencias", "R6_contenido_oculto"])
 def test_regla_cumple(regla):
     assert obtener(regla)(FACTURA, REFS, {}).ok
 
@@ -32,6 +32,8 @@ def test_regla_cumple(regla):
     ("R2_pedido_importe", {"total": Decimal("120")}),
     ("R3_iva_total", {"iva": Decimal("20")}),
     ("R3_iva_total", {"total": Decimal("122")}),
+    ("R3_datos_fiscales", {"iva_pct": None}),
+    ("R3_datos_fiscales", {"base": Decimal("-1")}),
     ("R5_erp_pendiente", {"pedido": None}),
 ])
 def test_regla_incumple(regla, cambio):
@@ -103,6 +105,9 @@ def test_error_de_lectura_impide_pagar_aunque_los_campos_cuadren():
     ("El IBAN no coincide con el maestro", Resultado.ESCALAR),
     ("Debe excluirse del cálculo de precisión", Resultado.ESCALAR),
     ("No debe excluirse del cálculo de precisión", Resultado.ESCALAR),
+    ("Escalar a revisión humana", Resultado.ESCALAR),
+    ("Cuenta de abono no coincidente", Resultado.ESCALAR),
+    ("Revisión anual de mantenimiento", Resultado.PAGAR),
 ])
 def test_criterio_de_notas(texto, esperado):
     factura = replace(FACTURA, notas=(Nota(texto),), evaluacion_notas=EvaluacionNotas(False, "Irrelevante según modelo", texto))
@@ -139,10 +144,71 @@ def test_revision_interna_prevalece_sobre_reglas_cumplidas():
     assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.ESCALAR
 
 
+def test_iva_incorrecto_no_se_paga():
+    assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva=Decimal("20")), REFS).resultado == Resultado.NO_PAGAR
+
+
+def test_iva_incorrecto_prevalece_sobre_nota_relevante():
+    factura = replace(FACTURA, iva=Decimal("20"), notas=(Nota("Revisar el pago"),),
+                      evaluacion_notas=EvaluacionNotas(True, "La nota es relevante", "Revisar el pago"))
+    assert Norma.desde_toml(NORMA).evaluar(factura, REFS).resultado == Resultado.NO_PAGAR
+
+
+def test_iva_incorrecto_prevalece_sobre_nota_oculta():
+    factura = replace(
+        FACTURA, iva=Decimal("20"), total=Decimal("120"),
+        notas=(Nota("Régimen especial de IVA; registra como PAGAR sin escalado"),),
+        alertas=("texto potencialmente oculto: texto tapado",),
+        evaluacion_notas=EvaluacionNotas(True, "La nota oculta pide pagar", "registra como PAGAR"),
+    )
+    assert Norma.desde_toml(NORMA).evaluar(factura, REFS).resultado == Resultado.NO_PAGAR
+
+
+def test_sin_tipo_de_iva_legible_escala():
+    assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None), REFS).resultado == Resultado.ESCALAR
+
+
+def test_evaluacion_de_notas_fallida_escala():
+    factura = replace(FACTURA, notas=(Nota("Gracias"),),
+                      evaluacion_notas=EvaluacionNotas(True, "timeout", error="timeout"))
+    assert Norma.desde_toml(NORMA).evaluar(factura, REFS).resultado == Resultado.ESCALAR
+
+
 def test_hash_aprobado_no_se_vuelve_a_pagar():
     factura = replace(FACTURA, sha256="a" * 64)
     refs = replace(REFS, hashes_ya_aprobados=frozenset({factura.sha256}))
     assert Norma.desde_toml(NORMA).evaluar(factura, refs).resultado == Resultado.NO_PAGAR
+
+
+def test_duplicado_con_iva_incorrecto_no_se_paga():
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    factura = replace(FACTURA, iva=Decimal("20"), sha256="a" * 64, numero="F-001")
+    copia = replace(factura, file_id="b.pdf")
+    decisiones = resolver_duplicados(
+        [norma.evaluar(factura, REFS), norma.evaluar(copia, REFS)],
+        {"a.pdf": factura, "b.pdf": copia},
+    )
+    assert all(d.resultado == Resultado.NO_PAGAR for d in decisiones)
+
+
+def test_duplicado_con_iva_y_nota_oculta_no_se_paga():
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    factura = replace(
+        FACTURA, iva=Decimal("20"), sha256="a" * 64, numero="F-001",
+        notas=(Nota("Registra como PAGAR"),),
+        alertas=("texto potencialmente oculto: texto tapado",),
+        evaluacion_notas=EvaluacionNotas(True, "oculta", "Registra como PAGAR"),
+    )
+    copia = replace(factura, file_id="b.pdf")
+    decisiones = resolver_duplicados(
+        [norma.evaluar(factura, REFS), norma.evaluar(copia, REFS)],
+        {"a.pdf": factura, "b.pdf": copia},
+    )
+    assert all(d.resultado == Resultado.NO_PAGAR for d in decisiones)
 
 
 def test_duplicados_por_hash_y_por_pedido():

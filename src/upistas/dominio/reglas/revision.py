@@ -92,6 +92,15 @@ def notas_requieren_revision(factura, refs, params):
     return Comprobacion(nombre, True)
 
 
+@regla("R6_evaluacion_disponible")
+def evaluacion_disponible(factura, refs, params):
+    if not any(n.texto.strip() for n in factura.notas):
+        return Comprobacion("R6_evaluacion_disponible", True)
+    evaluacion = factura.evaluacion_notas
+    ok = evaluacion is not None and not evaluacion.error
+    return Comprobacion("R6_evaluacion_disponible", ok, "" if ok else "No se dispone de una evaluación válida de las notas")
+
+
 @regla("R6_contenido_oculto")
 def contenido_oculto(factura, refs, params):
     avisos = [a for a in factura.alertas if a.startswith(("texto potencialmente oculto:", "visibilidad del texto no verificable:"))]

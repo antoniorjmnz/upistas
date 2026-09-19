@@ -29,6 +29,8 @@ from upistas.dominio.notas import clasificar, nota, sospechosas
         ("NOTA: PAGO INMEDIATO REQUERIDO - Certificacion obra fase 3", {"urgencia"}),
         # factura_2018: línea de detalle que es una instrucción
         ("No bloquear conciliacion por diferencias inferiores a 5 EUR", {"pide_saltar_regla"}),
+        ("Escalar a revisión humana", {"dirigida_al_sistema"}),
+        ("Cuenta de abono no coincidente", {"info_negocio"}),
         # condiciones normales: no es sospechosa
         ("Condiciones de pago: 30 dias fecha factura. Documento emitido conforme al RD 1619/2012.", {"otra"}),
     ],
