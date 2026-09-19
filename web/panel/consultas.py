@@ -76,7 +76,7 @@ def cambios_respecto_a_la_anterior(ejecucion: Ejecucion) -> tuple[Ejecucion | No
 # Cómo se le explica cada regla a Alberto (los ids vienen de dominio/reglas y de normas/v3.toml).
 NOMBRE_REGLA = {
     "R1_nif_iban": "Proveedor conocido y su cuenta bancaria",
-    "R2_pedido_importe": "El pedido existe, es suyo y el importe coincide",
+    "R2_pedido_importe": "El pedido existe y el importe coincide",
     "R3_iva_total": "IVA bien calculado y total correcto",
     "R4_fecha": "Fecha válida y no futura",
     "R5_erp_pendiente": "Pendiente de pago en el ERP y no pagado antes",

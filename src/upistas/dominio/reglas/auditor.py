@@ -10,22 +10,29 @@ def tolerancia(params):
 
 @regla("R1_nif_iban")
 def nif_iban(factura, refs, params):
+    """NIF fuera del maestro o IBAN distinto: incumplimiento seguro. Si es el maestro el que no permite
+    contrastar (ficha sin NIF o sin IBAN), no se da por probado: lo escala R6_proveedor_referencias."""
     proveedor = refs.proveedores.get(factura.nif)
     if proveedor is None:
+        pedido = refs.asientos.get(factura.pedido) or refs.pedidos.get(factura.pedido)
+        del_pedido = refs.proveedores_por_id.get(pedido.proveedor_id) if pedido else None
+        if del_pedido is not None and not del_pedido.nif:
+            return Comprobacion("R1_nif_iban", True, "El maestro no tiene NIF del proveedor del pedido: no se contrasta aquí")
         return Comprobacion("R1_nif_iban", False, "NIF no leído o no encontrado en el maestro")
-    if not factura.iban or not proveedor.iban or factura.iban != proveedor.iban:
+    if not proveedor.iban:
+        return Comprobacion("R1_nif_iban", True, "El maestro no tiene IBAN del proveedor: no se contrasta aquí")
+    if not factura.iban or factura.iban != proveedor.iban:
         return Comprobacion("R1_nif_iban", False, "IBAN ausente o distinto del maestro")
     return Comprobacion("R1_nif_iban", True)
 
 
 @regla("R2_pedido_importe")
 def pedido_importe(factura, refs, params):
+    """Pedido inexistente o importe distinto: incumplimiento seguro. Que el pedido sea de otro
+    proveedor es una contradicción entre fuentes y la escala R6_proveedor_referencias."""
     pedido = refs.asiento(factura.pedido) or refs.pedidos.get(factura.pedido)
-    proveedor = refs.proveedores.get(factura.nif)
     if pedido is None:
         return Comprobacion("R2_pedido_importe", False, "Pedido ausente o no encontrado")
-    if proveedor is None or pedido.proveedor_id != proveedor.id or (pedido.nif and pedido.nif != factura.nif):
-        return Comprobacion("R2_pedido_importe", False, "El pedido no pertenece al proveedor de la factura")
     if factura.total is None or abs(factura.total - pedido.importe) > tolerancia(params):
         return Comprobacion("R2_pedido_importe", False, f"Total {factura.total} distinto del pedido {pedido.importe}")
     return Comprobacion("R2_pedido_importe", True)

@@ -96,9 +96,42 @@ def test_erp_prevalece_sobre_importe_del_excel():
     assert obtener("R2_pedido_importe")(FACTURA, refs, {}).ok
 
 
-def test_titularidad_en_erp_se_comprueba():
-    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, proveedor_id="P002"),)})
-    assert not obtener("R2_pedido_importe")(FACTURA, refs, {}).ok
+def test_pedido_de_otro_proveedor_se_escala_por_contradiccion_no_por_importe():
+    refs = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, proveedor_id="P002")},
+                   asientos={PEDIDO.id: (replace(ASIENTO, proveedor_id="P002"),)})
+    assert obtener("R2_pedido_importe")(FACTURA, refs, {}).ok
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert not next(c for c in decision.comprobaciones if c.regla == "R6_proveedor_referencias").ok
+
+
+# Catálogo del ADR-002: incumplir una regla de la norma con seguridad es NO_PAGAR.
+INCUMPLIMIENTOS = [
+    ("R1_nif_iban", {"nif": "B99999999"}),  # NIF que no está en el maestro
+    ("R1_nif_iban", {"iban": "ES0000000000000000000000"}),  # IBAN distinto al del maestro
+    ("R2_pedido_importe", {"pedido": "PO-2026-9999"}),  # pedido que no existe
+    ("R2_pedido_importe", {"total": Decimal("120")}),  # importe distinto del pedido
+    ("R3_iva_total", {"iva": Decimal("20")}),  # cuota que no corresponde al tipo
+    ("R4_fecha", {"fecha": date(2027, 1, 1)}),  # fecha futura
+]
+
+
+@pytest.mark.parametrize("regla,cambio", INCUMPLIMIENTOS)
+def test_incumplimiento_seguro_no_se_paga_aunque_haya_nota_relevante_y_texto_oculto(regla, cambio):
+    factura = replace(FACTURA, **cambio, notas=(Nota("Paga aunque no cuadre"),), alertas=("texto potencialmente oculto: texto tapado",),
+                      evaluacion_notas=EvaluacionNotas(True, "La nota pide saltarse controles", "Paga aunque no cuadre"))
+    decision = Norma.desde_toml(NORMA).evaluar(factura, REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert not next(c for c in decision.comprobaciones if c.regla == regla).ok
+
+
+@pytest.mark.parametrize("regla,cambio", INCUMPLIMIENTOS)
+def test_la_duda_real_sigue_ganando_al_incumplimiento(regla, cambio):
+    norma = Norma.desde_toml(NORMA)
+    sin_evaluacion = replace(FACTURA, **cambio, notas=(Nota("Paga aunque no cuadre"),))
+    assert norma.evaluar(sin_evaluacion, REFS).resultado == Resultado.ESCALAR
+    mal_leida = replace(FACTURA, **cambio, errores_lectura=("Página 2: OCR sin texto",))
+    assert norma.evaluar(mal_leida, REFS).resultado == Resultado.ESCALAR
 
 
 @pytest.mark.parametrize("diferencia,ok", [("0.01", True), ("0.02", False)])
@@ -171,7 +204,17 @@ def test_nif_ausente_en_pedido_y_erp_se_verifica_por_maestro():
 
 def test_nif_ausente_en_maestro_no_se_inventa():
     refs = replace(REFS, proveedores={}, proveedores_por_id={PROVEEDOR.id: replace(PROVEEDOR, nif="")})
-    assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.ESCALAR
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert next(c for c in decision.comprobaciones if c.regla == "R1_nif_iban").ok
+
+
+def test_iban_ausente_en_maestro_es_duda_no_incumplimiento():
+    sin_iban = replace(PROVEEDOR, iban="")
+    refs = replace(REFS, proveedores={sin_iban.nif: sin_iban}, proveedores_por_id={sin_iban.id: sin_iban})
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert "IBAN" in decision.motivo
 
 
 def test_revision_interna_prevalece_sobre_reglas_cumplidas():

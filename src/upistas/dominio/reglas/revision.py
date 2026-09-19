@@ -33,6 +33,8 @@ def proveedor_coherente(factura, refs, params):
     proveedor = proveedores.get(_id(asiento.proveedor_id))
     if proveedor is None or not proveedor.nif:
         return Comprobacion(nombre, False, f"El maestro no permite verificar el NIF del proveedor {asiento.proveedor_id}")
+    if not proveedor.iban:
+        return Comprobacion(nombre, False, f"El maestro no permite verificar el IBAN del proveedor {asiento.proveedor_id}")
     if factura.nif and _id(factura.nif) != _id(proveedor.nif):
         return Comprobacion(nombre, False, "El NIF de la factura no corresponde al proveedor del ERP")
     for origen, registro in (("Excel", pedido), ("ERP", asiento)):
