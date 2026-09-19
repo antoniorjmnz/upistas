@@ -1,34 +1,44 @@
-{# Las facturas escaladas de la página, agrupadas por el motivo por el que están aquí. #}
+{# Las facturas de la página, agrupadas por el motivo por el que Alberto tiene que mirarlas. #}
 {% load panel_extras %}
 {% if not grupos %}
-  <p class="tarjeta suave">{{ vacio }}</p>
+  <section class="tarjeta">
+    <div class="vacio">
+      <div class="icono">{% icono "check" 28 %}</div>
+      <p class="grande">{{ vacio.titulo }}</p>
+      <p class="suave">{{ vacio.detalle }}</p>
+    </div>
+  </section>
 {% else %}
   {% for g in grupos %}
   <section class="tarjeta">
     <h2>{{ g.titulo }}</h2>
-    <p class="suave">{{ g.filas|length }} factura{{ g.filas|length|pluralize }} con este mismo motivo.</p>
-    {% for f in g.filas %}
+    <p class="suave cuantas">{{ g.filas|length }} factura{{ g.filas|length|pluralize }}</p>
+    <ul class="lista">
+      {% for f in g.filas %}
       {% with doc=f.decision.documento %}
-      <article class="factura">
-        <p class="titulo">
-          <a href="{% url 'panel:factura' doc.lote doc.file_id %}">{{ doc.file_id }}</a>
-          {% if f.proveedor %}<span>{{ f.proveedor }}</span>{% endif %}
-          {% if f.total %}<span class="importe">{{ f.total|euros }}</span>{% endif %}
-          {% if f.decision.pedido %}<span class="mono suave">{{ f.decision.pedido }}</span>{% endif %}
-          <a class="ver-pdf" href="{% url 'panel:factura_pdf' doc.lote doc.file_id %}">Ver el PDF</a>
-        </p>
-        <p class="porque">{{ f.decision.motivo }}</p>
+      <li>
+        <div class="fila-factura">
+          <span class="quien"><a href="{% url 'panel:factura' doc.lote doc.file_id %}">{{ f.proveedor|default:doc.file_id }}</a></span>
+          <span class="suave fichero">{% if f.proveedor %}· {{ doc.file_id }}{% endif %}</span>
+          <span class="importe">{{ f.total|euros }}</span>
+        </div>
         {% include "panel/_revisar_form.html" with decision=f.decision revision=f.revision %}
-      </article>
+        <p class="enlaces">
+          <a href="{% url 'panel:factura' doc.lote doc.file_id %}">Ver la factura</a>
+          <a href="{% url 'panel:factura_pdf' doc.lote doc.file_id %}" target="_blank" rel="noopener">{% icono "doc" 15 %}Ver el PDF</a>
+        </p>
+      </li>
       {% endwith %}
-    {% endfor %}
+      {% endfor %}
+    </ul>
   </section>
   {% endfor %}
 {% endif %}
 {% if pagina.paginator.num_pages > 1 %}
 <nav class="paginas" aria-label="Páginas">
-  {% if pagina.has_previous %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.previous_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.previous_page_number }}" hx-target="#lista" hx-push-url="true">← Anterior</a>{% endif %}
+  {% if pagina.has_previous %}<a href="?estado={{ estado }}&amp;{{ consulta }}&amp;pagina={{ pagina.previous_page_number }}" hx-get="?estado={{ estado }}&amp;{{ consulta }}&amp;pagina={{ pagina.previous_page_number }}" hx-target="#lista" hx-push-url="true">Anterior</a>{% endif %}
   <span class="suave">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
-  {% if pagina.has_next %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.next_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.next_page_number }}" hx-target="#lista" hx-push-url="true">Siguiente →</a>{% endif %}
+  {% if pagina.has_next %}<a href="?estado={{ estado }}&amp;{{ consulta }}&amp;pagina={{ pagina.next_page_number }}" hx-get="?estado={{ estado }}&amp;{{ consulta }}&amp;pagina={{ pagina.next_page_number }}" hx-target="#lista" hx-push-url="true">Siguiente{% icono "flecha" 16 %}</a>{% endif %}
 </nav>
 {% endif %}
+{% if oob %}{% include "panel/_revisar_chips.html" %}{% endif %}

@@ -1,11 +1,20 @@
-/* La cola de revisión: cada factura con su motivo y, debajo, lo que Alberto decide. */
-.cola { display: flex; flex-direction: column; gap: 16px; }
-.nota-pago { margin: 0; max-width: 75ch; }
+/* Lo poco que «Para revisar» y «Preguntar» necesitan y no está en panel.css. */
 
-.factura { padding: 14px 0; border-bottom: 1px solid var(--linea-2); }
-.factura:last-child { padding-bottom: 0; border-bottom: 0; }
-.factura .titulo { display: flex; gap: 6px 16px; flex-wrap: wrap; align-items: baseline; margin: 0; }
-.factura .titulo > a:first-child { font-weight: 600; overflow-wrap: anywhere; }
-.factura .importe { font-variant-numeric: tabular-nums; }
-.factura .ver-pdf { margin-left: auto; white-space: nowrap; }
-.factura .porque { margin: 4px 0 10px; max-width: 90ch; }
+/* La cola: un montón de facturas por motivo, y debajo de cada una lo que Alberto decide. */
+.cola { display: flex; flex-direction: column; gap: 18px; }
+.cola h2 { margin-bottom: 4px; }
+.cola .cuantas { margin: 0 0 18px; font-size: 15px; }
+.avance { display: flex; flex-direction: column; gap: 6px; max-width: 420px; margin-top: 8px; }
+.avance p { margin: 0; font-size: 15px; }
+.elegir-lote { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+
+.cola .lista > li { padding: 18px 0; }
+.cola .decidir { margin-top: 12px; }
+.cola .enlaces { display: flex; gap: 20px; flex-wrap: wrap; margin: 12px 0 0; font-size: 15px; }
+.cola .enlaces a { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Preguntar: el asistente todavía no está, pero la pantalla ya se entiende. */
+.buscador.grande input { min-height: 64px; font-size: 19px; }
+.buscador input[disabled] { background: var(--linea-2); color: var(--suave); cursor: not-allowed; }
+.chips.ejemplos .chip { cursor: default; }
+.chips.ejemplos .chip:hover { background: #fff; color: var(--tinta-2); }
