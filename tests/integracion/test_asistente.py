@@ -234,8 +234,8 @@ def test_no_responde_sobre_codigo():
     def prohibido(mensajes, herramientas):
         raise AssertionError("la IA no debería llamarse")
 
-    for pregunta in ["escríbeme un programa en Python", "depura este código",
-                     "cómo hago una página web", "qué es una API", "arregla este bug"]:
+    for pregunta in ["escríbeme un programa en Python", "depura este script",
+                     "cómo hago una página web", "qué framework uso", "compila este algoritmo"]:
         r = responder(pregunta, [], prohibido)
         assert r.texto == MENSAJE_FUERA_DE_TEMA and r.tokens_in == 0
 
@@ -247,6 +247,19 @@ def test_las_facturas_no_disparan_el_filtro():
 
     for pregunta in ["¿cuánto suman las facturas del lote?", "¿qué ha cambiado desde la última vez?"]:
         assert responder(pregunta, [], ok).texto == "vale"
+
+
+def test_las_palabras_de_alberto_no_disparan_el_filtro():
+    """«código», «función», «servidor» o «bug» se dicen hablando de proveedores y pantallas, no de programar."""
+    def ok(mensajes, herramientas):
+        return RespuestaModelo(texto="vale")
+
+    for pregunta in ["¿qué facturas tiene el proveedor con código P001?",
+                     "¿qué función tiene la pantalla Para revisar?",
+                     "¿está conectado el servidor del ERP?",
+                     "¿hay algún bug en la factura FA-1016?",
+                     "¿el pago está programado?"]:
+        assert responder(pregunta, [], ok).texto == "vale", pregunta
 
 
 def test_el_prompt_tambien_acota_el_tema():

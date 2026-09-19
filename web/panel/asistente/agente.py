@@ -27,10 +27,12 @@ MENSAJE_FUERA_DE_TEMA = (
 )
 
 # Lo que claramente no es de facturas se rechaza aquí: determinista y sin gastar tokens.
+# Solo palabras inequívocas: «código», «función», «servidor» o «bug» también salen hablando de
+# un proveedor (código P001), de una pantalla o de un fallo en una factura.
 _FUERA_DE_TEMA = re.compile(
-    r"\b(c[óo]digo|programa(r|ción|dor|do)?|python|java(script)?|typescript|html|css|"
-    r"sql|script|software|hardware|depura(r|ción)|debug|bug|compil(a|ar|e)|algoritmo|"
-    r"framework|funci[óo]n|api|servidor|hacke(a|ar|o)|p[áa]gina web)\b",
+    r"\b(programa(ci[óo]n|dor)|python|java(script)?|typescript|html|css|sql|script|"
+    r"software|hardware|depura(r|ci[óo]n)|debug|compil(a|ar|e)|algoritmo|framework|"
+    r"hacke(a|ar|o)|p[áa]gina web)\b",
     re.IGNORECASE,
 )
 
