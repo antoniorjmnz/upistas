@@ -1,0 +1,36 @@
+{# La lista de conversaciones del asistente, plegada tras «Conversaciones». Espera `conversaciones`, `conversacion_actual` y `lista_abierta`. #}
+{% load panel_extras %}
+<details class="conversaciones" id="conversaciones"{% if lista_abierta %} open{% endif %}>
+  <summary>{% icono "chevron" 14 %}Conversaciones{% if conversaciones %} <span class="suave">({{ conversaciones|length }})</span>{% endif %}</summary>
+  <div class="conversaciones-acciones">
+    <form method="post" action="{% url 'panel:asistente_nueva' %}">
+      {% csrf_token %}
+      <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+      <button type="submit" class="boton pequeno suave"{% if not conversacion_actual %} disabled title="Ya está en una conversación nueva"{% endif %}>{% icono "mas" 14 %}Nueva</button>
+    </form>
+    {% if conversaciones|length > 1 %}
+    <form method="post" action="{% url 'panel:asistente_borrar_todas' %}" data-confirmar="¿Borrar todas las conversaciones? Las preguntas se pierden; lo que se hizo desde ellas se queda.">
+      {% csrf_token %}
+      <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+      <button type="submit" class="enlace-suave">Borrar todas</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if conversaciones %}
+  <ul class="lista-conversaciones">
+    {% for c in conversaciones %}
+    <li{% if c == conversacion_actual %} class="actual"{% endif %}>
+      <a href="{% url 'panel:asistente_abrir' c.id %}?siguiente={{ request.get_full_path|urlencode }}" title="{{ c.titulo }}">{{ c.titulo|default:"Sin título" }}</a>
+      <time datetime="{{ c.actualizada|date:'c' }}">{{ c.actualizada|cuando_corto }}</time>
+      <form method="post" action="{% url 'panel:asistente_borrar' c.id %}" data-confirmar="¿Borrar esta conversación? Las preguntas se pierden; lo que se hizo desde ella se queda.">
+        {% csrf_token %}
+        <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+        <button type="submit" class="papelera" aria-label="Borrar la conversación «{{ c.titulo }}»">{% icono "papelera" 14 %}</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="suave"><small>Todavía no hay ninguna: la primera pregunta la empieza.</small></p>
+  {% endif %}
+</details>

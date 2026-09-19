@@ -21,6 +21,12 @@
         <a href="{% url 'panel:proveedores' %}" class="{% if pagina_actual|slice:':9' == 'proveedor' or pagina_actual|slice:':6' == 'pedido' %}activa{% endif %}">{% icono "proveedores" 20 %}<span>Proveedores</span></a>
         <a href="{% url 'panel:cola' %}" class="{% if pagina_actual == 'cola' %}activa{% endif %}">{% icono "ojo" 20 %}<span>Para revisar</span>{% if pendientes_revision %}<span class="insignia" title="Pendientes de revisar">{{ pendientes_revision }}</span>{% endif %}</a>
         <a href="{% url 'panel:preguntar' %}" class="{% if pagina_actual == 'preguntar' %}activa{% endif %}" data-abrir-asistente aria-controls="asistente" aria-expanded="false">{% icono "chat" 20 %}<span>Preguntar</span></a>
+        {% if conversaciones_recientes %}
+        <div class="recientes" aria-label="Últimas conversaciones">
+          {% for c in conversaciones_recientes %}<a class="reciente{% if c == conversacion_actual %} actual{% endif %}" href="{% url 'panel:asistente_abrir' c.id %}?siguiente={{ request.get_full_path|urlencode }}" title="{{ c.titulo }}">{{ c.titulo|default:"Sin título"|truncatechars:34 }}</a>{% endfor %}
+          {% if hay_mas_conversaciones %}<a class="reciente ver-todas" href="{% url 'panel:preguntar' %}?lista=1#conversaciones">Ver todas</a>{% endif %}
+        </div>
+        {% endif %}
       </nav>
       <div class="abajo">
         <nav aria-label="Para quien lleva el sistema">

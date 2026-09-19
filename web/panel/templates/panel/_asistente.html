@@ -1,4 +1,4 @@
-{# El panel «Preguntar» que hay en todas las pantallas. Espera `chat` (la conversación de la sesión, del context processor). #}
+{# El panel «Preguntar» que hay en todas las pantallas. Espera `chat` (la conversación abierta) y la lista de conversaciones, del context processor. #}
 {% load panel_extras %}
 <dialog id="asistente" class="asistente" aria-label="Preguntar al asistente">
   <div class="asistente-cab">
@@ -6,9 +6,11 @@
     <div><b>Preguntar</b><small>Le contesto con los datos guardados; no invento nada y nunca toco el ERP.</small><a class="asistente-completa" href="{% url 'panel:preguntar' %}">Abrir en pantalla completa</a></div>
     <button type="button" class="boton pequeno suave" data-cerrar-asistente aria-label="Cerrar el panel">{% icono "x" 14 %}Cerrar</button>
   </div>
-  <div id="asistente-conversacion" class="chat asistente-chat">
+  {% include "panel/_conversaciones.html" %}
+  <div id="asistente-conversacion" class="chat asistente-chat" aria-live="polite">
     {% include "panel/_mensajes.html" with mensajes=chat %}
   </div>
+  <div id="asistente-cargando" class="mensaje asistente pensando htmx-indicator" aria-hidden="true"><span class="puntos"><i></i><i></i><i></i></span>Pensando…</div>
   <form method="post" action="{% url 'panel:preguntar' %}" class="formpregunta asistente-form"
         hx-post="{% url 'panel:preguntar' %}" hx-target="#asistente-conversacion" hx-swap="beforeend"
         hx-indicator="#asistente-cargando" hx-disabled-elt="find input, find button"
@@ -22,7 +24,6 @@
     </div>
     <button type="submit" class="boton" aria-label="Enviar la pregunta">{% icono "flecha" 18 %}</button>
   </form>
-  <p id="asistente-cargando" class="htmx-indicator suave"><span class="girando"></span>&nbsp;Pensando…</p>
   <div class="asistente-ejemplos">
     <button type="button" class="ejemplo" data-ejemplo>¿Qué queda por revisar?</button>
     <button type="button" class="ejemplo" data-ejemplo>¿Qué ha cambiado desde la última vez?</button>

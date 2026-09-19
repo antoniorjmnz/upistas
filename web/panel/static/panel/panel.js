@@ -87,16 +87,23 @@
     var vacio = destino.querySelector(".vacio-chat");
     if (vacio) { vacio.remove(); }
     var div = document.createElement("div");
-    div.className = "mensaje alberto";
+    div.className = "mensaje alberto htmx-added"; // entra con el mismo fundido que las respuestas
     var p = document.createElement("p");
     p.textContent = input.value;
     div.appendChild(p);
     destino.appendChild(div);
     destino.scrollTop = destino.scrollHeight;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { div.classList.remove("htmx-added"); }); });
   });
   document.addEventListener("htmx:afterSwap", function (e) {
     var chat = e.target.closest ? e.target.closest(".chat") : null;
     if (chat) { chat.scrollTop = chat.scrollHeight; }
+  });
+
+  // Borrar una conversación (o todas) pide confirmación antes de enviar el formulario.
+  document.addEventListener("submit", function (e) {
+    var form = e.target.closest ? e.target.closest("form[data-confirmar]") : null;
+    if (form && !window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
   });
 
   // Las preguntas de ejemplo rellenan el cuadro que tienen al lado.

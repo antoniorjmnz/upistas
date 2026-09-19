@@ -21,7 +21,7 @@ from django.core import signing
 from django.urls import reverse
 
 from web.panel import consultas
-from web.panel.models import AccionAsistente, Decision, Pedido
+from web.panel.models import AccionAsistente, Conversacion, Decision, Pedido
 
 CADUCIDAD_S = 10 * 60
 MAX_TEXTO = 500
@@ -134,11 +134,11 @@ def proponer(tipo: str, datos: dict | None) -> dict:
     }
 
 
-def ejecutar(tipo: str, datos: dict, nonce: str = "") -> AccionAsistente:
+def ejecutar(tipo: str, datos: dict, nonce: str = "", conversacion: Conversacion | None = None) -> AccionAsistente:
     """La acción confirmada por Alberto. Solo desde la vista de confirmación, con el token ya comprobado.
 
     Siempre deja fila: si algo falla, con ok=False y un resultado llano. El nonce va en los datos para que
-    la misma propuesta no se pueda hacer dos veces.
+    la misma propuesta no se pueda hacer dos veces. `conversacion` es en cuál se confirmó (para enseñarla ahí).
     """
     if tipo not in TIPOS:
         raise AccionInvalida(f"la acción «{tipo}» no está en la lista")
@@ -153,7 +153,7 @@ def ejecutar(tipo: str, datos: dict, nonce: str = "") -> AccionAsistente:
         limpios, resultado, ok = dict(datos), "No se pudo: ha fallado algo al hacerlo. Pruebe otra vez o hágalo desde la pantalla.", False
     if nonce:
         limpios = {**limpios, "nonce": nonce}
-    return AccionAsistente.objects.create(tipo=tipo, datos=limpios, resultado=resultado, ok=ok)
+    return AccionAsistente.objects.create(tipo=tipo, datos=limpios, resultado=resultado, ok=ok, conversacion=conversacion)
 
 
 def _hacer(tipo: str, datos: dict) -> str:

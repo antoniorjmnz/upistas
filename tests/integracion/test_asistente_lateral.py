@@ -8,11 +8,11 @@ from django.core import signing
 from django.urls import reverse
 
 from web.panel.asistente import acciones
-from web.panel.asistente.agente import SISTEMA, Llamada, RespuestaModelo, frase_de_contexto, responder
+from web.panel.asistente.agente import MAX_HISTORIAL, SISTEMA, Llamada, RespuestaModelo, frase_de_contexto, responder
 from web.panel.asistente.herramientas import HERRAMIENTAS, ejecutar
 from web.panel.asistente.navegacion import ir_a
-from web.panel.models import AccionAsistente, Pedido, Proveedor, RevisionHumana
-from web.panel.views.chat import MAX_MENSAJES, contexto_de
+from web.panel.models import AccionAsistente, Conversacion, Pedido, Pregunta, Proveedor, RevisionHumana
+from web.panel.views.chat import contexto_de
 
 pytestmark = pytest.mark.django_db
 
@@ -27,13 +27,19 @@ def _pide(nombre, argumentos, despues="Listo"):
 
 
 def _propuesta(cliente, tipo, datos):
-    """Una propuesta como la deja la vista Preguntar: con su tarjeta en la conversación y su nonce pendiente en la sesión."""
+    """Una propuesta como la deja la vista Preguntar: con su tarjeta en la conversación abierta y su nonce pendiente en la sesión."""
     p = acciones.proponer(tipo, datos)["propuesta"]
     sesion = cliente.session
-    sesion["chat"] = sesion.get("chat", []) + [{"quien": "asistente", "texto": "Se lo propongo", "propuestas": [p]}]
+    conversacion = Conversacion.objects.filter(pk=sesion.get("conversacion")).first() or Conversacion.objects.create(titulo="marca el pedido")
+    Pregunta.objects.create(conversacion=conversacion, texto="marca el pedido", respuesta="Se lo propongo", detalles={"propuestas": [p]})
+    sesion["conversacion"] = conversacion.pk
     sesion["propuestas_pendientes"] = sesion.get("propuestas_pendientes", []) + [p["nonce"]]
     sesion.save()
     return p["token"]
+
+
+def _propuestas_guardadas():
+    return [x for p in Pregunta.objects.all() for x in (p.detalles or {}).get("propuestas") or []]
 
 
 @pytest.fixture
@@ -202,7 +208,7 @@ def test_la_propuesta_sale_como_tarjeta_y_no_se_ejecuta(alberto, maestro, monkey
     assert 'name="token"' in html and ">Confirmar</button>" in html and 'name="rechazar" value="1" class="boton pequeno suave">No</button>' in html
     assert f'hx-post="{reverse("panel:asistente_accion")}"' in html
     assert not Pedido.objects.get(numero="PO-2026-0001").revisar and AccionAsistente.objects.count() == 0
-    assert alberto.session["propuestas_pendientes"] == [alberto.session["chat"][-1]["propuestas"][0]["nonce"]]
+    assert alberto.session["propuestas_pendientes"] == [Pregunta.objects.get().detalles["propuestas"][0]["nonce"]]
 
 
 def test_confirmar_ejecuta_y_registra(alberto, maestro):
@@ -250,11 +256,11 @@ def test_no_descarta_la_propuesta_de_la_sesion(alberto, maestro):
     token = _propuesta(alberto, "marcar_pedido_para_revisar", {"pedido": "PO-2026-0001"})
     html = alberto.post(reverse("panel:asistente_accion"), {"token": token, "rechazar": "1"}, HTTP_HX_REQUEST="true").content.decode()
     assert "Vale, no se hace nada." in html and "Hecho:" not in html
-    assert alberto.session["propuestas_pendientes"] == [] and not any(m.get("propuestas") for m in alberto.session["chat"])
+    assert alberto.session["propuestas_pendientes"] == [] and _propuestas_guardadas() == []
     assert not Pedido.objects.get(numero="PO-2026-0001").revisar and AccionAsistente.objects.count() == 0
-    # al recargar, la tarjeta ya no está; y confirmar después ya no vale
+    # al recargar, la tarjeta ya no está (el aviso solo se enseña, no se guarda); y confirmar después ya no vale
     pagina = alberto.get(reverse("panel:preguntar")).content.decode()
-    assert "El asistente propone" not in pagina and "Vale, no se hace nada." in pagina
+    assert "El asistente propone" not in pagina and "Se lo propongo" in pagina
     html = alberto.post(reverse("panel:asistente_accion"), {"token": token}, HTTP_HX_REQUEST="true").content.decode()
     assert "ya se hizo o se descartó" in html and not Pedido.objects.get(numero="PO-2026-0001").revisar
 
@@ -359,12 +365,22 @@ def test_la_conversacion_sigue_al_cambiar_de_pantalla(alberto, lote_de_prueba, m
         assert "¿cuántas se pagan?" in panel and "Se paga una" in panel, url
 
 
-def test_la_conversacion_tiene_tope(alberto, lote_de_prueba, monkeypatch):
-    monkeypatch.setattr("web.panel.asistente.helmcode.completar", _texto("vale"))
-    for i in range(MAX_MENSAJES):
+def test_lo_que_se_le_pasa_al_modelo_tiene_tope(alberto, lote_de_prueba, monkeypatch):
+    """La conversación entera se guarda y se enseña; al modelo solo le llegan los últimos mensajes."""
+    vistos = []
+
+    def completar(mensajes, herramientas):
+        vistos.append([m["content"] for m in mensajes if m["role"] in ("user", "assistant")])
+        return RespuestaModelo(texto="vale")
+
+    monkeypatch.setattr("web.panel.asistente.helmcode.completar", completar)
+    for i in range(MAX_HISTORIAL):
         alberto.post(reverse("panel:preguntar"), {"pregunta": f"pregunta {i}"}, HTTP_HX_REQUEST="true")
-    assert len(alberto.session["chat"]) == MAX_MENSAJES == 20
-    assert alberto.session["chat"][0]["texto"] == f"pregunta {MAX_MENSAJES // 2}"
+    # la décima pregunta: 18 mensajes guardados, al modelo le llegan los 10 últimos (desde la quinta pregunta) y la nueva
+    assert len(vistos[-1]) == MAX_HISTORIAL + 1 == 11 and vistos[-1][0] == "pregunta 4" and vistos[-1][-1] == "pregunta 9"
+    assert Pregunta.objects.count() == MAX_HISTORIAL
+    pagina = alberto.get(reverse("panel:preguntar")).content.decode()
+    assert "pregunta 0" in pagina and f"pregunta {MAX_HISTORIAL - 1}" in pagina
 
 
 def test_el_panel_tiene_transicion_corta_y_respeta_reduced_motion():

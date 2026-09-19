@@ -164,3 +164,23 @@ def fecha_corta(texto: str | None) -> str:
     except (ValueError, AttributeError):
         return str(texto or "")
     return f"{d.day}/{d.month}/{d.year}"
+
+
+@register.filter
+def cuando_corto(momento) -> str:
+    """Un instante en dos palabras: «hoy 10:32», «ayer», «8/1» o «8/1/2025» si es de otro año."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    if not momento:
+        return ""
+    local = timezone.localtime(momento) if timezone.is_aware(momento) else momento
+    hoy = timezone.localdate()
+    if local.date() == hoy:
+        return f"hoy {local:%H:%M}"
+    if local.date() == hoy - timedelta(days=1):
+        return "ayer"
+    if local.year == hoy.year:
+        return f"{local.day}/{local.month}"
+    return f"{local.day}/{local.month}/{local.year}"

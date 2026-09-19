@@ -10,9 +10,11 @@
 </section>
 
 <section class="tarjeta preguntar">
-  <div id="conversacion" class="chat">
+  {% include "panel/_conversaciones.html" %}
+  <div id="conversacion" class="chat" aria-live="polite">
     {% include "panel/_mensajes.html" with mensajes=historial %}
   </div>
+  <div id="cargando" class="mensaje asistente pensando htmx-indicator" aria-hidden="true"><span class="puntos"><i></i><i></i><i></i></span>Pensando…</div>
   <form method="post" action="{% url 'panel:preguntar' %}" id="formpregunta"
         hx-post="{% url 'panel:preguntar' %}" hx-target="#conversacion" hx-swap="beforeend"
         hx-indicator="#cargando" hx-disabled-elt="find input, find button"
@@ -25,7 +27,6 @@
              placeholder="P. ej.: ¿por qué no se paga la factura FA-1016?" aria-label="Preguntar">
     </div>
     <button type="submit" class="boton">Preguntar</button>
-    <span id="cargando" class="htmx-indicator suave"><span class="girando"></span>&nbsp;Pensando…</span>
   </form>
   <p class="suave"><small>Las preguntas pueden tardar medio minuto: consulto los datos antes de responder.</small></p>
   <h2>Puede preguntarme, por ejemplo</h2>
