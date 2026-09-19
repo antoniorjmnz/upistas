@@ -133,6 +133,13 @@ La norma v3:
   se ESCALA. Nunca se resuelve por parecido del nombre ni se copia el NIF de la factura al maestro.
 - Los NIF presentes se contrastan; una discrepancia no se trata como un campo vacío.
 
+### Varios apuntes del ERP para un mismo pedido
+- El lote 2 trae dos asientos de PO-2026-0071 (AS-00071 pendiente y AS-90001 pagado). Eso no para
+  el lote: se decide con el apunte que manda. Si alguno está PAGADA manda el pagado más reciente
+  (nunca se paga dos veces). Si todos cuadran entre sí (mismo proveedor, NIF e importe), manda el
+  más reciente. Si no cuadran, el ERP se contradice: ESCALAR con el motivo «El ERP tiene dos
+  apuntes que no cuadran para este pedido». Vive en `dominio/modelos.py` (`asiento_que_manda`).
+
 ### Recuperación de lecturas insuficientes
 - Si Fal devuelve texto pero faltan campos o hay errores de extracción, se permite una segunda
   lectura visual de la página original con Helmcode. No se envían el maestro ni el ERP a ese lector.
@@ -201,6 +208,7 @@ La norma v3:
 | Escaneo ilegible, PDF en blanco o roto | 6 | ESCALAR | escaneos por revisar |
 | Campo leído con poca confianza | 6 | ESCALAR | |
 | Excel y ERP se contradicen sobre el pedido | 3 (nuestro) | ESCALAR | bloque PO-0538 a PO-0557 |
+| El ERP tiene dos apuntes del mismo pedido que no cuadran | 3 (nuestro) | ESCALAR | ninguna: en `PO-2026-0071` (lote 2) cuadran y manda el pagado |
 | Factura válida con nota que contradice los datos | 3 (nuestro) | ESCALAR | `F26-3355`, `F26-7728`, `F26-2201`, `2026-07-09_P010`, `2026-23904_construcciones`, `FA-3388` |
 | Nota que pide saltarse comprobaciones o cuestiona un pago previo | revisión | ESCALAR, también si el ERP dice PAGADA | `2026-06-04_P006`, `factura_5911` pasan a revisión por la nota de migración |
 | Factura que no es para Banco Miralmar | 6 | ESCALAR | ninguna en la Caja |

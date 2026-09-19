@@ -167,3 +167,16 @@ def test_repetir_el_lote_no_relee_y_compara_con_la_pasada_anterior(dbos_lanzado,
     tercera = pipeline.procesar_lote("test", rutas, "v3")
     assert tercera.ejecucion.version_erp != segunda.ejecucion.version_erp
     assert tercera.sincronizacion.modificados == 1
+
+
+def test_el_lote_termina_aunque_el_erp_traiga_dos_asientos_del_mismo_pedido(dbos_lanzado, carpeta, monkeypatch):
+    """Lote 2 de verdad: AS-00071 (PENDIENTE) y AS-90001 (PAGADA) para PO-2026-0071 abortaban la pasada entera."""
+    from upistas.infra import contenedor
+
+    pendiente = Asiento("AS-00071", "PO-2026-0071", "P010", "B98455101", Decimal("951.89"), date(2026, 5, 24), "PENDIENTE")
+    pagado = replace(pendiente, id="AS-90001", fecha=date(2026, 9, 1), estado="PAGADA")
+    monkeypatch.setattr(contenedor, "cliente_erp", lambda: ClienteFalso((pendiente, pagado)))
+    rutas = sorted(p for p in carpeta.iterdir())
+    inf = pipeline.procesar_lote("dos-asientos", rutas, "v3")
+    assert inf.ejecucion.estado == "terminada" and inf.ejecucion.resumen["documentos"] == 3
+    assert {d.file_id for d in inf.decisiones} == {r.name for r in rutas}

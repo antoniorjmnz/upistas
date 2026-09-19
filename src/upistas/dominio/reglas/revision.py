@@ -21,7 +21,7 @@ def lectura_suficiente(factura, refs, params):
 @regla("R6_proveedor_referencias")
 def proveedor_coherente(factura, refs, params):
     nombre = "R6_proveedor_referencias"
-    asiento = refs.asientos.get(factura.pedido)
+    asiento = refs.asiento(factura.pedido)
     pedido = refs.pedidos.get(factura.pedido)
     if asiento is None:
         return Comprobacion(nombre, True)
@@ -61,7 +61,7 @@ def notas_requieren_revision(factura, refs, params):
         if evaluacion.evidencia:
             detalle += f" | Evidencia: {evaluacion.evidencia}"
         return Comprobacion(nombre, False, detalle)
-    asiento = refs.asientos.get(factura.pedido)
+    asiento = refs.asiento(factura.pedido)
     proveedor = refs.proveedores.get(factura.nif)
     for nota in notas:
         if len(nota.texto) > 16384:

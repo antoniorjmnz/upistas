@@ -20,7 +20,7 @@ def nif_iban(factura, refs, params):
 
 @regla("R2_pedido_importe")
 def pedido_importe(factura, refs, params):
-    pedido = refs.asientos.get(factura.pedido) or refs.pedidos.get(factura.pedido)
+    pedido = refs.asiento(factura.pedido) or refs.pedidos.get(factura.pedido)
     proveedor = refs.proveedores.get(factura.nif)
     if pedido is None:
         return Comprobacion("R2_pedido_importe", False, "Pedido ausente o no encontrado")
@@ -57,7 +57,10 @@ def iva_total(factura, refs, params):
 
 @regla("R5_erp_pendiente")
 def erp_pendiente(factura, refs, params):
-    asiento = refs.asientos.get(factura.pedido)
+    if refs.erp_contradictorio(factura.pedido):
+        cuantos = "dos" if len(refs.asientos[factura.pedido]) == 2 else "varios"
+        return Comprobacion("R5_erp_pendiente", False, f"El ERP tiene {cuantos} apuntes que no cuadran para este pedido")
+    asiento = refs.asiento(factura.pedido)
     if asiento is None:
         return Comprobacion("R5_erp_pendiente", False, "No hay asiento del ERP para comprobar el estado del pedido")
     if factura.pedido in refs.pedidos_ya_decididos:
@@ -69,7 +72,7 @@ def erp_pendiente(factura, refs, params):
 
 @regla("R5_no_pagada")
 def no_pagada(factura, refs, params):
-    asiento = refs.asientos.get(factura.pedido)
+    asiento = refs.asiento(factura.pedido)
     if asiento is not None and asiento.estado == "PAGADA":
         return Comprobacion("R5_no_pagada", False, "Pedido ya pagado en el ERP")
     if factura.pedido and factura.pedido in refs.pedidos_ya_decididos:

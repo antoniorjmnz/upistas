@@ -46,6 +46,11 @@ copia del ERP y cada fichero Excel tienen una versión (huella del contenido); c
 con qué versión decidió; al volver a pasar un lote se listan las facturas que cambian de resultado.
 La norma es un fichero: la v4 es otro fichero, no código nuevo.
 
+**El ERP puede traer dos asientos del mismo pedido** (el lote 2 lo hace con PO-2026-0071). Eso no
+para el lote: las referencias guardan todos los apuntes de cada pedido y las reglas miran el que
+manda. Si alguno está pagado, manda ese; si todos cuadran, el más reciente; si no cuadran, la
+factura se escala diciendo que el ERP tiene dos apuntes que no cuadran (ver [ADR-002](adr/002-criterio.md)).
+
 **Nunca pagar dos veces.** El ERP no se entera de lo que decidimos. Llevamos nuestra propia
 memoria: los pedidos aprobados en la última pasada de cada otro lote y los aprobados a mano por una
 persona cuentan como pagados para el lote siguiente. Dentro del mismo lote, las reglas ven todas

@@ -26,7 +26,7 @@ from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.adaptadores.persistencia.django_lecturas import RepositorioLecturasDjango
 from upistas.adaptadores.persistencia.django_maestro import MaestroDjango
 from upistas.config import ROOT, Settings, settings
-from upistas.dominio.modelos import Referencias
+from upistas.dominio.modelos import Referencias, asientos_por_pedido
 from upistas.dominio.norma import Norma
 from upistas.dominio.versiones import version_asientos
 from upistas.infra import django_setup
@@ -145,13 +145,11 @@ def norma(version: str) -> Norma:
 def referencias() -> Referencias:
     fuente = maestro()
     asientos = erp().asientos()
-    if len({a.pedido for a in asientos}) != len(asientos):
-        raise ValueError("ERP: hay varios asientos para un mismo pedido; requiere revisión")
     return Referencias(
         proveedores={p.nif: p for p in fuente.proveedores() if p.nif},
         proveedores_por_id={p.id: p for p in fuente.proveedores()},
         pedidos={p.id: p for p in fuente.pedidos()},
-        asientos={a.pedido: a for a in asientos},
+        asientos=asientos_por_pedido(asientos),
         hoy=settings.hoy or date.today(),
         marcados_por_alberto=fuente.marcados_para_revisar(),
         version_datos=f"{getattr(fuente, 'version', '')}:{version_asientos(asientos)}",

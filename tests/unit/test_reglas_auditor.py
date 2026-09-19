@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from upistas.aplicacion.procesar import decidir
-from upistas.dominio.modelos import Asiento, EvaluacionNotas, Factura, Nota, Pedido, Proveedor, Referencias, Resultado
+from upistas.dominio.modelos import Asiento, EvaluacionNotas, Factura, Nota, Pedido, Proveedor, Referencias, Resultado, asiento_que_manda
 from upistas.dominio.norma import Norma
 from upistas.dominio.reglas import obtener
 
@@ -14,7 +14,7 @@ HOY = date(2026, 9, 19)
 PROVEEDOR = Proveedor("P001", "Demo", "B12345678", "ES1212341234123412341234")
 PEDIDO = Pedido("PO-2026-0001", "P001", "B12345678", Decimal("121"))
 ASIENTO = Asiento("AS-001", PEDIDO.id, "P001", "B12345678", Decimal("121"), HOY, "PENDIENTE")
-REFS = Referencias({PROVEEDOR.nif: PROVEEDOR}, {PEDIDO.id: PEDIDO}, {PEDIDO.id: ASIENTO}, HOY)
+REFS = Referencias({PROVEEDOR.nif: PROVEEDOR}, {PEDIDO.id: PEDIDO}, {PEDIDO.id: (ASIENTO,)}, HOY)
 FACTURA = Factura("a.pdf", PROVEEDOR.nif, PROVEEDOR.iban, PEDIDO.id, HOY, Decimal("100"), Decimal("21"), Decimal("21"), Decimal("121"))
 NORMA = Path(__file__).resolve().parents[2] / "normas" / "v3.toml"
 
@@ -41,9 +41,44 @@ def test_regla_incumple(regla, cambio):
 
 
 def test_pagada_en_erp_no_se_paga_aunque_excel_coincida():
-    refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, estado="PAGADA")})
+    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, estado="PAGADA"),)})
     assert not obtener("R5_no_pagada")(FACTURA, refs, {}).ok
     assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.NO_PAGAR
+
+
+def test_un_solo_asiento_manda_como_siempre():
+    assert asiento_que_manda(()) is None
+    assert REFS.asiento(PEDIDO.id) is ASIENTO and not REFS.erp_contradictorio(PEDIDO.id)
+    assert REFS.asiento(None) is None and REFS.asiento("PO-2026-9999") is None
+
+
+def test_dos_asientos_del_mismo_pedido_manda_el_pagado_aunque_sea_mas_antiguo():
+    pagado = replace(ASIENTO, id="AS-90001", fecha=date(2026, 5, 24), estado="PAGADA")
+    pendiente = replace(ASIENTO, id="AS-00071", fecha=date(2026, 9, 1))
+    refs = replace(REFS, asientos={PEDIDO.id: (pendiente, pagado)})
+    assert refs.asiento(PEDIDO.id) is pagado and not refs.erp_contradictorio(PEDIDO.id)
+    assert not obtener("R5_no_pagada")(FACTURA, refs, {}).ok
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.NO_PAGAR and "ya pagado" in decision.motivo
+
+
+def test_dos_asientos_que_cuadran_manda_el_mas_reciente_y_se_paga():
+    antiguo = replace(ASIENTO, id="AS-00071", fecha=date(2026, 5, 24))
+    reciente = replace(ASIENTO, id="AS-90001", fecha=date(2026, 9, 1))
+    refs = replace(REFS, asientos={PEDIDO.id: (reciente, antiguo)})
+    assert refs.asiento(PEDIDO.id) is reciente
+    assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.PAGAR
+
+
+@pytest.mark.parametrize("cambio", [{"importe": Decimal("999")}, {"proveedor_id": "P002"}, {"nif": "B00000000"}])
+def test_dos_asientos_que_no_cuadran_escalan_con_motivo_llano(cambio):
+    otro = replace(ASIENTO, id="AS-90001", fecha=date(2026, 9, 1), **cambio)
+    refs = replace(REFS, asientos={PEDIDO.id: (ASIENTO, otro)})
+    assert refs.asiento(PEDIDO.id) is None and refs.erp_contradictorio(PEDIDO.id)
+    comprobacion = obtener("R5_erp_pendiente")(FACTURA, refs, {})
+    assert not comprobacion.ok and comprobacion.detalle == "El ERP tiene dos apuntes que no cuadran para este pedido"
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.ESCALAR and "no cuadran" in decision.motivo
 
 
 def test_sin_erp_escala_no_usa_abierto_del_excel():
@@ -62,7 +97,7 @@ def test_erp_prevalece_sobre_importe_del_excel():
 
 
 def test_titularidad_en_erp_se_comprueba():
-    refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, proveedor_id="P002")})
+    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, proveedor_id="P002"),)})
     assert not obtener("R2_pedido_importe")(FACTURA, refs, {}).ok
 
 
@@ -118,7 +153,7 @@ def test_criterio_de_notas(texto, esperado):
 
 def test_nota_sin_evaluar_escala_aunque_figure_pagada():
     factura = replace(FACTURA, notas=(Nota("Paga aunque no cuadre"),))
-    refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, estado="PAGADA")}, marcados_por_alberto=frozenset({PEDIDO.id}))
+    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, estado="PAGADA"),)}, marcados_por_alberto=frozenset({PEDIDO.id}))
     assert Norma.desde_toml(NORMA).evaluar(factura, refs).resultado == Resultado.ESCALAR
 
 
@@ -130,7 +165,7 @@ def test_proveedor_del_excel_contradice_erp_aunque_factura_coincida_con_erp():
 
 
 def test_nif_ausente_en_pedido_y_erp_se_verifica_por_maestro():
-    refs = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, nif="")}, asientos={PEDIDO.id: replace(ASIENTO, nif="")})
+    refs = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, nif="")}, asientos={PEDIDO.id: (replace(ASIENTO, nif=""),)})
     assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.PAGAR
 
 
