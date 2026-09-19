@@ -1,0 +1,38 @@
+{% load panel_extras %}{% comment %}Cómo va el repaso. Mientras está en marcha se vuelve a pedir cada segundo; cuando acaba, deja de pedirse.{% endcomment %}
+<section class="tarjeta" id="repaso"{% if repaso.estado == "en_marcha" %} hx-get="{% url 'panel:repaso_estado' repaso_id %}" hx-trigger="load, every 1s" hx-swap="outerHTML"{% endif %}>
+{% if repaso.estado == "en_marcha" %}
+  <div class="cabecera-tarjeta">
+    <h2>Repasando {{ repaso.lote|lote|lower }}</h2>
+    <span class="suave">{{ repaso.leidos }} de {{ repaso.total }}</span>
+  </div>
+  <div class="progreso"><i style="width: {% widthratio repaso.leidos repaso.total 100 %}%"></i></div>
+  <p class="intro" style="margin-top: 12px;">
+    {% if repaso.leidos >= repaso.total %}Decidiendo…{% else %}Leyendo {{ repaso.leidos }} de {{ repaso.total }}…{% endif %}
+    No hace falta que espere mirando: puede seguir en otra pantalla.</p>
+
+{% elif repaso.estado == "terminado" %}
+  <div class="cabecera-tarjeta">
+    <h2>Repaso terminado</h2>
+    {% if repaso.ejecucion_id %}<a href="{% url 'panel:ejecucion' repaso.ejecucion_id %}">Ver el detalle</a>{% endif %}
+  </div>
+  <p class="intro">De las <b>{{ repaso.resumen.documentos|default:0 }}</b> facturas del {{ repaso.lote|lote|lower }},
+    <b>{{ repaso.resumen.PAGAR|default:0 }}</b> se pueden pagar, <b>{{ repaso.resumen.NO_PAGAR|default:0 }}</b> no,
+    y <b>{{ repaso.resumen.ESCALAR|default:0 }}</b> esperan su decisión.</p>
+  <div class="kpis" style="margin: 16px 0;">
+    <div class="kpi"><span class="arriba">Facturas</span><span class="n">{{ repaso.resumen.documentos|default:0 }}</span></div>
+    <div class="kpi"><span class="arriba">Se pagan</span><span class="n">{{ repaso.resumen.PAGAR|default:0 }}</span></div>
+    <div class="kpi"><span class="arriba">No se pagan</span><span class="n">{{ repaso.resumen.NO_PAGAR|default:0 }}</span></div>
+    <div class="kpi"><span class="arriba">Las decide usted</span><span class="n">{{ repaso.resumen.ESCALAR|default:0 }}</span></div>
+  </div>
+  <div class="enlaces">
+    <a class="boton" href="{% url 'panel:inicio' %}">Ver Hoy{% icono "flecha" 16 %}</a>
+    <a class="boton suave" href="{% url 'panel:cola' %}">{% icono "ojo" 16 %}Ir a revisar</a>
+  </div>
+
+{% else %}
+  <div class="aviso mal" role="status">
+    {% icono "alerta" 18 %}
+    <div><b>El repaso no pudo terminar.</b> {{ repaso.error }}</div>
+  </div>
+{% endif %}
+</section>
