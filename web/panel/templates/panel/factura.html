@@ -172,6 +172,12 @@
     {% else %}
       <p class="suave">Todavía no ha decidido nada sobre esta factura.</p>
     {% endif %}
+    {% if comentarios_asistente %}
+      <h2>Comentarios que apuntó desde Preguntar</h2>
+      <ul class="comentarios-asistente">
+        {% for c in comentarios_asistente %}<li><span class="suave">{{ c.cuando|date:"d/m/Y H:i" }}</span> «{{ c.datos.comentario }}»</li>{% endfor %}
+      </ul>
+    {% endif %}
   </details>
 </section>
 

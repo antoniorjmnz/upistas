@@ -15,6 +15,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from upistas.aplicacion.marcar_pdf import PdfNoMarcable, marcar_pdf
 from web.panel import consultas
+from web.panel.asistente import acciones
 from web.panel.models import Decision, Documento, Lectura
 from web.panel.templatetags.panel_extras import euros
 
@@ -255,6 +256,7 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
         "historial": Decision.objects.filter(documento=documento).select_related("ejecucion").order_by("ejecucion__inicio"),
         "revisiones": documento.revisiones.all(),
         "revision": revision,
+        "comentarios_asistente": acciones.comentarios_de_factura(lote, file_id),
         # Si el sistema no lo tiene claro, o si Alberto ya dijo la suya, lo primero es su decisión.
         "decidir_arriba": decision.resultado == "ESCALAR" or revision is not None,
     })

@@ -23,6 +23,7 @@ urlpatterns = [
     path("facturas/<str:lote>/<str:file_id>/revisar/", revision.revisar, name="revisar"),
     path("revisar/", revision.cola, name="cola"),
     path("preguntar/", chat.preguntar, name="preguntar"),
+    path("asistente/accion/", chat.accion, name="asistente_accion"),
     path("ejecuciones/", ejecuciones.lista, name="ejecuciones"),
     path("ejecuciones/<int:id>/", ejecuciones.detalle, name="ejecucion"),
     path("ejecuciones/<int:id>/outcomes.jsonl", ejecuciones.outcomes, name="outcomes"),

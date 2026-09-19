@@ -232,6 +232,38 @@ dialog.visor iframe { display: block; width: 100%; height: calc(92vh - 57px); bo
 .formpregunta .buscador { flex: 1; }
 .formpregunta .htmx-indicator { align-items: center; gap: 6px; white-space: nowrap; }
 button.chip { font: inherit; }
+.mensaje .ir-a { margin: 8px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.mensaje .ir-a .boton { text-decoration: none; }
+.mensaje.hecho { align-self: flex-start; background: var(--pagar-fondo); border: 1px solid var(--pagar-borde); color: #085D3A; }
+.mensaje.hecho p { display: flex; gap: 8px; align-items: flex-start; }
+.mensaje.hecho svg { margin-top: 3px; }
+.mensaje.hecho.fallido { background: var(--revisar-fondo); border-color: var(--revisar-borde); color: #7A2E0E; }
+.mensaje.aviso-chat { color: var(--revisar); }
+.propuesta { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--revisar-borde); background: var(--revisar-fondo); border-radius: var(--radio-s); display: flex; flex-direction: column; gap: 6px; }
+.propuesta p { margin: 0; }
+.propuesta .botones { display: flex; gap: 8px; margin-top: 4px; }
+.comentarios-asistente { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+
+/* El panel «Preguntar» de la barra lateral: un diálogo no modal pegado a la derecha, en todas las pantallas */
+.lado nav a[data-abrir-asistente][aria-expanded="true"] { background: var(--marca-claro); color: var(--marca-osc); }
+dialog.asistente { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(420px, 100vw); max-width: 100vw; height: 100vh; max-height: 100vh; padding: 0; border: 0; border-left: 1px solid var(--linea); background: var(--panel); color: var(--tinta); box-shadow: -12px 0 40px rgba(17, 24, 39, .12); display: none; flex-direction: column; z-index: 20; }
+dialog.asistente[open] { display: flex; }
+.asistente-cab { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 14px; border-bottom: 1px solid var(--linea); }
+.asistente-cab .logo { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--marca-claro); color: var(--marca-osc); flex: 0 0 auto; }
+.asistente-cab > div { flex: 1; min-width: 0; }
+.asistente-cab b { display: block; font: 600 16px/1.3 var(--f-titulo); }
+.asistente-cab small { display: block; font-size: 12.5px; color: var(--suave); line-height: 1.35; }
+.asistente-chat { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; }
+.asistente-chat .mensaje { max-width: 100%; font-size: 15px; }
+.asistente-form { padding: 12px 16px 0; }
+.asistente-form .boton { padding: 0 12px; }
+.asistente-form .buscador svg { left: 12px; }
+.asistente-form .buscador input[type=search] { padding-left: 38px; }
+dialog.asistente .htmx-indicator { margin: 8px 16px 0; font-size: 14px; }
+.asistente-ejemplos { padding: 10px 16px 16px; display: flex; gap: 6px; flex-wrap: wrap; }
+.asistente-ejemplos .ejemplo { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--linea); background: var(--panel); color: var(--tinta-2); font: 500 13px/1.3 var(--f-ui); cursor: pointer; }
+.asistente-ejemplos .ejemplo:hover { background: var(--hover); color: var(--tinta); }
+@media (max-width: 640px) { dialog.asistente { width: 100vw; border-left: 0; } }
 
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
@@ -366,10 +398,14 @@ dialog.visor[open] { opacity: 1; transform: scale(1); transition: opacity 220ms 
 dialog.visor[open]::backdrop { opacity: 1; transition: opacity 220ms ease-out; }
 @starting-style { dialog.visor[open]::backdrop { opacity: 0; } }
 
+/* 6) El panel Preguntar entra deslizándose desde la derecha; el cierre es inmediato */
+dialog.asistente[open] { transform: translateX(0); opacity: 1; transition: transform 220ms ease-out, opacity 220ms ease-out; }
+@starting-style { dialog.asistente[open] { transform: translateX(24px); opacity: 0; } }
+
 /* Quien pide menos movimiento no ve ninguno de estos toques (ni el girando ni los KPI) */
 @media (prefers-reduced-motion: reduce) {
   main, .rosquilla-arco, .girando { animation: none; }
-  .factura-cola, .fila-factura, .fila, .chip, .kpi, dialog.visor[open], dialog.visor[open]::backdrop { transition: none; }
+  .factura-cola, .fila-factura, .fila, .chip, .kpi, dialog.visor[open], dialog.visor[open]::backdrop, dialog.asistente[open] { transition: none; }
   .factura-cola:hover { transform: none; box-shadow: var(--sombra); }
   .boton:active { transform: none; }
 }

@@ -20,7 +20,7 @@
         <a href="{% url 'panel:facturas' %}" class="{% if pagina_actual == 'facturas' or pagina_actual == 'factura' %}activa{% endif %}">{% icono "archivo" 20 %}<span>Facturas</span></a>
         <a href="{% url 'panel:proveedores' %}" class="{% if pagina_actual|slice:':9' == 'proveedor' or pagina_actual|slice:':6' == 'pedido' %}activa{% endif %}">{% icono "proveedores" 20 %}<span>Proveedores</span></a>
         <a href="{% url 'panel:cola' %}" class="{% if pagina_actual == 'cola' %}activa{% endif %}">{% icono "ojo" 20 %}<span>Para revisar</span>{% if pendientes_revision %}<span class="insignia" title="Pendientes de revisar">{{ pendientes_revision }}</span>{% endif %}</a>
-        <a href="{% url 'panel:preguntar' %}" class="{% if pagina_actual == 'preguntar' %}activa{% endif %}">{% icono "chat" 20 %}<span>Preguntar</span></a>
+        <a href="{% url 'panel:preguntar' %}" class="{% if pagina_actual == 'preguntar' %}activa{% endif %}" data-abrir-asistente aria-controls="asistente" aria-expanded="false">{% icono "chat" 20 %}<span>Preguntar</span></a>
       </nav>
       <div class="abajo">
         <nav aria-label="Para quien lleva el sistema">
@@ -52,5 +52,6 @@
     </div>
     <iframe title="Factura original" src="about:blank"></iframe>
   </dialog>
+  {% include "panel/_asistente.html" %}
 </body>
 </html>

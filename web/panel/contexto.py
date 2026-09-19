@@ -25,4 +25,6 @@ def panel(request: HttpRequest) -> dict:
         "lote_actual": ejecucion.lote if ejecucion else None,
         "pendientes_revision": consultas.pendientes_de_revision(ejecucion).count() if ejecucion else 0,
         "erp_estado": _estado_erp(),
+        # El panel «Preguntar» está en todas las pantallas y enseña la conversación que va en la sesión.
+        "chat": request.session.get("chat", []) if hasattr(request, "session") else [],
     }
