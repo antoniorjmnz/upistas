@@ -3,14 +3,29 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from upistas.dominio.modelos import Referencias
+from upistas.dominio.duplicados import resolver_duplicados
+from upistas.dominio.modelos import Comprobacion, Decision, Referencias, Resultado
 from upistas.dominio.norma import Norma
 from upistas.puertos import DecisionGuardada, RegistroLectura
 
 from upistas.aplicacion import procesar
 from upistas.aplicacion.mapeo import a_outcome
+
+
+def consolidar_lote(outcomes: list[dict]) -> list[dict]:
+    decisiones = [Decision(
+        file_id=o["file_id"],
+        resultado=Resultado(o["result"]),
+        motivo=o["motivo"],
+        norma=o["norma"],
+        pedido=o.get("pedido"),
+        comprobaciones=tuple(Comprobacion(r["id"], r["ok"], r.get("detalle") or "") for r in o.get("reglas", [])),
+        alertas=tuple(o.get("alertas") or []),
+    ) for o in outcomes]
+    return [{**original, **a_outcome(d, version_datos=original.get("version_datos") or "", metodo=original.get("metodo"))}
+            for original, d in zip(outcomes, resolver_duplicados(decisiones))]
 
 
 def decidir_lote(lecturas: Sequence[RegistroLectura], refs: Referencias, norma: Norma) -> list[DecisionGuardada]:
@@ -27,7 +42,8 @@ def decidir_lote(lecturas: Sequence[RegistroLectura], refs: Referencias, norma: 
                 metodo=r.metodo, outcome=outcome, notas=notas, alertas=tuple(d.alertas),
             )
         )
-    return salida
+    consolidados = consolidar_lote([d.outcome for d in salida])
+    return [replace(d, resultado=o["result"], motivo=o["motivo"], outcome=o) for d, o in zip(salida, consolidados)]
 
 
 def resumen(decisiones: Sequence[DecisionGuardada], lecturas: Sequence[RegistroLectura]) -> dict:

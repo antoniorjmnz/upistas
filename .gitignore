@@ -7,6 +7,7 @@ data/*
 !data/.gitkeep
 outputs/*
 !outputs/.gitkeep
+FINAL_v7_DEFINITIVO_ahorasi.xlsx
 
 # Python
 *.sqlite

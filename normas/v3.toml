@@ -3,6 +3,26 @@
 # (NO_PAGAR > ESCALAR > PAGAR). Las reglas viven en src/upistas/dominio/reglas/.
 version = "v3"
 
+[reglas.R1_nif_iban]
+si_falla = "ESCALAR"
+
+[reglas.R2_pedido_importe]
+si_falla = "ESCALAR"
+[reglas.R2_pedido_importe.params]
+tolerancia = "0.01"
+
+[reglas.R3_iva_total]
+si_falla = "ESCALAR"
+[reglas.R3_iva_total.params]
+tolerancia = "0.01"
+tipos_iva = [21, 10, 4]
+
+[reglas.R5_erp_pendiente]
+si_falla = "ESCALAR"
+
+[reglas.R5_no_pagada]
+si_falla = "NO_PAGAR"
+
 # 4. La fecha debe ser válida y no futura.
 [reglas.R4_fecha]
 si_falla = "ESCALAR"

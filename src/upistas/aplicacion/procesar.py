@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from upistas.contracts.factura_extraida import FacturaExtraida
@@ -56,4 +56,15 @@ def decidir(file_id: str, lectura: Lectura | None, refs: Referencias | None, nor
             norma=norma.version,
             alertas=tuple(lectura.documento.alertas) if lectura else (),
         )
-    return norma.evaluar(a_factura(lectura.extraida), refs)
+    extraida = lectura.extraida
+    if extraida.errores:
+        return Decision(
+            file_id=file_id,
+            resultado=Resultado.ESCALAR,
+            motivo="; ".join(extraida.errores),
+            norma=norma.version,
+            pedido=extraida.campos.pedido.valor,
+            alertas=tuple(lectura.documento.alertas),
+        )
+    decision = norma.evaluar(a_factura(extraida), refs)
+    return replace(decision, alertas=tuple(dict.fromkeys((*decision.alertas, *lectura.documento.alertas))))

@@ -10,10 +10,11 @@ montadas una vez (copia del ERP, Excel, memoria de pagos, índice del lote). Rep
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import platform
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -49,8 +50,9 @@ def _leer_y_guardar(lote: str, file_id: str, ruta: str) -> dict:
     t0 = time.perf_counter()
     repo = contenedor.lecturas()
     doc = contenedor.inspector().inspeccionar(Path(ruta))
+    firma = contenedor.huella_lectores()
     previa = repo.por_sha(doc.sha256) if doc.sha256 else None
-    if previa is not None and previa.leida:  # mismo contenido ya leído: se reutiliza
+    if previa is not None and previa.leida and (previa.extraida.lector or "").endswith(f"@{firma}"):  # mismo contenido ya leído: se reutiliza
         registro = RegistroLectura(
             lote=lote, file_id=file_id, ruta=ruta, sha256=doc.sha256, bytes=doc.bytes, tipo=doc.tipo, paginas=doc.paginas,
             alertas=doc.alertas, extraida=previa.extraida.model_copy(update={"file_id": file_id}), intentos=previa.intentos,
@@ -60,11 +62,14 @@ def _leer_y_guardar(lote: str, file_id: str, ruta: str) -> dict:
         return {"file_id": file_id, "leida": True, "metodo": registro.metodo, "cache": True, "segundos": round(time.perf_counter() - t0, 3)}
 
     lectura = procesar.leer_documento(Path(ruta), contenedor.inspector(), contenedor.lectores())
-    coste = lectura.extraida.coste if lectura.extraida and lectura.extraida.coste else None
+    extraida = lectura.extraida
+    if extraida is not None:
+        extraida = extraida.model_copy(update={"lector": f"{(extraida.lector or 'lector')[:15]}@{firma}"})
+    coste = extraida.coste if extraida and extraida.coste else None
     registro = RegistroLectura(
         lote=lote, file_id=file_id, ruta=ruta, sha256=lectura.documento.sha256, bytes=lectura.documento.bytes,
         tipo=lectura.documento.tipo, paginas=lectura.documento.paginas, alertas=lectura.documento.alertas,
-        extraida=lectura.extraida, intentos=lectura.intentos, segundos=round(time.perf_counter() - t0, 3),
+        extraida=extraida, intentos=lectura.intentos, segundos=round(time.perf_counter() - t0, 3),
         tokens_in=(coste.tokens_in or 0) if coste else 0, tokens_out=(coste.tokens_out or 0) if coste else 0,
         coste_eur=(coste.eur or 0.0) if coste else 0.0, modelo=(coste.modelo or "") if coste else "",
     )
@@ -86,8 +91,15 @@ def iniciar() -> None:
 def encolar_lecturas(lote: str, rutas: Sequence[Path]) -> list[WorkflowHandle]:
     cola = DBOS.retrieve_queue(COLA)
     handles = []
+    firma = contenedor.huella_lectores()
     for ruta in rutas:
-        with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{lote}:{ruta.name}"):
+        try:
+            with ruta.open("rb") as fichero:
+                contenido = hashlib.file_digest(fichero, "sha256").hexdigest()
+        except OSError:
+            contenido = "ausente"
+        identidad = hashlib.sha256(f"{ruta.resolve()}:{contenido}".encode()).hexdigest()
+        with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{firma}:{lote}:{ruta.name}:{identidad}"):
             handles.append(cola.enqueue(leer_documento, lote, ruta.name, str(ruta)))
     return handles
 
@@ -114,10 +126,11 @@ def hardware() -> dict:
     return {"sistema": platform.system(), "maquina": platform.machine(), "nucleos": os.cpu_count(), "python": platform.python_version()}
 
 
-def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincronizar: bool = True) -> Informe:
+def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincronizar: bool = True,
+                  progreso: Callable[[int, int], None] | None = None) -> Informe:
     avisos: list[str] = []
     sinc = None
-    if sincronizar:
+    if sincronizar or contenedor.settings.erp_snapshot is not None:
         sinc = sincronizar_erp(contenedor.cliente_erp(), contenedor.almacen_erp())
         if not sinc.ok:
             avisos.append(f"El ERP no respondió ({sinc.error}); se usa la última copia buena")
@@ -130,14 +143,21 @@ def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincroni
     ejecucion = repo_dec.iniciar_ejecucion(lote, version_norma, ultima.version or "", maestro.version, hardware())
 
     t0 = time.perf_counter()
-    resultados = [h.get_result() for h in encolar_lecturas(lote, rutas)]
+    resultados = []
+    handles = encolar_lecturas(lote, rutas)
+    for numero, handle in enumerate(handles, 1):
+        resultados.append(handle.get_result())
+        if progreso:
+            progreso(numero, len(handles))
     segundos_lectura = time.perf_counter() - t0
     nombres = {r.name for r in rutas}
     lecturas = [r for r in contenedor.lecturas().del_lote(lote) if r.file_id in nombres]
+    if {r.file_id for r in lecturas} != nombres:
+        raise RuntimeError("Faltan lecturas guardadas para completar el lote")
 
     t1 = time.perf_counter()
     refs = construir_referencias(
-        maestro, contenedor.erp(), lecturas, settings.hoy or date.today(),
+        maestro, contenedor.erp(), lecturas, contenedor.settings.hoy or date.today(),
         ultima.version or "", repo_dec.pedidos_aprobados(excepto_lote=lote),
     )
     decisiones = lote_app.decidir_lote(lecturas, refs, contenedor.norma(version_norma))

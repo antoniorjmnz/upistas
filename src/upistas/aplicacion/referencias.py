@@ -26,10 +26,13 @@ def construir_referencias(
         f = a_factura(r.extraida)
         if f.pedido:
             por_pedido[f.pedido].append(FacturaResumen(f.file_id, f.numero, f.fecha, f.total, f.nif))
+    asientos = erp.asientos()
+    if len({a.pedido for a in asientos}) != len(asientos):
+        raise ValueError("ERP: hay varios asientos para un mismo pedido; requiere revisión")
     return Referencias(
         proveedores={p.nif: p for p in maestro.proveedores()},
         pedidos={p.id: p for p in maestro.pedidos()},
-        asientos={a.pedido: a for a in erp.asientos()},
+        asientos={a.pedido: a for a in asientos},
         hoy=hoy,
         pedidos_ya_decididos=pedidos_ya_decididos,
         marcados_por_alberto=maestro.marcados_para_revisar(),

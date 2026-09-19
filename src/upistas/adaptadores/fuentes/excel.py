@@ -20,7 +20,7 @@ from pathlib import Path
 
 import openpyxl
 
-from upistas.dominio.importes import normaliza_iban, parse_fecha
+from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_importe
 from upistas.dominio.modelos import Pedido, Proveedor
 
 PATRON_PEDIDO = re.compile(r"^PO-\d{4}-\d{4}$")
@@ -59,28 +59,31 @@ class MaestroExcel:
     @cached_property
     def _datos(self) -> dict:
         wb = openpyxl.load_workbook(self.ruta, read_only=True, data_only=True)
-        hojas = {ws.title.strip().lower(): ws for ws in wb.worksheets}
+        try:
+            hojas = {ws.title.strip().lower(): ws for ws in wb.worksheets}
 
-        def hoja(nombre: str):
-            return hojas.get(nombre.lower())
+            def hoja(nombre: str):
+                return hojas.get(nombre.lower())
 
-        proveedores = self._leer_proveedores(hoja("Proveedores"))
-        pedidos = self._leer_pedidos(hoja("Pedidos_2026"), estado_por_defecto="ABIERTO")
-        antiguos = self._leer_pedidos(hoja("Pedidos_2025_OLD"), estado_por_defecto="ARCHIVADO_2025")
-        ids = {p.id for p in pedidos}
-        pedidos += [p for p in antiguos if p.id not in ids]
-        marcados = frozenset(
-            v for v in self._columna(hoja("pendiente_revisar")) if PATRON_PEDIDO.match(v)
-        )
-        norma = [v for v in self._columna(hoja("Norma_Pagos_v3"))]
-        wb.close()
-        return {"proveedores": proveedores, "pedidos": pedidos, "marcados": marcados, "norma": norma}
+            proveedores = self._leer_proveedores(hoja("Proveedores"))
+            pedidos = self._leer_pedidos(hoja("Pedidos_2026"), estado_por_defecto="ABIERTO")
+            antiguos = self._leer_pedidos(hoja("Pedidos_2025_OLD"), estado_por_defecto="ARCHIVADO_2025")
+            ids = {p.id for p in pedidos}
+            pedidos += [p for p in antiguos if p.id not in ids]
+            marcados = frozenset(
+                v for v in self._columna(hoja("pendiente_revisar")) if PATRON_PEDIDO.match(v)
+            )
+            norma = [v for v in self._columna(hoja("Norma_Pagos_v3"))]
+            return {"proveedores": proveedores, "pedidos": pedidos, "marcados": marcados, "norma": norma}
+        finally:
+            wb.close()
 
     def _leer_proveedores(self, ws) -> list[Proveedor]:
         if ws is None:
             self.avisos.append("No hay hoja Proveedores")
             return []
         vistos: dict[str, Proveedor] = {}
+        por_nif: dict[str, Proveedor] = {}
         for fila in self._filas(ws, {"id", "razon social", "nif", "iban"}):
             pid = _texto(fila.get("id"))
             if not pid:
@@ -93,6 +96,9 @@ class MaestroExcel:
                 ciudad=_texto(fila.get("ciudad")),
                 condiciones_dias=_dias(fila.get("condiciones")),
             )
+            anterior = vistos.get(pid) or por_nif.get(p.nif)
+            if anterior and (anterior.id, anterior.nif, anterior.iban) != (p.id, p.nif, p.iban):
+                raise ValueError(f"Maestro contradictorio: proveedor {pid}")
             if pid in vistos:
                 if vistos[pid] != p:
                     self.avisos.append(f"Proveedor {pid} repetido con datos distintos; se usa el primero")
@@ -102,6 +108,8 @@ class MaestroExcel:
             if not PATRON_NIF.match(p.nif):
                 self.avisos.append(f"Proveedor {pid} con NIF raro: {p.nif!r}")
             vistos[pid] = p
+            if p.nif:
+                por_nif[p.nif] = p
         return list(vistos.values())
 
     def _leer_pedidos(self, ws, estado_por_defecto: str) -> list[Pedido]:
@@ -172,9 +180,10 @@ def _decimal(valor) -> Decimal | None:
     if valor is None or valor == "":
         return None
     try:
-        return Decimal(str(valor)).quantize(Decimal("0.01"))
+        importe = Decimal(str(valor))
     except InvalidOperation:
-        return None
+        importe = parse_importe(str(valor))
+    return importe if importe is not None and importe.is_finite() else None
 
 
 def _fecha(valor) -> date | None:

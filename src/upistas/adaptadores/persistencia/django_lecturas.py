@@ -24,7 +24,7 @@ class RepositorioLecturasDjango:
                     "file_id": r.file_id, "lote": r.lote, "ok": r.leida,
                     "lector": r.extraida.lector or "" if r.extraida else "",
                     "metodo": r.metodo,
-                    "extraida": r.extraida.model_dump(mode="json", exclude_none=True) if r.extraida else None,
+                    "extraida": r.extraida.model_dump(mode="json") if r.extraida else None,
                     "intentos": [list(i) for i in r.intentos],
                     "segundos": r.segundos, "tokens_in": r.tokens_in, "tokens_out": r.tokens_out,
                     "coste_eur": r.coste_eur, "modelo": r.modelo,
@@ -51,7 +51,10 @@ class RepositorioLecturasDjango:
     def _registro(doc, lectura) -> RegistroLectura:
         extraida = None
         if lectura is not None and lectura.extraida:
-            extraida = FacturaExtraida.model_validate({**lectura.extraida, "file_id": doc.file_id if doc else lectura.file_id})
+            datos = {**lectura.extraida, "file_id": doc.file_id if doc else lectura.file_id}
+            datos["campos"] = {nombre: {"valor": None, **campo} if isinstance(campo, dict) else campo
+                               for nombre, campo in datos["campos"].items()}
+            extraida = FacturaExtraida.model_validate(datos)
         return RegistroLectura(
             lote=doc.lote if doc else lectura.lote,
             file_id=doc.file_id if doc else lectura.file_id,
