@@ -82,8 +82,7 @@ class Settings:
     erp_snapshot: Path | None = Path(os.environ["ERP_SNAPSHOT"]) if os.getenv("ERP_SNAPSHOT") else None
     usar_ocr: bool = False
     usar_erp_http: bool = False
-    # OCR de escaneados: "fal" (extra ocr + FAL_KEY) o "firecrawl" (FIRECRAWL_API_KEY, sin extra).
-    ocr_provider: str = os.getenv("OCR_PROVIDER", "fal")
+    # OCR de escaneados: Firecrawl /parse (FIRECRAWL_API_KEY).
     firecrawl_api_key: str = os.getenv("FIRECRAWL_API_KEY", "")
     firecrawl_base_url: str = os.getenv("FIRECRAWL_BASE_URL", "https://api.firecrawl.dev")
     lectura_timeout_s: float = float(os.getenv("LECTURA_TIMEOUT_S", "300"))

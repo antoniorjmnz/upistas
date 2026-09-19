@@ -2,8 +2,7 @@
 
 Firecrawl no acepta imágenes sueltas: el PNG de la página se envuelve en un PDF de una
 sola página y se sube a /v2/parse con mode "ocr". Usa httpx (ya es dependencia), así que
-no necesita extra ni SDK propio. Fal sigue siendo el proveedor por defecto; este se elige
-con OCR_PROVIDER=firecrawl y FIRECRAWL_API_KEY.
+no necesita extra ni SDK propio. Se activa con --ocr / usar_ocr y FIRECRAWL_API_KEY.
 
 El plan limita la concurrencia y corta conexiones a la vez (RemoteProtocolError, 429, 5xx):
 como cada documento se lee en su propio proceso, las llamadas se serializan con un cerrojo

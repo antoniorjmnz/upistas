@@ -56,7 +56,7 @@ Qué cambia y por qué. Si algo afecta a los resultados, dilo en una frase.
 - `run` se detiene sin generar decisiones si falta el maestro o no hay datos del ERP. Para comprobar la lectura sin fuentes: `uv run upistas extract --facturas <carpeta> --limit 10 --salida extraidas.jsonl`; cada línea contiene `file_id`, `extraccion` (campos y fuentes) y `errores`, sin clasificación de pago.
 - Los duplicados se comprueban por SHA-256 y después por pedido, incluyendo los hashes y pedidos aprobados en otros lotes. `--limit` limita la detección de nuevos duplicados al subconjunto procesado.
 - `--timeout-lectura <segundos>` o `LECTURA_TIMEOUT_S` limita cada lectura a 300 segundos por defecto; al vencer, se detiene su proceso y se escala el documento sin bloquear el lote. Los criterios detallados y prioridades están en `docs/adr/002-criterio.md`.
-- Para OCR: `uv run --extra ocr upistas run ... --ocr`, con `FAL_KEY` en el entorno. Este modo envía las páginas escaneadas a Fal y consume créditos; los tests lo simulan.
+- Para OCR: `uv run upistas run ... --ocr`, con `FIRECRAWL_API_KEY` en el entorno. Este modo envía las páginas escaneadas a Firecrawl y consume créditos; los tests lo simulan.
 - Las trazas y la caché de lectura se guardan en `outputs/extracciones/`, por hash del PDF y versión del extractor. No se versionan.
 - Las notas detectadas se evalúan con Helmcode usando `HELMCODE_API_KEY`, `MODELO_NOTAS` y `NOTAS_TIMEOUT_S`. Sin notas no hay llamada. Solo una nota inequívocamente irrelevante deja seguir a las reglas; relevancia, duda o fallo de API obliga a ESCALAR, incluso ante ERP PAGADA. La caché válida se guarda en `outputs/notas/`; no se guardan fallos como éxitos.
 - Verificación de la integración: `uv run pytest` y `uv run python scripts/check.py`.

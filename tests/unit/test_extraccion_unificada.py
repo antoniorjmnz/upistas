@@ -134,7 +134,7 @@ def test_total_con_caracteres_invisibles_conserva_evidencia():
 def test_conflicto_entre_paginas_no_elige_la_primera():
     factura = extraer_campos("a.pdf", [
         {"page": 1, "route": "native_text", "text": TEXTO},
-        {"page": 2, "route": "fal_ocr", "text": "TOTAL 200,00 EUR"},
+        {"page": 2, "route": "firecrawl_ocr", "text": "TOTAL 200,00 EUR"},
     ])
     assert factura.campos.total.valor is None
     assert any("total" in error for error in factura.errores)
@@ -149,7 +149,7 @@ def test_fecha_invalida_no_se_sustituye_por_vencimiento():
 def test_pagina_ocr_fallida_no_desaparece():
     factura = extraer_campos("a.pdf", [
         {"page": 1, "route": "native_text", "text": TEXTO},
-        {"page": 2, "route": "fal_ocr", "text": "", "error": "timeout"},
+        {"page": 2, "route": "firecrawl_ocr", "text": "", "error": "timeout"},
     ])
     assert any("timeout" in error for error in factura.errores)
 
@@ -330,17 +330,14 @@ def test_vision_helmcode_transcribe_sin_fuentes():
     assert "maestro" not in enviados[1]["content"][0]["image_url"]["url"]
 
 
-def test_adaptador_fal_con_respuesta_simulada(monkeypatch):
-    import sys
+def test_adaptador_ocr_con_respuesta_simulada():
     from types import SimpleNamespace
     from unittest.mock import Mock
 
-    from upistas.adaptadores.lectores.fal_ocr import FalOCR
+    from upistas.adaptadores.lectores.firecrawl_ocr import FirecrawlOCR
 
-    subir = Mock(return_value="imagen-simulada")
-    consultar = Mock(return_value={"outputs": [TEXTO]})
-    monkeypatch.setitem(sys.modules, "fal_client", SimpleNamespace(upload_file=subir, subscribe=consultar))
-    assert FalOCR()(b"imagen simulada") == TEXTO
-    subir.assert_called_once()
-    assert consultar.call_args.args == ("fal-ai/got-ocr/v2",)
-    assert consultar.call_args.kwargs["arguments"]["input_image_urls"] == ["imagen-simulada"]
+    respuesta = SimpleNamespace(status_code=200, headers={},
+                                json=Mock(return_value={"success": True, "data": {"markdown": TEXTO}}))
+    ocr = FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=Mock(return_value=respuesta)))
+    png = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 20, 20)).tobytes("png")
+    assert ocr(png) == TEXTO.strip()
