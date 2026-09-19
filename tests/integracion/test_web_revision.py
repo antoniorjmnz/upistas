@@ -33,7 +33,7 @@ def test_la_cola_ensena_las_pendientes_con_su_motivo(alberto, lote_de_prueba):
 
 def test_los_filtros_separan_lo_pendiente_de_lo_ya_revisado(alberto, lote_de_prueba):
     d = lote_de_prueba["decisiones"][ESCALADA]
-    RevisionHumana.objects.create(documento=d.documento, decision=d, quien="alberto", resultado="PAGAR")
+    RevisionHumana.objects.create(documento=d.documento, decision=d, quien="Alberto", resultado="PAGAR")
 
     pendientes = cola(alberto)
     assert ESCANEADA in pendientes and ESCALADA not in pendientes
@@ -62,7 +62,7 @@ def test_pagar_guarda_la_revision_y_saca_la_factura_de_pendientes(alberto, lote_
 
     assert respuesta.status_code == 302
     revision = RevisionHumana.objects.get()
-    assert revision.quien == "alberto" and revision.resultado == "PAGAR"
+    assert revision.quien == "Alberto" and revision.resultado == "PAGAR"
     assert revision.documento_id == d.documento_id and revision.decision_id == d.id
     assert revision.comentario == "Obra certificada"
     assert "Guardado: 2026-07-01_P009.pdf queda como «Pagar»." in cola(alberto)
@@ -79,8 +79,8 @@ def test_con_htmx_la_decision_vuelve_como_un_trozo_de_pagina(alberto, lote_de_pr
 
     assert respuesta.status_code == 200 and "<html" not in html
     assert f'id="revision-{d.id}"' in html
-    assert '<span class="pildora bien">Pagar</span>' in html
-    assert "«Obra certificada»" in html and "alberto" in html
+    assert 'class="pildora grande bien"' in html and "Pagar</span>" in html
+    assert "«Obra certificada»" in html and "Lo decidió usted" in html
 
 
 def test_sin_htmx_vuelve_al_detalle_de_la_factura(alberto, lote_de_prueba):
@@ -115,5 +115,5 @@ def test_puede_revisar_dos_veces_y_manda_la_ultima(alberto, lote_de_prueba):
     assert RevisionHumana.objects.count() == 2  # el historial no se borra
     revisadas = cola(alberto, estado="revisadas")
     assert "Mejor no, falta el albaran" in revisadas and "La pago" not in revisadas
-    assert '<span class="pildora mal">No pagar</span>' in revisadas
+    assert 'class="pildora grande mal"' in revisadas and "No pagar</span>" in revisadas
     assert "No hay nada pendiente de revisar" not in revisadas and ESCANEADA in cola(alberto)

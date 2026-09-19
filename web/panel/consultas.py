@@ -131,3 +131,32 @@ def cifras(ejecucion: Ejecucion) -> dict:
         "sin_ia": por_metodo.get("texto_determinista") or 0,
         "metodos": [{"texto": METODOS.get(m, m), "n": n} for m, n in sorted(por_metodo.items(), key=lambda kv: -kv[1])],
     }
+
+
+# Por qué una factura no se paga o hay que mirarla, en una frase corta para Alberto (por la primera regla que falla).
+MOTIVO_CORTO = {
+    "R1_nif_iban": "El proveedor o su cuenta no coinciden con el maestro",
+    "R2_pedido_importe": "El pedido o el importe no cuadran con el ERP",
+    "R3_iva_total": "El IVA o el total no cuadran",
+    "R4_fecha": "La fecha no es válida",
+    "R5_erp_pendiente": "El ERP dice que ya está pagada",
+    "R5_no_pagada": "El ERP dice que ya está pagada",
+    "R5_duplicado": "Es una factura repetida",
+    "R6_notas": "Trae texto que intenta influir en la decisión",
+    "R7_marcado_por_alberto": "Usted la apuntó para revisar",
+    "R8_importe_anomalo": "Importe fuera de lo habitual",
+    "R9_destinatario": "Va dirigida a otro cliente",
+    "R10_fichero_sospechoso": "El fichero trae contenido raro",
+}
+SIN_LEER = "No se pudo leer la factura"
+
+
+def motivo_corto(decision: Decision) -> str:
+    """Una frase: la primera comprobación que falla, en palabras de Alberto; el motivo entero está en `decision.motivo`."""
+    reglas = (decision.outcome or {}).get("reglas") or []
+    if not reglas:
+        return SIN_LEER if decision.resultado == "ESCALAR" else "Cumple la norma"
+    fallan = [r for r in reglas if not r.get("ok")]
+    if not fallan:
+        return "Cumple la norma" if decision.resultado == "PAGAR" else "Hay dudas con los datos"
+    return MOTIVO_CORTO.get(fallan[0].get("id", ""), fallan[0].get("detalle") or "Hay dudas con los datos")

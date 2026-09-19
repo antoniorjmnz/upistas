@@ -41,7 +41,7 @@ def test_la_revision_humana_saca_la_factura_de_pendientes(lote_de_prueba, django
 def test_la_cabecera_cuenta_lo_pendiente_de_revisar(alberto, lote_de_prueba):
     html = alberto.get(reverse("panel:conexion")).content.decode()
     assert '<span class="insignia" title="Pendientes de revisar">2</span>' in html
-    assert "Salir" in html and "alberto" in html
+    assert "Registro de repasos" in html  # el pie, para quien lleva el sistema
 
 
 def test_filtros_de_plantilla():
@@ -51,9 +51,9 @@ def test_filtros_de_plantilla():
     assert campo({"campos": {"total": {"valor": 3}}}, "total") == 3 and campo(None, "total") is None
 
 
-def test_el_comando_alberto_crea_el_usuario_una_vez(django_user_model):
-    from django.core.management import call_command
-
-    call_command("alberto")
-    call_command("alberto")
-    assert django_user_model.objects.filter(username="alberto").count() == 1
+def test_el_motivo_corto_habla_como_alberto(lote_de_prueba):
+    d = lote_de_prueba["decisiones"]
+    assert consultas.motivo_corto(d["FA-1016_papelería.pdf"]) == "El ERP dice que ya está pagada"
+    assert consultas.motivo_corto(d["2026-07-01_P009.pdf"]) == "Trae texto que intenta influir en la decisión"
+    assert consultas.motivo_corto(d["scan_001.pdf"]) == "No se pudo leer la factura"
+    assert consultas.motivo_corto(d["2026-01-08_P001.pdf"]) == "Cumple la norma"

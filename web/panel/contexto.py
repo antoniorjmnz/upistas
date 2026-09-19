@@ -7,8 +7,6 @@ from web.panel import consultas
 
 
 def panel(request: HttpRequest) -> dict:
-    if not getattr(request, "user", None) or not request.user.is_authenticated:
-        return {}
     ejecucion = consultas.ultima_ejecucion()
     return {
         "lote_actual": ejecucion.lote if ejecucion else None,

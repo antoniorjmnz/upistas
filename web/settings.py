@@ -28,11 +28,6 @@ DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
-# Toda la web exige sesión (LoginRequiredMiddleware); solo la pantalla de entrar queda fuera.
-LOGIN_URL = "/entrar/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/entrar/"
-
 
 # Application definition
 
@@ -53,7 +48,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

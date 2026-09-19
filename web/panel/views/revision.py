@@ -127,7 +127,7 @@ def revisar(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     )
     # Las revisiones anteriores se quedan: son el historial de lo que Alberto fue decidiendo.
     revision = RevisionHumana.objects.create(
-        documento=decision.documento, decision=decision, quien=request.user.get_username(),
+        documento=decision.documento, decision=decision, quien="Alberto",
         resultado=resultado, comentario=comentario,
     )
     if request.headers.get("HX-Request"):

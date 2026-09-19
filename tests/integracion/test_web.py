@@ -36,20 +36,6 @@ def con_copia():
     return sincronizar_erp(Cliente(LOTE), AlmacenERPDjango())
 
 
-def test_sin_sesion_se_va_a_entrar(client):
-    r = client.get(reverse("panel:conexion"))
-    assert r.status_code == 302 and r.url.startswith(reverse("panel:entrar"))
-
-
-def test_entrar_y_salir(client, django_user_model):
-    django_user_model.objects.create_user("alberto", password="alberto")
-    r = client.post(reverse("panel:entrar"), {"username": "alberto", "password": "alberto"})
-    assert r.status_code == 302 and r.url == "/"
-    assert client.get("/").status_code == 200
-    assert client.post(reverse("panel:salir")).status_code == 302
-    assert client.get("/").status_code == 302
-
-
 def test_conexion_sin_copia_lo_explica(alberto):
     r = alberto.get(reverse("panel:conexion"))
     assert r.status_code == 200
