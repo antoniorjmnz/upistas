@@ -1,6 +1,8 @@
 {
   "file_id": "2026-01-08_P001.pdf",
   "metodo": "texto_determinista",
+  "lector": "pdf_texto",
+  "documento": { "sha256": "0f2a7c1e5b9d4e8a6c3b2f1d0e9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a", "tipo": "texto", "paginas": 1, "bytes": 1843, "alertas": ["estructura reparada al abrir"] },
   "campos": {
     "numero_factura": { "valor": "2026/11604", "confianza": 1, "fuente": "Factura: 2026/11604" },
     "proveedor_nombre": { "valor": "Suministros Levante S.L.", "confianza": 1 },
@@ -8,11 +10,14 @@
     "iban": { "valor": "ES2100491500051234567890", "confianza": 1 },
     "pedido": { "valor": "PO-2026-0096", "confianza": 1 },
     "fecha": { "valor": "2026-01-08", "confianza": 1 },
+    "cliente_cif": { "valor": "A58231074", "confianza": 1 },
     "base": { "valor": 2489.99, "confianza": 1 },
     "iva_pct": { "valor": 21, "confianza": 1 },
     "iva": { "valor": 522.9, "confianza": 1 },
     "total": { "valor": 3012.89, "confianza": 1 }
   },
   "lineas": [{ "concepto": "Servicio mensual", "importe": 2489.99 }],
-  "checks": { "total_cuadra": true, "lineas_cuadran": true }
+  "notas": [],
+  "checks": { "total_cuadra": true, "iva_cuadra": true, "lineas_cuadran": true },
+  "coste": { "segundos": 0.02 }
 }

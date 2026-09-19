@@ -17,10 +17,22 @@ def load(name: str) -> dict:
 def test_ejemplo_factura_extraida_valida():
     f = FacturaExtraida.model_validate(load("factura_extraida.ok.json"))
     assert f.campos.total.valor == 3012.89
+    assert f.documento.sha256 and f.documento.tipo.value == "texto"
+
+
+def test_ejemplo_con_nota_valida():
+    f = FacturaExtraida.model_validate(load("factura_extraida.nota.ok.json"))
+    assert f.notas[0].categorias[0].value == "pide_saltar_regla"
+
+
+def test_factura_extraida_invalida_falla():
+    with pytest.raises(ValidationError):
+        FacturaExtraida.model_validate(load("factura_extraida.bad.json"))
 
 
 def test_ejemplo_decision_valida():
-    assert Decision.model_validate(load("decision.ok.json")).result.value == "PAGAR"
+    d = Decision.model_validate(load("decision.ok.json"))
+    assert d.result.value == "PAGAR" and d.version_datos
 
 
 def test_decision_con_result_invalido_falla():
