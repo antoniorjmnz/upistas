@@ -44,7 +44,7 @@ def lectores() -> tuple[LectorPdfUnificado, ...]:
     from upistas.adaptadores.lectores.vision_helmcode import VisionHelmcode
 
     vision = VisionHelmcode(
-        settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_vision,
+        settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_vision, timeout=settings.vision_timeout_s,
     ) if settings.usar_ocr and settings.helmcode_api_key else None
     return (LectorPdfUnificado(
         ocr=FalOCR() if settings.usar_ocr else None,
@@ -158,10 +158,10 @@ def referencias() -> Referencias:
 
 def configurar(nuevos: Settings) -> None:
     global settings
-    if not math.isfinite(nuevos.lectura_timeout_s) or nuevos.lectura_timeout_s <= 0:
-        raise ValueError("LECTURA_TIMEOUT_S debe ser un número positivo y finito")
-    if not math.isfinite(nuevos.notas_timeout_s) or nuevos.notas_timeout_s <= 0:
-        raise ValueError("NOTAS_TIMEOUT_S debe ser un número positivo y finito")
+    for ajuste in ("lectura_timeout_s", "notas_timeout_s", "vision_timeout_s"):
+        segundos = getattr(nuevos, ajuste)
+        if not math.isfinite(segundos) or segundos <= 0:
+            raise ValueError(f"{ajuste.upper()} debe ser un número positivo y finito")
     settings = nuevos
     for funcion in (inspector, lectores, maestro, erp, cliente_erp, almacen_erp, lecturas, decisiones, norma, referencias, huella_lectores):
         funcion.cache_clear()
