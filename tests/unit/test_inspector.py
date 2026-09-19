@@ -47,6 +47,49 @@ def test_avisa_de_ficheros_incrustados_y_da_huella(tmp_path):
     assert len(d.sha256) == 64 and d.paginas == 1 and d.bytes > 0
 
 
+@pytest.mark.parametrize("opciones", [{"render_mode": 3}, {"fill_opacity": 0}, {"color": (1, 1, 1)}, {"fontsize": 1}])
+def test_detecta_texto_potencialmente_oculto(tmp_path, opciones):
+    ruta = tmp_path / "visibilidad.pdf"
+    with pymupdf.open() as doc:
+        pagina = doc.new_page()
+        pagina.insert_text((40, 40), "FACTURA de prueba con texto visible suficiente")
+        pagina.insert_text((40, 80), "Nota de prueba", **opciones)
+        doc.save(ruta)
+    inspeccion = InspectorPdf().inspeccionar(ruta)
+    assert any(a.startswith("texto potencialmente oculto:") for a in inspeccion.alertas)
+
+
+def test_detecta_texto_tapado_por_un_rectangulo(tmp_path):
+    ruta = tmp_path / "tapado.pdf"
+    with pymupdf.open() as doc:
+        pagina = doc.new_page()
+        pagina.insert_text((40, 40), "FACTURA de prueba con texto visible suficiente")
+        pagina.insert_text((40, 80), "Nota de prueba")
+        pagina.draw_rect(pymupdf.Rect(30, 60, 400, 100), fill=(1, 1, 1), color=None, overlay=True)
+        doc.save(ruta)
+    assert any("tapado" in a for a in InspectorPdf().inspeccionar(ruta).alertas)
+
+
+def test_texto_blanco_sobre_fondo_negro_es_visible(tmp_path):
+    ruta = tmp_path / "contraste.pdf"
+    with pymupdf.open() as doc:
+        pagina = doc.new_page()
+        pagina.draw_rect(pymupdf.Rect(30, 50, 400, 100), fill=(0, 0, 0), color=None)
+        pagina.insert_text((40, 80), "FACTURA de prueba claramente visible", color=(1, 1, 1))
+        doc.save(ruta)
+    assert not any("oculto" in a or "no verificable" in a for a in InspectorPdf().inspeccionar(ruta).alertas)
+
+
+def test_unicode_de_formato_no_equivale_a_nota_oculta():
+    from upistas.adaptadores.lectores.pdf import _controles_fuera_de_campos
+
+    iban = "\u200b".join("ES1212341234123412341234")
+    assert _controles_fuera_de_campos("IBAN: " + iban) == []
+    assert _controles_fuera_de_campos("TOTAL: 2.\u200b637,80 EUR") == []
+    assert _controles_fuera_de_campos("Nota: Gra\u200bcias")
+    assert _controles_fuera_de_campos("IBAN: ES12\u202e12341234123412341234")
+
+
 @pytest.mark.skipif(not CAJA.exists(), reason="La Caja no está clonada")
 def test_la_caja_entera():
     ins = InspectorPdf()

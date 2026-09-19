@@ -49,11 +49,17 @@ def carpeta(tmp_path):
     return tmp_path
 
 
-def test_reprocesar_el_mismo_lote_no_duplica(dbos_lanzado):
-    a = pipeline.encolar_lecturas("test", [Path("x/factura_2.txt")])[0]
-    b = pipeline.encolar_lecturas("test", [Path("x/factura_2.txt")])[0]
+def test_reprocesar_el_mismo_lote_no_duplica(dbos_lanzado, tmp_path):
+    ruta = tmp_path / "valida.pdf"
+    with pymupdf.open() as pdf:
+        pagina = pdf.new_page()
+        pagina.insert_text((40, 40), "FACTURA FA-001\nNIF B12345678\nIBAN ES1212341234123412341234\nPedido PO-2026-0001\nFecha 15/01/2026\nBase 100,00\nIVA 21% 21,00\nTOTAL 121,00")
+        pdf.save(ruta)
+    a = pipeline.encolar_lecturas("test", [ruta])[0]
+    resultado = a.get_result()
+    b = pipeline.encolar_lecturas("test", [ruta])[0]
     assert a.get_workflow_id() == b.get_workflow_id()
-    assert a.get_result() == b.get_result()
+    assert resultado == b.get_result()
 
 
 def test_cli_unificada_con_pdf_excel_y_erp(dbos_lanzado, tmp_path, monkeypatch):

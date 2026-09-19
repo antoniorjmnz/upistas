@@ -66,6 +66,19 @@ class Nota:
 
 
 @dataclass(frozen=True)
+class EvaluacionNotas:
+    requiere_revision: bool
+    motivo: str
+    evidencia: str = ""
+    modelo: str = ""
+    version_prompt: str = ""
+    error: str = ""
+    desde_cache: bool = False
+    tokens_in: int = 0
+    tokens_out: int = 0
+
+
+@dataclass(frozen=True)
 class Factura:
     """Lo que se leyó de un documento.
 
@@ -95,6 +108,7 @@ class Factura:
     no_leidos: frozenset[str] = frozenset()
     sha256: str = ""
     errores_lectura: tuple[str, ...] = ()
+    evaluacion_notas: EvaluacionNotas | None = None
 
     def dudoso(self, campo: str) -> bool:
         return campo in self.no_leidos

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from upistas.contracts.factura_extraida import FacturaExtraida
-from upistas.dominio.modelos import Decision, Referencias, Resultado
+from upistas.dominio.modelos import Comprobacion, Decision, EvaluacionNotas, Referencias, Resultado
 from upistas.dominio.norma import Norma
 from upistas.puertos import DocumentoInspeccionado, Inspector, LecturaFallida, LectorDocumento
 
@@ -46,7 +46,8 @@ def leer_documento(ruta: Path, inspector: Inspector, lectores: Sequence[LectorDo
     return Lectura(doc, None, tuple(intentos))
 
 
-def decidir(file_id: str, lectura: Lectura | None, refs: Referencias | None, norma: Norma) -> Decision:
+def decidir(file_id: str, lectura: Lectura | None, refs: Referencias | None, norma: Norma,
+            evaluacion_notas: EvaluacionNotas | None = None) -> Decision:
     if lectura is None or lectura.extraida is None or refs is None:
         motivo = lectura.motivo_fallo if lectura else "sin lectura"
         return Decision(
@@ -54,8 +55,17 @@ def decidir(file_id: str, lectura: Lectura | None, refs: Referencias | None, nor
             resultado=Resultado.ESCALAR,
             motivo=f"No se pudo leer la factura ({motivo})",
             norma=norma.version,
+            comprobaciones=(Comprobacion("R0_lectura", False, motivo),),
             alertas=tuple(lectura.documento.alertas) if lectura else (),
         )
     extraida = lectura.extraida
-    decision = norma.evaluar(a_factura(extraida), refs)
+    if extraida.errores:
+        motivo = "; ".join(extraida.errores)
+        return Decision(file_id, Resultado.ESCALAR, motivo, norma.version,
+                        comprobaciones=(Comprobacion("R0_lectura", False, motivo),),
+                        pedido=extraida.campos.pedido.valor, alertas=tuple(lectura.documento.alertas))
+    factura = a_factura(extraida)
+    factura = replace(factura, evaluacion_notas=evaluacion_notas,
+                      alertas=tuple(dict.fromkeys((*factura.alertas, *lectura.documento.alertas))))
+    decision = norma.evaluar(factura, refs)
     return replace(decision, alertas=tuple(dict.fromkeys((*decision.alertas, *lectura.documento.alertas))))

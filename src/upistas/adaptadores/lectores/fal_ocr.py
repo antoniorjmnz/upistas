@@ -14,12 +14,17 @@ class FalOCR:
         with TemporaryDirectory(prefix="upistas-ocr-") as carpeta:
             ruta = Path(carpeta) / "pagina.png"
             ruta.write_bytes(imagen)
-            url = fal_client.upload_file(str(ruta))
-            respuesta = fal_client.subscribe(
-                "fal-ai/got-ocr/v2",
-                arguments={"input_image_urls": [url], "do_format": False, "multi_page": False},
-                with_logs=False,
-            )
+            try:
+                url = fal_client.upload_file(str(ruta))
+                respuesta = fal_client.subscribe(
+                    "fal-ai/got-ocr/v2",
+                    arguments={"input_image_urls": [url], "do_format": False, "multi_page": False},
+                    with_logs=False,
+                )
+            except Exception as exc:
+                raise LecturaFallida(f"API de imágenes no disponible: {type(exc).__name__}") from exc
+        if not isinstance(respuesta, dict):
+            raise LecturaFallida("Respuesta OCR inválida")
         textos = respuesta.get("outputs")
         if not isinstance(textos, list) or not textos or not all(isinstance(t, str) for t in textos):
             raise LecturaFallida("Respuesta OCR sin outputs de texto")

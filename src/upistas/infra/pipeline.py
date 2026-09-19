@@ -16,16 +16,20 @@ import platform
 import time
 import threading
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
+from uuid import uuid4
 
 from dbos import DBOS, DBOSConfig, SetWorkflowID, WorkflowHandle
 
 from upistas.aplicacion import lote as lote_app
+from upistas.aplicacion.mapeo import a_factura
 from upistas.aplicacion.referencias import construir_referencias
 from upistas.aplicacion.sincronizar_erp import sincronizar_erp
 from upistas.config import settings
+from upistas.dominio.modelos import EvaluacionNotas, Referencias
 from upistas.infra import contenedor, django_setup, lectura_acotada
 from upistas.puertos import DecisionGuardada, Ejecucion, RegistroLectura, Sincronizacion
 
@@ -107,11 +111,14 @@ def encolar_lecturas(lote: str, rutas: Sequence[Path]) -> list[WorkflowHandle]:
     cola = DBOS.retrieve_queue(COLA)
     handles = []
     firma = contenedor.huella_lectores()
+    fallidas = {r.file_id for r in contenedor.lecturas().del_lote(lote) if not r.leida or r.extraida.errores}
+    reintento = uuid4().hex
     for ruta in rutas:
         identificado = lectura_acotada.identificar(ruta)
         contenido = identificado.sha256 or f"no_legible:{identificado.bytes}"
         identidad = hashlib.sha256(f"{ruta.resolve()}:{contenido}".encode()).hexdigest()
-        with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{firma}:{lote}:{ruta.name}:{identidad}"):
+        sufijo = f":reintento:{reintento}" if ruta.name in fallidas else ""
+        with SetWorkflowID(f"lectura:{VERSION_LECTURA}:{firma}:{lote}:{ruta.name}:{identidad}{sufijo}"):
             handles.append(cola.enqueue(leer_documento, lote, ruta.name, str(ruta)))
     return handles
 
@@ -138,9 +145,35 @@ def hardware() -> dict:
     return {"sistema": platform.system(), "maquina": platform.machine(), "nucleos": os.cpu_count(), "python": platform.python_version()}
 
 
+def evaluar_notas(lecturas: Sequence[RegistroLectura], refs: Referencias) -> dict[str, EvaluacionNotas]:
+    pendientes = [r for r in lecturas if r.extraida and not r.extraida.errores
+                  and any(n.texto.strip() for n in (r.extraida.notas or []))]
+    if not pendientes:
+        return {}
+    try:
+        evaluador = contenedor.evaluador_notas()
+    except Exception as exc:
+        motivo = f"Evaluador de notas no disponible: {type(exc).__name__}"
+        return {r.file_id: EvaluacionNotas(True, motivo, error=motivo) for r in pendientes}
+
+    def valorar(registro):
+        try:
+            factura = a_factura(registro.extraida)
+            factura = replace(factura, alertas=tuple(dict.fromkeys((*factura.alertas, *registro.alertas))))
+            resultado = evaluador.evaluar(factura, refs)
+        except Exception as exc:
+            motivo = f"Fallo al evaluar notas: {type(exc).__name__}"
+            resultado = EvaluacionNotas(True, motivo, error=motivo)
+        return registro.file_id, resultado
+
+    with ThreadPoolExecutor(max_workers=max(1, min(4, contenedor.settings.concurrencia))) as trabajadores:
+        return dict(trabajadores.map(valorar, pendientes))
+
+
 def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincronizar: bool = True,
                   progreso: Callable[[int, int], None] | None = None) -> Informe:
     avisos: list[str] = []
+    _fallos_lectura.clear()
     sinc = None
     if sincronizar or contenedor.settings.erp_snapshot is not None:
         sinc = sincronizar_erp(contenedor.cliente_erp(), contenedor.almacen_erp())
@@ -173,9 +206,12 @@ def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincroni
         ultima.version or "", repo_dec.pedidos_aprobados(excepto_lote=lote),
         repo_dec.hashes_aprobados(excepto_lote=lote),
     )
-    decisiones = lote_app.decidir_lote(lecturas, refs, contenedor.norma(version_norma))
+    t_notas = time.perf_counter()
+    evaluaciones = evaluar_notas(lecturas, refs)
+    segundos_notas = time.perf_counter() - t_notas
+    decisiones = lote_app.decidir_lote(lecturas, refs, contenedor.norma(version_norma), evaluaciones)
     repo_dec.guardar_decisiones(ejecucion.id, decisiones)
-    segundos_decision = time.perf_counter() - t1
+    segundos_decision = time.perf_counter() - t1 - segundos_notas
 
     anterior = next((e for e in repo_dec.ejecuciones(lote) if e.id != ejecucion.id and e.estado == "terminada"), None)
     cambios = lote_app.comparar(repo_dec.decisiones(anterior.id), decisiones) if anterior else []
@@ -185,6 +221,11 @@ def procesar_lote(lote: str, rutas: Sequence[Path], version_norma: str, sincroni
         "segundos_lectura": round(segundos_lectura, 2), "segundos_decision": round(segundos_decision, 2),
         "leidos_ahora": sum(1 for r in resultados if not r.get("cache")), "desde_cache": sum(1 for r in resultados if r.get("cache")),
         "cambios_respecto_anterior": len(cambios), "ejecucion_anterior": anterior.id if anterior else None,
+        "segundos_notas": round(segundos_notas, 2),
+        "notas_evaluadas": len(evaluaciones), "notas_desde_cache": sum(e.desde_cache for e in evaluaciones.values()),
+        "notas_fallidas": sum(bool(e.error) for e in evaluaciones.values()),
+        "tokens_notas_in": sum(e.tokens_in for e in evaluaciones.values()),
+        "tokens_notas_out": sum(e.tokens_out for e in evaluaciones.values()),
     })
     ejecucion = repo_dec.terminar_ejecucion(ejecucion.id, resumen)
     return Informe(ejecucion, decisiones, lecturas, sinc, anterior, cambios, segundos_lectura, segundos_decision,

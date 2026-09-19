@@ -29,7 +29,7 @@ from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
 from upistas.dominio.versiones import version_asientos
 from upistas.infra import django_setup
-from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, Inspector, RepositorioDecisiones, RepositorioLecturas
+from upistas.puertos import AlmacenERP, ClienteERP, EvaluadorNotas, FuenteERP, FuenteMaestro, Inspector, RepositorioDecisiones, RepositorioLecturas
 
 
 @cache
@@ -103,6 +103,13 @@ def decisiones() -> RepositorioDecisiones:
     return RepositorioDecisionesDjango()
 
 
+def evaluador_notas() -> EvaluadorNotas:
+    from upistas.adaptadores.notas_helmcode import EvaluadorNotasHelmcode
+
+    return EvaluadorNotasHelmcode(settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_notas,
+                                 timeout=settings.notas_timeout_s, cache_dir=settings.outputs_dir / "notas")
+
+
 @cache
 def norma(version: str) -> Norma:
     return Norma.desde_toml(ROOT / "normas" / f"{version}.toml")
@@ -129,6 +136,8 @@ def configurar(nuevos: Settings) -> None:
     global settings
     if not math.isfinite(nuevos.lectura_timeout_s) or nuevos.lectura_timeout_s <= 0:
         raise ValueError("LECTURA_TIMEOUT_S debe ser un número positivo y finito")
+    if not math.isfinite(nuevos.notas_timeout_s) or nuevos.notas_timeout_s <= 0:
+        raise ValueError("NOTAS_TIMEOUT_S debe ser un número positivo y finito")
     settings = nuevos
     for funcion in (inspector, lectores, maestro, erp, cliente_erp, almacen_erp, lecturas, decisiones, norma, referencias, huella_lectores):
         funcion.cache_clear()

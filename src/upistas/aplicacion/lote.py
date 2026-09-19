@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 
 from upistas.dominio.duplicados import resolver_duplicados
-from upistas.dominio.modelos import Comprobacion, Decision, Factura, Referencias, Resultado
+from upistas.dominio.modelos import Comprobacion, Decision, EvaluacionNotas, Factura, Referencias, Resultado
 from upistas.dominio.norma import Norma
 from upistas.puertos import DecisionGuardada, RegistroLectura
 
@@ -29,16 +29,21 @@ def consolidar_lote(outcomes: list[dict], facturas: Mapping[str, Factura] | None
             for original, d in zip(outcomes, resolver_duplicados(decisiones, facturas, hashes_aprobados))]
 
 
-def decidir_lote(lecturas: Sequence[RegistroLectura], refs: Referencias, norma: Norma) -> list[DecisionGuardada]:
+def decidir_lote(lecturas: Sequence[RegistroLectura], refs: Referencias, norma: Norma,
+                 evaluaciones: Mapping[str, EvaluacionNotas] | None = None) -> list[DecisionGuardada]:
     """Rápido y determinista: las reglas no hablan con nadie. Se puede repetir cuantas veces haga falta."""
     salida = []
+    evaluaciones = evaluaciones or {}
     for r in sorted(lecturas, key=lambda x: x.file_id):
         lectura = procesar.Lectura(documento=r.documento(), extraida=r.extraida, intentos=r.intentos)
-        d = procesar.decidir(r.file_id, lectura, refs, norma)
+        evaluacion = evaluaciones.get(r.file_id)
+        d = procesar.decidir(r.file_id, lectura, refs, norma, evaluacion)
         if r.sha256:
             d = replace(d, comprobaciones=d.comprobaciones + (Comprobacion("D0_sha256", True, r.sha256),))
         outcome = a_outcome(d, refs.version_datos, r.metodo)
-        notas = tuple({"texto": n.texto, "categorias": [c.value for c in n.categorias]} for n in (r.extraida.notas or [])) if r.extraida else ()
+        notas = tuple({"texto": n.texto, "categorias": [c.value for c in n.categorias],
+                       "evaluacion": asdict(evaluacion) if evaluacion else None}
+                      for n in (r.extraida.notas or [])) if r.extraida else ()
         salida.append(
             DecisionGuardada(
                 file_id=r.file_id, resultado=d.resultado.value, motivo=d.motivo, pedido=d.pedido,

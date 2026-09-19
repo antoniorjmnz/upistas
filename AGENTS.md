@@ -58,4 +58,5 @@ Qué cambia y por qué. Si algo afecta a los resultados, dilo en una frase.
 - `--timeout-lectura <segundos>` o `LECTURA_TIMEOUT_S` limita cada lectura a 300 segundos por defecto; al vencer, se detiene su proceso y se escala el documento sin bloquear el lote. Los criterios detallados y prioridades están en `docs/adr/002-criterio.md`.
 - Para OCR: `uv run --extra ocr upistas run ... --ocr`, con `FAL_KEY` en el entorno. Este modo envía las páginas escaneadas a Fal y consume créditos; los tests lo simulan.
 - Las trazas y la caché de lectura se guardan en `outputs/extracciones/`, por hash del PDF y versión del extractor. No se versionan.
+- Las notas detectadas se evalúan con Helmcode usando `HELMCODE_API_KEY`, `MODELO_NOTAS` y `NOTAS_TIMEOUT_S`. Sin notas no hay llamada. Solo una nota inequívocamente irrelevante deja seguir a las reglas; relevancia, duda o fallo de API obliga a ESCALAR, incluso ante ERP PAGADA. La caché válida se guarda en `outputs/notas/`; no se guardan fallos como éxitos.
 - Verificación de la integración: `uv run pytest` y `uv run python scripts/check.py`.
