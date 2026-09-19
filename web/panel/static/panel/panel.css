@@ -248,3 +248,9 @@ dialog.visor iframe { display: block; width: 100%; height: calc(92vh - 57px); bo
   .fila .accion, .fila-factura .accion { grid-row: auto; grid-column: 2; }
   .fila .porque, .fila-factura .porque { grid-column: 2; }
 }
+
+/* Remates que pidieron las pantallas */
+.tarjeta > details.mas:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.factura-cola .fila, .factura-cola .fila-factura { border-bottom: 0; padding-bottom: 4px; }
+.quien-factura { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+td.porque { max-width: 42ch; }
