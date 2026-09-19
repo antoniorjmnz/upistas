@@ -94,6 +94,7 @@ _ICONOS = {
     "mas": '<path d="M12 5v14M5 12h14"/>',
     "editar": '<path d="M4 20h4l11-11-4-4L4 16z"/><path d="M13 7l4 4"/>',
     "papelera": '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    "filtro": '<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
 }
 
 

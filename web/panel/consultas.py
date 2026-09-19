@@ -160,3 +160,48 @@ def motivo_corto(decision: Decision) -> str:
     if not fallan:
         return "Cumple la norma" if decision.resultado == "PAGAR" else "Hay dudas con los datos"
     return MOTIVO_CORTO.get(fallan[0].get("id", ""), fallan[0].get("detalle") or "Hay dudas con los datos")
+
+
+# --- Filtrar por proveedor e importe: lo mismo en Facturas y en Para revisar -------------------
+
+
+def proveedores_para_filtro() -> list[tuple[str, str]]:
+    """(código, nombre) de los proveedores del maestro, por nombre, para el desplegable."""
+    from web.panel.models import Proveedor
+
+    return list(Proveedor.objects.order_by("nombre").values_list("codigo", "nombre"))
+
+
+def importe_o_nada(texto: str | None):
+    """'1.200' o '1200,50' → Decimal; vacío o raro → None (no se filtra por eso)."""
+    from upistas.dominio.importes import parse_importe
+
+    if not texto or not str(texto).strip():
+        return None
+    try:
+        return parse_importe(str(texto).strip())
+    except Exception:
+        return None
+
+
+def filtrar_decisiones(qs: QuerySet[Decision], proveedor: str = "", desde=None, hasta=None) -> QuerySet[Decision]:
+    """Deja solo las decisiones de ese proveedor (por sus pedidos o por el NIF leído) y entre esos importes."""
+    from django.db.models import Q
+
+    from web.panel.models import Proveedor
+
+    if proveedor:
+        p = Proveedor.objects.filter(codigo=proveedor).first()
+        if p is None:
+            return qs.none()
+        pedidos = list(p.pedidos.values_list("numero", flat=True))
+        con_su_nif = Lectura.objects.filter(extraida__campos__nif__valor=p.nif).values("sha256")
+        qs = qs.filter(Q(pedido__in=pedidos) | Q(documento__sha256__in=con_su_nif))
+    if desde is not None or hasta is not None:
+        lecturas = Lectura.objects.all()
+        if desde is not None:
+            lecturas = lecturas.filter(extraida__campos__total__valor__gte=float(desde))
+        if hasta is not None:
+            lecturas = lecturas.filter(extraida__campos__total__valor__lte=float(hasta))
+        qs = qs.filter(documento__sha256__in=lecturas.values("sha256"))
+    return qs
