@@ -24,7 +24,7 @@
   visor.addEventListener("close", function () { marco.src = "about:blank"; });
 })();
 
-/* Preguntar: el panel lateral que hay en todas las pantallas y lo común con la pantalla entera. */
+/* Preguntar: el panel lateral que hay en todas las pantallas (menos en /preguntar/) y lo común con la pantalla entera. */
 (function () {
   var panel = document.getElementById("asistente");
   var botones = document.querySelectorAll("[data-abrir-asistente]");
@@ -63,10 +63,9 @@
         if (abierto) { cerrar(); } else { abrir(); }
       });
     });
+    // «No» en una propuesta es un envío normal del formulario (rechazar=1): la sesión la olvida.
     document.addEventListener("click", function (e) {
       if (e.target.closest("[data-cerrar-asistente]")) { cerrar(); }
-      var no = e.target.closest("[data-descartar]");
-      if (no) { var tarjeta = no.closest(".propuesta"); if (tarjeta) { tarjeta.remove(); } }
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && abierto) { cerrar(); }

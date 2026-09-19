@@ -5,10 +5,17 @@ y devuelve una tarjeta con un token firmado (django.core.signing, caduca a los 1
 hasta que Alberto pulsa «Confirmar»: entonces la vista lee el token (`leer_token`) y llama a `ejecutar`,
 que vuelve a comprobar que el tipo está en la lista blanca y deja la fila en `AccionAsistente`.
 
+Cada propuesta es de un solo uso: el token lleva un `nonce` que la vista guarda en la sesión como
+pendiente y borra al confirmar o descartar; además queda en `AccionAsistente.datos`, así que reenviar el
+mismo token dentro de sus diez minutos no repite nada (`ya_hecha`).
+
 Fuera de la lista, y por tanto imposibles aunque el token venga firmado: pagar o no pagar una factura,
 crear o borrar proveedores o pedidos, subir o repasar lotes y tocar el ERP.
 """
 from __future__ import annotations
+
+import logging
+import secrets
 
 from django.core import signing
 from django.urls import reverse
@@ -19,6 +26,7 @@ from web.panel.models import AccionAsistente, Decision, Pedido
 CADUCIDAD_S = 10 * 60
 MAX_TEXTO = 500
 _SAL = "asistente.accion"
+log = logging.getLogger(__name__)
 
 # Lista blanca: solo estos tipos existen. Quien no está aquí no se propone ni se ejecuta.
 TIPOS = {
@@ -79,17 +87,32 @@ def _normalizar(tipo: str, datos: dict) -> dict:
     return {"lote": decision.documento.lote, "file_id": decision.documento.file_id, "comentario": _texto(datos, "comentario")}
 
 
-def firmar(tipo: str, datos: dict) -> str:
-    return signing.dumps({"tipo": tipo, "datos": datos}, salt=_SAL)
+def firmar(tipo: str, datos: dict, nonce: str) -> str:
+    return signing.dumps({"tipo": tipo, "datos": datos, "nonce": nonce}, salt=_SAL)
 
 
-def leer_token(token: str) -> tuple[str, dict]:
-    """El tipo y los datos que se firmaron. Lanza signing.BadSignature (o SignatureExpired) si no valen."""
+def leer_token(token: str) -> tuple[str, dict, str]:
+    """El tipo, los datos y el nonce que se firmaron. Lanza signing.BadSignature (o SignatureExpired) si no valen."""
     carga = signing.loads(token, salt=_SAL, max_age=CADUCIDAD_S)
-    tipo, datos = carga.get("tipo"), carga.get("datos")
-    if tipo not in TIPOS or not isinstance(datos, dict):
+    tipo, datos, nonce = carga.get("tipo"), carga.get("datos"), carga.get("nonce")
+    if tipo not in TIPOS or not isinstance(datos, dict) or not isinstance(nonce, str) or not nonce:
         raise signing.BadSignature("el token no lleva una acción de la lista")
-    return tipo, datos
+    return tipo, datos, nonce
+
+
+def nonce_de(token: str) -> str | None:
+    """El nonce de un token firmado por nosotros, caducado o no; None si está manipulado. Para descartar."""
+    try:
+        carga = signing.loads(token, salt=_SAL)
+    except signing.BadSignature:
+        return None
+    nonce = carga.get("nonce") if isinstance(carga, dict) else None
+    return nonce if isinstance(nonce, str) and nonce else None
+
+
+def ya_hecha(nonce: str) -> bool:
+    """Si esa propuesta ya se confirmó alguna vez: la fila del registro lleva su nonce."""
+    return AccionAsistente.objects.filter(datos__nonce=nonce).exists()
 
 
 def proponer(tipo: str, datos: dict | None) -> dict:
@@ -98,19 +121,25 @@ def proponer(tipo: str, datos: dict | None) -> dict:
         limpios = _normalizar(str(tipo or ""), dict(datos or {}))
     except AccionInvalida as e:
         return {"error": str(e)}
+    nonce = secrets.token_urlsafe(16)
     return {
         "propuesta": {
             "tipo": tipo,
             "datos": limpios,
             "descripcion": TIPOS[tipo].format(**limpios),
-            "token": firmar(tipo, limpios),
+            "nonce": nonce,
+            "token": firmar(tipo, limpios, nonce),
         },
         "aviso": "No se ha hecho nada todavía: Alberto tiene que pulsar Confirmar en la tarjeta que ve.",
     }
 
 
-def ejecutar(tipo: str, datos: dict) -> AccionAsistente:
-    """La acción confirmada por Alberto. Solo desde la vista de confirmación, con el token ya comprobado."""
+def ejecutar(tipo: str, datos: dict, nonce: str = "") -> AccionAsistente:
+    """La acción confirmada por Alberto. Solo desde la vista de confirmación, con el token ya comprobado.
+
+    Siempre deja fila: si algo falla, con ok=False y un resultado llano. El nonce va en los datos para que
+    la misma propuesta no se pueda hacer dos veces.
+    """
     if tipo not in TIPOS:
         raise AccionInvalida(f"la acción «{tipo}» no está en la lista")
     try:
@@ -119,6 +148,11 @@ def ejecutar(tipo: str, datos: dict) -> AccionAsistente:
         ok = True
     except AccionInvalida as e:
         limpios, resultado, ok = dict(datos), f"No se pudo: {e}", False
+    except Exception:  # un fallo inesperado no rompe la pantalla: queda registrado y se le dice
+        log.exception("La acción %s del asistente ha fallado", tipo)
+        limpios, resultado, ok = dict(datos), "No se pudo: ha fallado algo al hacerlo. Pruebe otra vez o hágalo desde la pantalla.", False
+    if nonce:
+        limpios = {**limpios, "nonce": nonce}
     return AccionAsistente.objects.create(tipo=tipo, datos=limpios, resultado=resultado, ok=ok)
 
 
