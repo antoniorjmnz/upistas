@@ -39,6 +39,14 @@ Arriba en la barra lateral, las de Alberto:
   motivo) y el detalle de cada una con toda su traza: qué dice la norma regla a regla, lo que leímos con
   su confianza y su página, el texto de la factura que no decide, los avisos del fichero, cómo se leyó
   y cuánto costó, el historial en todas las ejecuciones y el PDF original.
+- **Proveedores**: el maestro de Alberto, que antes vivía en su Excel ([ADR-004](adr/004-maestro-propio.md)).
+  La lista, con buscador por nombre, NIF o código, dice de cada proveedor su cuenta de siempre, cuántos
+  pedidos tiene y cuántos ha marcado para mirar; su ficha enseña sus datos, sus pedidos y las facturas
+  suyas del último repaso. Se da de alta un proveedor o un pedido con un formulario corto que no deja
+  meter basura: el NIF con su formato, el IBAN sin espacios ni caracteres invisibles, el importe mayor
+  que cero y el número de pedido `PO-AAAA-NNNN`. El maestro de La Caja entró con
+  `uv run python manage.py importar_maestro [--excel RUTA]`, que lee el Excel con el adaptador de
+  siempre y lo vuelca en las tablas (11 proveedores y 516 pedidos); se puede repetir sin duplicar nada.
 - **Para revisar**: la cola de lo escalado, agrupada por motivo. Alberto decide Pagar o No pagar con un
   comentario. Queda guardado aparte (`RevisionHumana`), no toca lo que calculó el sistema, y si dice
   Pagar el pedido cuenta como pagado para los lotes siguientes.
