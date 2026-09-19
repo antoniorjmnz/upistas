@@ -57,14 +57,5 @@ def decidir(file_id: str, lectura: Lectura | None, refs: Referencias | None, nor
             alertas=tuple(lectura.documento.alertas) if lectura else (),
         )
     extraida = lectura.extraida
-    if extraida.errores:
-        return Decision(
-            file_id=file_id,
-            resultado=Resultado.ESCALAR,
-            motivo="; ".join(extraida.errores),
-            norma=norma.version,
-            pedido=extraida.campos.pedido.valor,
-            alertas=tuple(lectura.documento.alertas),
-        )
     decision = norma.evaluar(a_factura(extraida), refs)
     return replace(decision, alertas=tuple(dict.fromkeys((*decision.alertas, *lectura.documento.alertas))))

@@ -62,5 +62,8 @@ def erp_pendiente(factura, refs, params):
 @regla("R5_no_pagada")
 def no_pagada(factura, refs, params):
     asiento = refs.asientos.get(factura.pedido)
-    pagada = asiento is not None and asiento.estado == "PAGADA"
-    return Comprobacion("R5_no_pagada", not pagada, "Pedido ya pagado en el ERP" if pagada else "")
+    if asiento is not None and asiento.estado == "PAGADA":
+        return Comprobacion("R5_no_pagada", False, "Pedido ya pagado en el ERP")
+    if factura.pedido and factura.pedido in refs.pedidos_ya_decididos:
+        return Comprobacion("R5_no_pagada", False, "Pedido ya aprobado en otro lote")
+    return Comprobacion("R5_no_pagada", True)

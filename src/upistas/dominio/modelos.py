@@ -93,6 +93,8 @@ class Factura:
     metodo: str = "texto_determinista"  # texto_determinista | texto_llm | vision_llm | ninguno
     ausentes: frozenset[str] = frozenset()
     no_leidos: frozenset[str] = frozenset()
+    sha256: str = ""
+    errores_lectura: tuple[str, ...] = ()
 
     def dudoso(self, campo: str) -> bool:
         return campo in self.no_leidos
@@ -121,6 +123,8 @@ class Referencias:
     marcados_por_alberto: frozenset[str] = frozenset()  # hoja pendiente_revisar del Excel
     facturas_del_lote: Mapping[str, tuple[FacturaResumen, ...]] = field(default_factory=dict)  # por pedido
     version_datos: str = ""  # con qué copia del ERP y del Excel se decidió
+    proveedores_por_id: dict[str, Proveedor] = field(default_factory=dict)
+    hashes_ya_aprobados: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)

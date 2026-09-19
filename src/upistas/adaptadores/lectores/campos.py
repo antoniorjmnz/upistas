@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from upistas.contracts.factura_extraida import FacturaExtraida
 from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_importe
+from upistas.dominio.notas import clasificar, normalizar
 
 INVISIBLE = r"[\u200b\ufeff]*"
 DIGITO = rf"\d{INVISIBLE}"
@@ -21,9 +22,34 @@ def etiqueta(palabra: str) -> str:
     return r"(?<!\w)" + r"[ \t]*".join(palabra) + r"(?!\w)"
 
 
+def separar_notas(texto: str) -> tuple[str, list[str]]:
+    datos, notas, actual = [], [], []
+    tras_total = final = False
+    for linea in texto.splitlines():
+        normal = normalizar(linea)
+        categorias = clasificar(linea)
+        dato = bool(re.match(r"^(?:nif|cif|iban|cuenta|factura|invoice|fecha|pedido|ref|po|base|subtotal|iva|total|importe|cuota|cliente|bill to|proveedor)\b", normal))
+        inicio = bool(re.match(r"^(?:notas?|observaci(?:on|ones)|aviso|comentario|instrucciones?|condiciones de pago)\b", normal))
+        afirmacion = bool(re.search(r"\b(?:pedido|proveedor)\b.{0,50}(?:anulad|cancelad|en revision)|\biban\b.{0,50}\bno coincide", normal))
+        inicio = inicio or "pide_saltar_regla" in categorias or afirmacion or (categorias != ("otra",) and not dato)
+        if final or inicio or (actual and not dato):
+            final = final or (tras_total and inicio)
+            actual.append(linea)
+        else:
+            if actual:
+                notas.append("\n".join(actual).strip())
+                actual = []
+            datos.append(linea)
+            tras_total = tras_total or bool(re.match(r"^total\b", normal))
+    if actual:
+        notas.append("\n".join(actual).strip())
+    return "\n".join(datos), [n for n in notas if n]
+
+
 def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = None) -> FacturaExtraida:
     candidatos = defaultdict(list)
     errores = []
+    notas = []
 
     def guardar(campo, valor, original):
         candidatos[campo].append((valor, original))
@@ -31,7 +57,16 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
     for pagina in paginas:
         if pagina.get("error"):
             errores.append(f"Página {pagina['page']}: {pagina['error']}")
-        texto = pagina.get("text", "").replace("\u2013", "-").replace("\u2014", "-")
+        original = pagina.get("text", "")
+        if len(original) > 2_000_000:
+            errores.append(f"Página {pagina['page']}: texto demasiado extenso")
+            continue
+        texto, encontradas = separar_notas(original)
+        for nota in encontradas:
+            if len(nota) > 16384:
+                errores.append("Nota demasiado extensa para procesarla automáticamente")
+            notas.append({"texto": nota[:16385], "categorias": list(clasificar(nota[:16385]))})
+        texto = texto.replace("\u2013", "-").replace("\u2014", "-")
         cliente = False
         for linea in texto.splitlines():
             if re.search(r"\b(?:CLIENTE|DESTINATARIO|FACTURAR\s+A|BILL\s+TO)\b", linea, re.I):
@@ -96,6 +131,7 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
             "paginas": len(paginas),
         },
         "campos": campos,
+        "notas": notas,
         "checks": {},
         "errores": errores,
         "coste": {"modelo": "fal-ai/got-ocr/v2"} if any(p["route"] == "fal_ocr" for p in paginas) else None,

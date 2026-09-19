@@ -55,6 +55,8 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         metodo=extraida.metodo.value,
         ausentes=frozenset(ausentes),
         no_leidos=frozenset(no_leidos),
+        sha256=extraida.documento.sha256,
+        errores_lectura=tuple(extraida.errores or []),
     )
 
 
