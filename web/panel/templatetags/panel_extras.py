@@ -54,3 +54,11 @@ def confianza(extraida: dict | None, nombre: str) -> float | None:
 def clave(diccionario: dict | None, nombre: str):
     """Acceso a una clave con nombre dinámico: {{ resumen|clave:"PAGAR" }}."""
     return (diccionario or {}).get(nombre)
+
+
+@register.filter
+def regla(id_regla: str) -> str:
+    """El nombre de una regla en palabras de Alberto: {{ r.id|regla }}."""
+    from web.panel.consultas import nombre_regla
+
+    return nombre_regla(id_regla)
