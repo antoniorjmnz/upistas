@@ -1,13 +1,17 @@
 # Norma de pagos v3 (hoja Norma_Pagos_v3 del Excel de Alberto).
-# Cada regla: qué resultado provoca si falla. Si fallan varias, gana la más restrictiva
-# (NO_PAGAR > ESCALAR > PAGAR). Las reglas viven en src/upistas/dominio/reglas/.
+# Cada regla: qué resultado provoca si falla. Si fallan varias gana la de mayor prioridad, y a
+# igual prioridad la más restrictiva (NO_PAGAR > ESCALAR > PAGAR).
+# Escalones: 400 no se puede verificar · 350 incumplimiento probado · 300 revisión por el
+# contenido del documento · 100 pago previo · 50 avisos. Reglas en src/upistas/dominio/reglas/.
 version = "v3"
 
 [reglas.R1_nif_iban]
-si_falla = "ESCALAR"
+si_falla = "NO_PAGAR"
+prioridad = 350
 
 [reglas.R2_pedido_importe]
-si_falla = "ESCALAR"
+si_falla = "NO_PAGAR"
+prioridad = 350
 [reglas.R2_pedido_importe.params]
 tolerancia = "0.01"
 
@@ -41,6 +45,10 @@ prioridad = 400
 si_falla = "ESCALAR"
 prioridad = 400
 
+[reglas.R6_maestro_verificable]
+si_falla = "ESCALAR"
+prioridad = 400
+
 [reglas.R6_proveedor_referencias]
 si_falla = "ESCALAR"
 prioridad = 50
@@ -57,13 +65,7 @@ prioridad = 300
 si_falla = "ESCALAR"
 prioridad = 300
 
-# 4. La fecha debe ser válida y no futura.
+# Una fecha inválida y una ilegible acaban las dos sin valor, así que R0_lectura (400) escala
+# antes de que esta regla pueda distinguirlas. Hasta que la lectura las separe, se queda en ESCALAR.
 [reglas.R4_fecha]
 si_falla = "ESCALAR"
-
-# Pendientes de implementar (issue del motor de reglas):
-# 1. NIF en el maestro y IBAN coincide            → R1_nif_iban
-# 2. Pedido existe, es del proveedor, importe ±0,01 → R2_pedido_importe
-# 3. IVA bien calculado y total = base + IVA       → R3_iva_total
-# 5. Pedido PENDIENTE en ERP, nunca pagar dos veces → R5_erp_pendiente
-# 6. Ante duda razonable, ESCALAR                 → implícito: lectura dudosa = ESCALAR
