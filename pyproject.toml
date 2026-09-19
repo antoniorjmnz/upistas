@@ -38,7 +38,7 @@ packages = ["src/upistas", "web"]
 testpaths = ["tests"]
 addopts = "-q"
 pythonpath = ["."]
-DJANGO_SETTINGS_MODULE = "web.settings"
+DJANGO_SETTINGS_MODULE = "web.settings_test"
 
 # Fronteras entre capas. `lint-imports` falla si alguien las cruza (lo ejecuta check.py y la CI).
 [tool.importlinter]

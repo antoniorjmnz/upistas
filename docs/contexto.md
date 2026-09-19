@@ -52,6 +52,7 @@ necesaria para el flujo principal.
 - **IA**: Helmcode (servidores en la UE, tarifa plana). `qwen3.6` para escaneos, `glm5.3` para texto. La clave va en tu `.env`; pídela por privado.
 - **La norma es un fichero** (`normas/v3.toml`). La v4 del sábado será otro fichero.
 - **Cada factura es un workflow duradero**: si el proceso se cae, al arrancar sigue donde iba sin repetir nada.
+- **Una sola base de datos** (`DATABASE_URL` en `.env`): la app y el estado del pipeline. SQLite en local; Postgres (`docker compose up -d`) para varios procesos.
 
 ## Cómo está el código
 Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X" en

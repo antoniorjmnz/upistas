@@ -21,7 +21,7 @@ from upistas.infra import contenedor
 
 COLA = "documentos"
 
-_config: DBOSConfig = {"name": "upistas", "system_database_url": settings.database_url}
+_config: DBOSConfig = {"name": "upistas", "system_database_url": settings.dbos_url}
 DBOS(config=_config)
 
 
