@@ -32,4 +32,12 @@ def decidir(file_id: str, extraida: FacturaExtraida | None, refs: Referencias, n
             motivo="Ningún lector pudo extraer la factura",
             norma=norma.version,
         )
+    if extraida.errores:
+        return Decision(
+            file_id=file_id,
+            resultado=Resultado.ESCALAR,
+            motivo="; ".join(extraida.errores),
+            norma=norma.version,
+            pedido=extraida.campos.pedido.valor,
+        )
     return norma.evaluar(a_factura(extraida), refs)

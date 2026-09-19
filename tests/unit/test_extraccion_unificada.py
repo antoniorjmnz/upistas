@@ -1,0 +1,246 @@
+from pathlib import Path
+
+import pymupdf
+import pytest
+
+from upistas.adaptadores.lectores.campos import extraer_campos
+from upistas.adaptadores.lectores.pdf_unificado import LectorPdfUnificado
+from upistas.puertos import LecturaFallida
+
+TEXTO = """FACTURA FA-1001
+Proveedor Demo SL
+NIF B12345678
+Cliente: Cliente SL CIF A87654321
+Fecha 15 de enero de 2026
+Pedido PO-2026-0001
+IBAN ES12 1234 1234 1234 1234 1234
+Base imponible 100,00 EUR
+IVA 21% 21,00 EUR
+TOTAL 121,00 EUR
+"""
+
+
+def extraer(texto=TEXTO):
+    return extraer_campos("a.pdf", [{"page": 1, "route": "native_text", "text": texto}])
+
+
+def test_combina_identificadores_del_auditor_y_campos_trazables():
+    factura = extraer()
+    assert factura.campos.nif.valor == "B12345678"
+    assert factura.campos.iban.valor == "ES1212341234123412341234"
+    assert factura.campos.pedido.valor == "PO-2026-0001"
+    assert factura.campos.numero_factura.valor == "FA-1001"
+    assert factura.campos.fecha.valor == "2026-01-15"
+    assert factura.campos.base.valor == 100
+    assert factura.campos.iva.valor == 21
+    assert factura.campos.total.valor == 121
+    assert "121,00" in factura.campos.total.fuente
+    assert factura.errores == []
+
+
+@pytest.mark.parametrize("etiqueta", ["Base", "Base imponible", "Subtotal", "B a s e"])
+def test_etiquetas_de_ambos_parsers(etiqueta):
+    factura = extraer(TEXTO.replace("Base imponible", etiqueta))
+    assert factura.campos.base.valor == 100
+    assert factura.campos.total.valor == 121
+
+
+@pytest.mark.parametrize("numero", ["1,210.00", "1.210,00", "1.210.00", "1 210,00"])
+def test_formatos_de_importe(numero):
+    assert extraer(TEXTO.replace("121,00", numero)).campos.total.valor == 1210
+
+
+@pytest.mark.parametrize("separador", ["....................", " : ", " = ", " # "])
+def test_importes_con_separadores_admitidos_por_el_auditor(separador):
+    texto = f"BASE IMPONIBLE{separador}100,00\nIVA (21%){separador}21,00\nTOTAL{separador}121,00"
+    campos = extraer(texto).campos
+    assert campos.base.valor == 100
+    assert campos.iva_pct.valor == 21
+    assert campos.iva.valor == 21
+    assert campos.total.valor == 121
+
+
+@pytest.mark.parametrize("etiqueta_iva", ["I.V.A.", "I V A", "IVA"])
+def test_notaciones_iva_de_ambos_originales(etiqueta_iva):
+    campos = extraer(TEXTO.replace("IVA", etiqueta_iva)).campos
+    assert campos.iva_pct.valor == 21
+    assert campos.iva.valor == 21
+
+
+def test_separadores_no_consumen_signo_del_importe():
+    campos = extraer("Base.... -100,00\nIVA (21%).... -21,00\nTOTAL.... -121,00").campos
+    assert campos.base.valor == -100
+    assert campos.iva.valor == -21
+    assert campos.total.valor == -121
+
+
+def test_no_lee_importe_de_otro_campo_si_falta_el_total():
+    assert extraer("TOTAL:\nBase: 100,00\nIVA 21% 21,00").campos.total.valor is None
+
+
+def test_no_pierde_signo_negativo():
+    assert extraer(TEXTO.replace("TOTAL 121,00", "TOTAL -121,00")).campos.total.valor == -121
+
+
+def test_iban_con_separadores_invisibles():
+    texto = TEXTO.replace("ES12 1234", "ES12\u200b1234")
+    assert extraer(texto).campos.iban.valor == "ES1212341234123412341234"
+
+
+def test_iban_con_invisibles_entre_todos_los_caracteres():
+    iban = "ES12 1234 1234 1234 1234 1234"
+    texto = TEXTO.replace(iban, "\u200b".join(iban))
+    assert extraer(texto).campos.iban.valor == "ES1212341234123412341234"
+
+
+def test_facturar_a_es_el_cliente_no_el_emisor():
+    factura = extraer(TEXTO.replace("Cliente: Cliente SL", "Facturar a: Empresa SL"))
+    assert factura.campos.nif.valor == "B12345678"
+    assert factura.errores == []
+
+
+def test_bill_to_identifica_cliente_y_no_proveedor():
+    factura = extraer(TEXTO.replace("Cliente: Cliente SL", "Bill to: Empresa SL"))
+    assert factura.campos.nif.valor == "B12345678"
+    assert not factura.errores
+
+
+@pytest.mark.parametrize("etiqueta_numero", ["Invoice #", "Nº de factura:", "REF FACTURA:", "FACTURA Nº:"])
+def test_numero_factura_no_se_confunde_con_total_factura(etiqueta_numero):
+    texto = TEXTO.replace("FACTURA FA-1001", f"{etiqueta_numero} FA-1001").replace("TOTAL 121,00", "Total factura: 10.002,62")
+    factura = extraer(texto)
+    assert factura.campos.numero_factura.valor == "FA-1001"
+    assert not factura.errores
+
+
+@pytest.mark.parametrize("moneda", ["EUR", "€"])
+def test_importes_con_moneda_delante(moneda):
+    campos = extraer(f"Subtotal: {moneda} 100.00\nIVA (21%): {moneda} 21.00\nTOTAL A PAGAR: {moneda} 121.00").campos
+    assert campos.base.valor == 100
+    assert campos.iva.valor == 21
+    assert campos.total.valor == 121
+
+
+def test_total_con_caracteres_invisibles_conserva_evidencia():
+    importe = "\u200b".join("2.637,80")
+    campo = extraer(f"TOTAL: {importe} EUR").campos.total
+    assert campo.valor == 2637.8
+    assert importe in campo.fuente
+
+
+def test_conflicto_entre_paginas_no_elige_la_primera():
+    factura = extraer_campos("a.pdf", [
+        {"page": 1, "route": "native_text", "text": TEXTO},
+        {"page": 2, "route": "fal_ocr", "text": "TOTAL 200,00 EUR"},
+    ])
+    assert factura.campos.total.valor is None
+    assert any("total" in error for error in factura.errores)
+
+
+def test_fecha_invalida_no_se_sustituye_por_vencimiento():
+    factura = extraer(TEXTO.replace("15 de enero de 2026", "31/02/2026") + "Fecha vencimiento 01/04/2026")
+    assert factura.campos.fecha.valor is None
+    assert factura.errores
+
+
+def test_pagina_ocr_fallida_no_desaparece():
+    factura = extraer_campos("a.pdf", [
+        {"page": 1, "route": "native_text", "text": TEXTO},
+        {"page": 2, "route": "fal_ocr", "text": "", "error": "timeout"},
+    ])
+    assert any("timeout" in error for error in factura.errores)
+
+
+def crear_pdf(ruta: Path, texto: str | None):
+    with pymupdf.open() as pdf:
+        pagina = pdf.new_page()
+        if texto:
+            pagina.insert_text((40, 40), texto)
+        pdf.save(ruta)
+
+
+def test_lector_digital_no_llama_ocr(tmp_path):
+    ruta = tmp_path / "factura.pdf"
+    crear_pdf(ruta, TEXTO)
+
+    def ocr(imagen):
+        pytest.fail("El PDF digital no necesita OCR")
+
+    factura = LectorPdfUnificado(ocr=ocr, cache_dir=tmp_path / "cache").leer(ruta)
+    assert factura.campos.total.valor == 121
+
+
+def test_ocr_cacheada_por_contenido_y_no_por_nombre(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    llamadas = []
+
+    def ocr(imagen):
+        llamadas.append(imagen)
+        return TEXTO
+
+    lector = LectorPdfUnificado(ocr=ocr, cache_dir=tmp_path / "cache")
+    assert lector.leer(ruta).campos.total.valor == 121
+    assert lector.leer(ruta).campos.total.valor == 121
+    assert len(llamadas) == 1
+    with pymupdf.open() as pdf:
+        pdf.new_page(width=300, height=300)
+        pdf.save(ruta)
+    lector.leer(ruta)
+    assert len(llamadas) == 2
+
+
+def test_pdf_roto_es_fallo_de_lectura(tmp_path):
+    ruta = tmp_path / "roto.pdf"
+    ruta.write_bytes(b"no es un pdf")
+    with pytest.raises(LecturaFallida):
+        LectorPdfUnificado().leer(ruta)
+
+
+def test_sin_ocr_no_se_inventan_campos(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    factura = LectorPdfUnificado().leer(ruta)
+    assert factura.campos.total.valor is None
+    assert factura.errores
+
+
+def test_respuesta_ocr_invalida_se_escala(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    factura = LectorPdfUnificado(ocr=lambda imagen: None).leer(ruta)
+    assert factura.errores
+    assert factura.campos.total.valor is None
+
+
+def test_error_ocr_no_se_cachea_como_exito(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    llamadas = []
+
+    def ocr(imagen):
+        llamadas.append(imagen)
+        if len(llamadas) == 1:
+            raise TimeoutError("timeout simulado")
+        return TEXTO
+
+    lector = LectorPdfUnificado(ocr=ocr, cache_dir=tmp_path / "cache")
+    assert lector.leer(ruta).errores
+    assert lector.leer(ruta).campos.total.valor == 121
+    assert len(llamadas) == 2
+
+
+def test_adaptador_fal_con_respuesta_simulada(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from upistas.adaptadores.lectores.fal_ocr import FalOCR
+
+    subir = Mock(return_value="imagen-simulada")
+    consultar = Mock(return_value={"outputs": [TEXTO]})
+    monkeypatch.setitem(sys.modules, "fal_client", SimpleNamespace(upload_file=subir, subscribe=consultar))
+    assert FalOCR()(b"imagen simulada") == TEXTO
+    subir.assert_called_once()
+    assert consultar.call_args.args == ("fal-ai/got-ocr/v2",)
+    assert consultar.call_args.kwargs["arguments"]["input_image_urls"] == ["imagen-simulada"]

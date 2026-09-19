@@ -21,8 +21,10 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
   requiere PR propia, aviso al equipo y actualizar los ejemplos en `contracts/examples/`.
 - **Prohibido commitear**: `.env`, API keys, datos de La Caja (`data/`), `outputs/`, PDFs de facturas.
 - No añadas dependencias sin justificarlo en la PR.
+- **Evita la sobreingeniería:** resuelve solo lo pedido con el cambio más pequeño y sencillo que funcione. Reutiliza lo existente; no añadas capas, abstracciones, dependencias ni refactorizaciones para necesidades hipotéticas.
 
 ## Tests
+- **No ejecutes tests en cada iteración ni tras cada edición.** Durante el desarrollo, ejecútalos solo si tu humano lo pide; mantén la verificación obligatoria antes de abrir PR.
 - Cada PR que añade lógica añade tests. Sin tests no se mergea.
 - Tests rápidos (< 1 min total) y **sin red ni LLM real**: usar fixtures y mocks.
 - Reglas de negocio (`Norma_Pagos`): un test por regla, con caso que pasa y caso que falla.
@@ -46,3 +48,13 @@ Qué cambia y por qué. Si algo afecta a los resultados, dilo en una frase.
 - Escribe `@claude <pregunta>` en una issue o PR para pedirle algo (explicar un fallo de CI, resumir cambios...).
 - Va con API key de Z.ai (se paga por uso): no lo uses para tareas largas; para programar usa tu agente local.
 - Abre las PRs como **borrador** mientras trabajas; la revisión se lanza al marcarla "Ready for review".
+
+## Flujo unificado de facturas
+- `uv run upistas run --facturas ./facturas` cruza los PDF con el Excel y el ERP HTTP, muestra progreso, el texto extraído completo de cada PDF, su resultado y motivo, y un resumen final. No guarda un informe JSONL salvo que se indique `--salida <archivo.jsonl>`; la caché interna de lectura se mantiene para no repetir OCR. El bridge debe estar arrancado; se usa `ERP_URL` (por defecto `http://127.0.0.1:8009`) o `--erp-url`. Se descargan todas las páginas una vez por ejecución, con reintentos y renovación de sesión.
+- `--erp-snapshot <erp.json>` permite usar una captura en lugar del HTTP. Es una lista de asientos con `id`, `pedido`, `proveedor_id`, `nif`, `importe` decimal con punto, `fecha` ISO y `estado` (`PENDIENTE` o `PAGADA`).
+- Si no se indica `--excel` ni `EXCEL_PATH`, el maestro se busca en `CAJA_DIR`, `data/`, `src/`, `src/upistas/` y la raíz, con el nombre `FINAL_v7_DEFINITIVO_ahorasi.xlsx`. Si hay varias copias, hay que elegir la ruta explícitamente. El archivo queda excluido de Git.
+- `run` se detiene sin generar decisiones si falta el maestro o no hay datos del ERP. Para comprobar la lectura sin fuentes: `uv run upistas extract --facturas <carpeta> --limit 10 --salida extraidas.jsonl`; cada línea contiene `file_id`, `extraccion` (campos y fuentes) y `errores`, sin clasificación de pago.
+- Los duplicados se consolidan dentro del lote procesado; `--limit` no permite detectar duplicados fuera de ese subconjunto.
+- Para OCR: `uv run --extra ocr upistas run ... --ocr`, con `FAL_KEY` en el entorno. Este modo envía las páginas escaneadas a Fal y consume créditos; los tests lo simulan.
+- Las trazas y la caché de lectura se guardan en `outputs/extracciones/`, por hash del PDF y versión del extractor. No se versionan.
+- Verificación de la integración: `uv run pytest` y `uv run python scripts/check.py`.

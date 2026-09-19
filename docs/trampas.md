@@ -45,6 +45,7 @@ Pendiente de revisar: los 29 escaneos (hay que leerlos primero) y el lote 2 del 
 - **13 facturas con importe distinto** al del pedido.
 - **Importe desorbitado**: `2026-07-01_P009` (Construcciones Benimaclet, PO-0497) por **84.700 €**, siete veces la siguiente más cara. Cuadra en ERP, Excel y factura, y trae "PAGO INMEDIATO REQUERIDO".
 - **IBAN con caracteres invisibles**: `F26-3011_suministros` lleva espacios de ancho cero (U+200B) dentro del IBAN. Limpio, coincide con el maestro. Un lector descuidado lo daría por distinto.
+- **Total con caracteres invisibles**: `FA-4488_transportes` tiene U+200B intercalado en `2.637,80`. Al limpiar esos separadores, el total coincide con base `2.180,00` más IVA `457,80`; conservar el texto original como evidencia.
 - Varias trampas de redondeo y de sufijos en el número de factura (`-A`, `-B`, `-C`).
 
 ## Notas que intentan manipular la decisión

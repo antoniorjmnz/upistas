@@ -9,6 +9,7 @@ Aquí no hay lógica de negocio: solo se orquestan los casos de uso de `aplicaci
 """
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from dbos import DBOS, DBOSConfig, SetWorkflowID, WorkflowHandle
@@ -51,7 +52,9 @@ def iniciar() -> None:
 def encolar_lote(rutas: list[Path], lote: str, version_norma: str) -> list[WorkflowHandle]:
     cola = DBOS.retrieve_queue(COLA)
     handles = []
+    referencias = contenedor.huella(version_norma)
     for ruta in rutas:
-        with SetWorkflowID(f"{lote}:{version_norma}:{ruta.name}"):
+        contenido = hashlib.sha256(ruta.read_bytes()).hexdigest() if ruta.is_file() else "ausente"
+        with SetWorkflowID(f"{lote}:{version_norma}:{referencias}:{ruta.name}:{contenido}"):
             handles.append(cola.enqueue(procesar_documento, ruta.name, str(ruta), version_norma))
     return handles

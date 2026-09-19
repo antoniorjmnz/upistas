@@ -22,6 +22,9 @@ dev = [
     "datamodel-code-generator>=0.33",
     "import-linter>=2.3",
 ]
+ocr = [
+    "fal-client==0.10.0",
+]
 
 [project.scripts]
 upistas = "upistas.cli:main"

@@ -24,6 +24,10 @@ class Settings:
     modelo_texto: str = os.getenv("MODELO_TEXTO", "glm5.3")
     concurrencia: int = int(os.getenv("CONCURRENCIA", "16"))
     outputs_dir: Path = ROOT / "outputs"
+    excel_path: Path | None = Path(os.environ["EXCEL_PATH"]) if os.getenv("EXCEL_PATH") else None
+    erp_snapshot: Path | None = Path(os.environ["ERP_SNAPSHOT"]) if os.getenv("ERP_SNAPSHOT") else None
+    usar_ocr: bool = False
+    usar_erp_http: bool = False
     # Fecha de referencia para "no futura". Fijarla (HOY=2026-09-18) hace los resultados reproducibles.
     hoy: date | None = date.fromisoformat(os.environ["HOY"]) if os.getenv("HOY") else None
 
