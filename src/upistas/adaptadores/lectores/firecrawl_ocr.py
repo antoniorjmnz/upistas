@@ -50,10 +50,12 @@ class FirecrawlOCR:
     def __call__(self, imagen: bytes) -> str:
         if self.cliente is None:
             raise LecturaFallida("OCR con Firecrawl no disponible: falta FIRECRAWL_API_KEY")
+        pdf = _imagen_a_pdf(imagen)
         with _exclusivo(self.cerrojo):
-            datos = self._llamar(_imagen_a_pdf(imagen))
+            datos = self._llamar(pdf)
         if not datos.get("success"):
-            raise LecturaFallida("Respuesta OCR inválida")
+            detalle = str(datos.get("error") or "")[:200]
+            raise LecturaFallida(f"Respuesta OCR inválida{': ' + detalle if detalle else ''}")
         paginas = (datos.get("data") or {}).get("pages") or []
         texto = (paginas[0].get("markdown") if paginas and isinstance(paginas[0], dict) else None) \
             or (datos.get("data") or {}).get("markdown") or ""
@@ -111,6 +113,7 @@ def _cerrojo_fichero(ruta: Path):
         try:
             import msvcrt
 
+            f.seek(0)
             while True:
                 try:
                     msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)

@@ -48,7 +48,9 @@ def _ocr() -> Callable[[bytes], str] | None:
 
         return FirecrawlOCR(settings.firecrawl_api_key, settings.firecrawl_base_url,
                             cerrojo=settings.outputs_dir / ".firecrawl.lock")
-    return FalOCR()
+    if settings.ocr_provider == "fal":
+        return FalOCR()
+    raise ValueError(f"OCR_PROVIDER desconocido: {settings.ocr_provider!r} (usa 'fal' o 'firecrawl')")
 
 
 @cache

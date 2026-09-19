@@ -109,7 +109,7 @@ def test_agotados_los_intentos_es_fallo_de_lectura():
     assert post.call_count == 3
 
 
-def test_el_cerrojo_seria_las_llamadas_entre_procesos(tmp_path):
+def test_el_cerrojo_serializa_las_llamadas_entre_procesos(tmp_path):
     """Con cerrojo, la llamada pasa por el fichero de bloqueo compartido y sigue funcionando."""
     cerrojo = tmp_path / ".firecrawl.lock"
     post = Mock(return_value=_ok())
@@ -151,3 +151,18 @@ def test_el_proveedor_viaja_en_la_clave_de_cache_y_en_la_traza(tmp_path):
     assert factura.campos.total.valor == 121
     assert factura.coste.modelo == "firecrawl/parse"
     assert any("firecrawl_ocr" in f.name or "-firecrawl-" in f.name for f in (tmp_path / "cache").iterdir())
+
+
+def test_un_proveedor_desconocido_falla_en_claro_en_vez_de_usar_fal():
+    """OCR_PROVIDER con una errata no debe caer en Fal silenciosamente."""
+    from dataclasses import replace
+
+    from upistas.infra import contenedor
+
+    original = contenedor.settings
+    try:
+        contenedor.configurar(replace(original, usar_ocr=True, ocr_provider="otro"))
+        with pytest.raises(ValueError, match="OCR_PROVIDER"):
+            contenedor._ocr()
+    finally:
+        contenedor.configurar(original)
