@@ -59,7 +59,9 @@ Arriba en la barra lateral, las de Alberto:
   siempre y lo vuelca en las tablas (11 proveedores y 516 pedidos); se puede repetir sin duplicar nada.
 - **Para revisar**: la cola de lo escalado, agrupada por motivo. Alberto decide Pagar o No pagar con un
   comentario. Queda guardado aparte (`RevisionHumana`), no toca lo que calculó el sistema, y si dice
-  Pagar el pedido cuenta como pagado para los lotes siguientes.
+  Pagar ese pedido y ese documento cuentan como pagados para los lotes siguientes. Repasar otra vez el
+  mismo lote no los da por pagados: la factura vuelve a salir con su resultado de siempre y lo que
+  Alberto decidió sigue guardado a su lado.
 - **Preguntar**: Alberto pregunta en su idioma y la web contesta con los datos que tiene, con enlace a la
   pantalla donde está la respuesta. Lo hace Fran (#39); el diseño está en [asistente.md](asistente.md).
 

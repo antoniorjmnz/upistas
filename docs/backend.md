@@ -53,8 +53,9 @@ factura se escala diciendo que el ERP tiene dos apuntes que no cuadran (ver [ADR
 
 **Nunca pagar dos veces.** El ERP no se entera de lo que decidimos. Llevamos nuestra propia
 memoria: los pedidos aprobados en la última pasada de cada otro lote y los aprobados a mano por una
-persona cuentan como pagados para el lote siguiente. Dentro del mismo lote, las reglas ven todas
-las facturas del lote agrupadas por pedido.
+persona cuentan como pagados para el lote siguiente. Repasar el mismo lote no es pagar dos veces:
+ni sus aprobaciones automáticas ni las de Alberto se cuentan contra él. Dentro del mismo lote, las
+reglas ven todas las facturas del lote agrupadas por pedido.
 
 **Leer es caro y decidir es barato.** Por eso leer es lo duradero y cacheado (por contenido) y
 decidir se repite entero cada vez: reprocesar un lote con una norma nueva cuesta segundos, no

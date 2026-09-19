@@ -73,6 +73,10 @@ def test_ejecuciones_decisiones_y_memoria_de_pagos_entre_lotes():
     escalada = Decision.objects.get(documento__file_id="b.pdf")
     RevisionHumana.objects.create(documento=escalada.documento, decision=escalada, quien="alberto", resultado="PAGAR")
     assert dec.pedidos_aprobados(excepto_lote="lote2") == {"PO-2026-0001", "PO-2026-0002"}
+    assert dec.hashes_aprobados(excepto_lote="lote2") == {"1" * 64, "2" * 64}  # la automática de a.pdf y la manual de b.pdf
+    # ...pero no para repasar el propio lote1: su aprobación no lo convierte en «ya pagado».
+    assert dec.pedidos_aprobados(excepto_lote="lote1") == frozenset()
+    assert dec.hashes_aprobados(excepto_lote="lote1") == frozenset()
 
     # Volver a pasar el lote sustituye sus decisiones y la lista de ejecuciones va de nueva a vieja.
     e2 = dec.iniciar_ejecucion("lote1", "v3", "erpB", "exA", {})

@@ -71,24 +71,23 @@ class RepositorioDecisionesDjango:
         ultima = ultima.order_by("-ejecucion__inicio", "-ejecucion_id", "-id").values("id")[:1]  # la más reciente
         return Decision.objects.filter(id=Subquery(ultima), resultado="PAGAR").exclude(ejecucion__lote=excepto_lote)
 
-    def pedidos_aprobados(self, excepto_lote: str) -> frozenset[str]:
+    @staticmethod
+    def _aprobadas_a_mano(excepto_lote):
+        """Lo que una persona aprobó en otros lotes. Repasar el mismo lote no es pagar dos veces."""
         from web.panel.models import RevisionHumana
 
+        return RevisionHumana.objects.filter(resultado="PAGAR", decision__isnull=False).exclude(decision__ejecucion__lote=excepto_lote)
+
+    def pedidos_aprobados(self, excepto_lote: str) -> frozenset[str]:
         aprobados = set(self._ultimas_aprobadas(excepto_lote).exclude(pedido="").values_list("pedido", flat=True))
-        aprobados.update(
-            p for p in RevisionHumana.objects.filter(resultado="PAGAR", decision__isnull=False)
-            .exclude(decision__pedido="").values_list("decision__pedido", flat=True)
-        )
+        aprobados.update(self._aprobadas_a_mano(excepto_lote).exclude(decision__pedido="").values_list("decision__pedido", flat=True))
         return frozenset(aprobados)
 
     def hashes_aprobados(self, excepto_lote: str) -> frozenset[str]:
         from itertools import chain
-        from web.panel.models import RevisionHumana
 
         automaticas = self._ultimas_aprobadas(excepto_lote).values_list("outcome", "documento__sha256")
-        manuales = RevisionHumana.objects.filter(resultado="PAGAR", decision__isnull=False).values_list(
-            "decision__outcome", "decision__documento__sha256",
-        )
+        manuales = self._aprobadas_a_mano(excepto_lote).values_list("decision__outcome", "decision__documento__sha256")
         hashes = set()
         for outcome, actual in chain(automaticas, manuales):
             sha = next((c.get("detalle") for c in outcome.get("reglas", [])
