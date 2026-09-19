@@ -8,6 +8,7 @@ con OCR_PROVIDER=firecrawl y FIRECRAWL_API_KEY.
 from __future__ import annotations
 
 import json
+import re
 
 import pymupdf
 
@@ -57,7 +58,23 @@ class FirecrawlOCR:
             or (datos.get("data") or {}).get("markdown") or ""
         if not texto.strip():
             raise LecturaFallida("OCR sin texto")
-        return texto
+        return _markdown_a_texto(texto)
+
+
+def _markdown_a_texto(texto: str) -> str:
+    """Firecrawl devuelve markdown; el extractor determinista espera líneas de texto plano.
+
+    Quita encabezados (`##`), negritas y las barras de las tablas, de modo que
+    `| Servicio mensual | 683,33 |` quede como `Servicio mensual 683,33`.
+    """
+    lineas = []
+    for linea in texto.splitlines():
+        linea = re.sub(r"^#+\s*", "", linea)
+        linea = re.sub(r"\|?\s*-{3,}\s*", " ", linea)  # separadores de tabla | --- |
+        linea = linea.replace("**", "").replace("__", "")
+        linea = re.sub(r"\s*\|\s*", " ", linea)
+        lineas.append(re.sub(r"\s{2,}", " ", linea).strip())
+    return "\n".join(lineas).strip()
 
 
 def _imagen_a_pdf(imagen: bytes) -> bytes:

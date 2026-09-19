@@ -71,6 +71,22 @@ def test_respuesta_sin_exito_o_sin_texto_es_fallo():
         FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post))(_png())
 
 
+def test_el_markdown_con_tablas_vuelve_como_texto_plano():
+    markdown = (
+        "## Catering Hermanos Pico S.L.\n"
+        "| Servicio mensual | 683,33 |\n"
+        "| --- | --- |\n"
+        "| **TOTAL** | 2.480,50 EUR |\n"
+        "Pedido: PO-2026-0726"
+    )
+    post = Mock(return_value=_ok(markdown))
+    texto = FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=post))(_png())
+    assert "|" not in texto and "#" not in texto and "**" not in texto
+    assert "Servicio mensual 683,33" in texto
+    assert "TOTAL 2.480,50 EUR" in texto
+    assert "PO-2026-0726" in texto  # los guiones sueltos de los datos no se tocan
+
+
 def test_el_proveedor_viaja_en_la_clave_de_cache_y_en_la_traza(tmp_path):
     """Con otro proveedor la cache no choca con la de fal y coste.modelo dice quién leyó."""
     ruta = tmp_path / "scan.pdf"
