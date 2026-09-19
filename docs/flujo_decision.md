@@ -55,8 +55,8 @@ nunca autoriza un segundo pago.
 ## Facturas extranjeras
 
 Ser extranjera no es motivo de nada. Lo que cambia el tratamiento es el país del NIF y la divisa, no el
-idioma (en el lote 2 hay una factura de un proveedor español en inglés y en dólares, y una francesa
-que cobra IVA español).
+idioma (en el lote 2, e02_P002 y e10_P006 son de proveedores españoles y vienen en inglés y en dólares,
+y e06_P013 es una francesa que cobra IVA español).
 
 - En euros y con todo cuadrando: PAGAR, sola.
 - Regla 3 según el país del NIF: proveedor español, 21 %, 10 % o 4 % sobre la base; proveedor de la
