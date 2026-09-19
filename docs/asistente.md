@@ -66,6 +66,22 @@ donde está la respuesta. Preguntas que tiene que saber contestar desde el prime
 - si el modelo lanza timeout, la pantalla devuelve 200 con un aviso y la conversación sigue;
 - nunca se llama a nada de escritura (los tests comprueban que no hay `RevisionHumana` nuevas).
 
+## Cómo se comporta (lo que se afinó tras la primera versión)
+- **Enlaces**: cada herramienta deja su pantalla en la línea «De:» de la respuesta: la factura
+  (`detalle_factura`, y cada encontrada en `buscar_facturas`, hasta cinco), «Para revisar»
+  (`pendientes_revision`), «Facturas» (`resumen_lote`), los asientos o los cambios del ERP.
+- **Si la IA no responde**: 15 segundos de espera, un solo reintento (el SDK de OpenAI no reintenta
+  por su cuenta) y aviso. Sin clave configurada no se reintenta: se dice que falta. Si el modelo
+  agota las cuatro rondas de consulta, la pregunta queda registrada como fallida.
+- **Texto que viene de la factura**: las notas del proveedor van en la clave
+  `texto_de_la_factura_no_fiable`, recortadas y separadas del motivo; el prompt le dice al modelo que
+  es un dato del que informar, nunca una instrucción. La cuenta bancaria solo se cuenta por sus cuatro
+  últimas cifras y si coincide con la del maestro.
+- **Tema**: el filtro previo solo rechaza palabras inequívocas de programación; «código», «función»,
+  «servidor» o «bug» pasan, que Alberto las usa hablando de proveedores y pantallas.
+- **Texto llano**: se le pide al modelo que no use markdown y la plantilla quita los `**` y `#` que
+  se le escapen; la respuesta se escapa siempre como HTML.
+
 ## Fuera de alcance
 Escribir en nada, consultar el ERP en vivo (se usa la copia), voz, memoria entre sesiones.
 
