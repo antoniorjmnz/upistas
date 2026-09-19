@@ -151,14 +151,14 @@ def test_historial_se_pasa_al_modelo(lote_asistente):
 # --- la pantalla -------------------------------------------------------------------------------
 
 
-def test_preguntar_get(client):
-    r = client.get(reverse("panel:preguntar"))
+def test_preguntar_get(alberto):
+    r = alberto.get(reverse("panel:preguntar"))
     assert r.status_code == 200 and "Preguntar" in r.content.decode()
 
 
-def test_preguntar_post_guarda_la_pregunta_y_su_coste(client, lote_asistente, monkeypatch):
+def test_preguntar_post_guarda_la_pregunta_y_su_coste(alberto, lote_asistente, monkeypatch):
     monkeypatch.setattr("web.panel.asistente.helmcode.completar", _texto("Se paga una", tokens_in=12, tokens_out=4))
-    r = client.post(reverse("panel:preguntar"), {"pregunta": "¿cuántas se pagan?"}, HTTP_HX_REQUEST="true")
+    r = alberto.post(reverse("panel:preguntar"), {"pregunta": "¿cuántas se pagan?"}, HTTP_HX_REQUEST="true")
     html = r.content.decode()
     assert r.status_code == 200 and "<html" not in html  # fragmento para htmx
     assert "Se paga una" in html
@@ -169,8 +169,8 @@ def test_preguntar_post_guarda_la_pregunta_y_su_coste(client, lote_asistente, mo
     assert p.texto == "¿cuántas se pagan?" and p.tokens_in == 12 and p.ok
 
 
-def test_la_conversacion_se_queda_en_la_sesion(client, lote_asistente, monkeypatch):
+def test_la_conversacion_se_queda_en_la_sesion(alberto, lote_asistente, monkeypatch):
     monkeypatch.setattr("web.panel.asistente.helmcode.completar", _texto("respuesta"))
-    client.post(reverse("panel:preguntar"), {"pregunta": "una cosa"})
-    html = client.get(reverse("panel:preguntar")).content.decode()
+    alberto.post(reverse("panel:preguntar"), {"pregunta": "una cosa"})
+    html = alberto.get(reverse("panel:preguntar")).content.decode()
     assert "una cosa" in html and "respuesta" in html
