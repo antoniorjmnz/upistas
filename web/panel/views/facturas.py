@@ -11,6 +11,7 @@ from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.utils.http import content_disposition_header
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from web.panel import consultas
@@ -361,28 +362,44 @@ def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     """
     import pymupdf
 
-    from upistas.adaptadores.lectores.pdf import ocultos_de_pagina
+    from upistas.adaptadores.lectores.pdf import MAX_BYTES, MAX_PAGINAS, ocultos_de_pagina
 
     documento = get_object_or_404(Documento, lote=lote, file_id=file_id)
     ruta = Path(documento.ruta)
     if not ruta.is_file():
         raise Http404(f"El PDF ya no está donde lo dejamos ({documento.ruta}). Vuelva a copiar la carpeta de facturas.")
+    if ruta.stat().st_size > MAX_BYTES:
+        raise Http404("Este PDF es demasiado grande para marcarlo.")
 
-    original = pymupdf.open(ruta)
+    # Los mismos cuidados que al inspeccionarlo: un PDF roto o cifrado no puede tumbar la web.
+    pymupdf.TOOLS.mupdf_display_errors(False)
     try:
-        frases, sin_comprobar = [], []
-        for pagina in original:
-            ocultos, aviso = ocultos_de_pagina(pagina)
-            if aviso:
-                sin_comprobar.append(f"{SIN_COMPROBAR} en la página {pagina.number + 1}: mírela usted.")
-            for s in ocultos:
-                pagina.draw_rect(s["caja"], color=ROJO, width=1.2)
-                frases.append(_frase_escondida(pagina.number + 1, s["motivos"], s["texto"]))
-        if frases:
-            _pagina_final(original, [TITULO_ESCONDIDO, INTRO_ESCONDIDO, *frases, *sin_comprobar])
-        elif sin_comprobar:
-            _pagina_final(original, [SIN_COMPROBAR, *sin_comprobar])
-        datos = original.tobytes()
+        original = pymupdf.open(ruta)
+    except Exception as exc:
+        raise Http404("Este PDF está dañado y no se puede abrir.") from exc
+    try:
+        if original.needs_pass:
+            raise Http404("Este PDF está protegido con contraseña: no se puede marcar.")
+        if original.page_count > MAX_PAGINAS:
+            raise Http404(f"Este PDF tiene {original.page_count} páginas: demasiadas para marcarlo.")
+        try:
+            frases, sin_comprobar = [], []
+            for pagina in original:
+                ocultos, aviso = ocultos_de_pagina(pagina)
+                if aviso:
+                    sin_comprobar.append(f"{SIN_COMPROBAR} en la página {pagina.number + 1}: mírela usted.")
+                for s in ocultos:
+                    pagina.draw_rect(s["caja"], color=ROJO, width=1.2)
+                    frases.append(_frase_escondida(pagina.number + 1, s["motivos"], s["texto"]))
+            if frases:
+                _pagina_final(original, [TITULO_ESCONDIDO, INTRO_ESCONDIDO, *frases, *sin_comprobar])
+            elif sin_comprobar:
+                _pagina_final(original, [SIN_COMPROBAR, *sin_comprobar])
+            datos = original.tobytes()
+        except Exception as exc:
+            raise Http404("Este PDF está dañado: no se ha podido recorrer.") from exc
     finally:
         original.close()
-    return HttpResponse(datos, content_type="application/pdf")
+    respuesta = HttpResponse(datos, content_type="application/pdf")
+    respuesta["Content-Disposition"] = content_disposition_header(False, f"{Path(file_id).stem} marcado.pdf")
+    return respuesta

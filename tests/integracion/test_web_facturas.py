@@ -353,7 +353,8 @@ def test_el_pdf_marcado_senala_y_transcribe_lo_escondido(alberto, lote_de_prueba
     assert "texto potencialmente oculto" in html
     assert reverse("panel:factura_pdf_marcado", args=["lote1", P009]) in html
 
-    _, marcado = _marcado(alberto)
+    respuesta, marcado = _marcado(alberto)
+    assert respuesta["Content-Disposition"] == 'inline; filename="2026-07-01_P009 marcado.pdf"'
     assert marcado.page_count == 2  # la original y la transcripción
     assert all(_rodeado(marcado[0], caja) for caja in _escondidos(marcado[0]))
     final = _pagina_final(marcado)
@@ -474,4 +475,36 @@ def test_sin_alerta_de_ocultacion_no_sale_el_boton(alberto, lote_de_prueba):
 
 
 def test_el_pdf_marcado_da_404_si_el_fichero_ya_no_esta(alberto, lote_de_prueba):
+    assert alberto.get(reverse("panel:factura_pdf_marcado", args=["lote1", P009])).status_code == 404
+
+
+def _pdf_raro(ruta, clase):
+    import pymupdf
+
+    if clase == "roto":
+        ruta.write_bytes(b"%PDF-1.4 esto no es un PDF de verdad")
+        return
+    documento = pymupdf.open()
+    for _ in range(51 if clase == "demasiadas paginas" else 1):
+        documento.new_page().insert_text((72, 72), "Factura con pinta normal", fontsize=11)
+    if clase == "cifrado":
+        documento.save(ruta, encryption=pymupdf.PDF_ENCRYPT_AES_256, user_pw="1234", owner_pw="1234")
+    else:
+        documento.save(ruta)
+    documento.close()
+
+
+@pytest.mark.parametrize("clase", ["cifrado", "roto", "demasiadas paginas"])
+def test_un_pdf_cifrado_roto_o_con_demasiadas_paginas_da_404_en_vez_de_reventar(alberto, lote_de_prueba, tmp_path, clase):
+    ruta = tmp_path / "raro.pdf"
+    _pdf_raro(ruta, clase)
+    _apunta_a(lote_de_prueba, ruta)
+    assert alberto.get(reverse("panel:factura_pdf_marcado", args=["lote1", P009])).status_code == 404
+
+
+def test_un_pdf_demasiado_grande_da_404_con_el_mismo_tope_que_el_inspector(alberto, lote_de_prueba, tmp_path, monkeypatch):
+    monkeypatch.setattr("upistas.adaptadores.lectores.pdf.MAX_BYTES", 100)
+    ruta = tmp_path / "grande.pdf"
+    _pdf(ruta, [NORMAL, TRAMPA])
+    _apunta_a(lote_de_prueba, ruta)
     assert alberto.get(reverse("panel:factura_pdf_marcado", args=["lote1", P009])).status_code == 404
