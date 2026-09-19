@@ -101,12 +101,12 @@ def test_el_nombre_del_proveedor_sale_del_maestro_si_la_factura_no_lo_trae(lote_
 
 
 def test_pendientes_y_revisada(lote_asistente):
-    assert consultas.pendientes_revision()["cuantas"] == 1
+    assert consultas.pendientes_revision()["total"] == 1
     RevisionHumana.objects.create(
         documento_id=lote_asistente.decisiones.get(resultado="ESCALAR").documento_id,
         quien="Alberto", resultado="NO_PAGAR",
     )
-    assert consultas.pendientes_revision()["cuantas"] == 0
+    assert consultas.pendientes_revision()["total"] == 0
 
 
 def test_pendientes_con_limite_y_cuantas_quedan(lote_asistente):
@@ -118,7 +118,7 @@ def test_pendientes_con_limite_y_cuantas_quedan(lote_asistente):
                              _extraida_asistente(f"FA-20{i}", "Limpiezas Turia", "B98120774", f"PO-2026-060{i}", 100.0))
         Decision.objects.create(documento=doc, ejecucion=lote_asistente, resultado="ESCALAR", motivo="Hay dudas", pedido=f"PO-2026-060{i}")
     r = consultas.pendientes_revision(limite=2)
-    assert len(r["pendientes"]) == 2 and r["cuantas"] == 4 and r["mas"] == 2
+    assert len(r["pendientes"]) == 2 and r["total"] == 4 and r["mas"] == 2
     assert consultas.pendientes_revision()["mas"] == 0
 
 
