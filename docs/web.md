@@ -80,6 +80,9 @@ Arriba en la barra lateral, las de Alberto:
   Alberto decidió sigue guardado a su lado.
 - **Preguntar**: Alberto pregunta en su idioma y la web contesta con los datos que tiene, con enlace a la
   pantalla donde está la respuesta. Lo hace Fran (#39); el diseño está en [asistente.md](asistente.md).
+  Está en un panel lateral que se abre desde cualquier pantalla (y en `/preguntar/` a pantalla entera);
+  sabe en qué pantalla está Alberto, le lleva a otra con un botón «Ir a…» y le propone unas pocas cosas
+  (marcar un pedido, apuntar una nota o un comentario) que solo se hacen si pulsa «Confirmar».
 
 Donde salga una factura hay un botón **Previsualizar**: abre su PDF encima de la página, sin salir de la
 lista ni descargar nada. Se cierra con el botón Cerrar, con Escape o pulsando fuera.

@@ -17,7 +17,9 @@ donde está la respuesta. Preguntas que tiene que saber contestar desde el prime
    de herramientas de solo lectura sobre nuestra base de datos. Si no hay dato, dice que no lo hay.
 2. **Cada respuesta dice de dónde sale**: la factura, la ejecución o la copia del ERP, con enlace a la
    pantalla. Es lo que se evalúa en trazabilidad.
-3. **No escribe**: ni revisiones, ni pagos, ni nada. Para decidir está la pantalla «Para revisar».
+3. **No escribe por su cuenta**: ni revisiones, ni pagos, ni nada. Solo puede *proponer* cuatro cosas
+   pequeñas que Alberto confirma con un botón (ver «Lo que puede hacer por Alberto»). Para decidir si
+   una factura se paga está la pantalla «Para revisar».
 4. **Sin red en los tests**: el modelo se sustituye por uno falso.
 5. **La web sigue funcionando si la IA no responde**: timeout corto, un reintento y un mensaje claro.
 
@@ -57,7 +59,9 @@ donde está la respuesta. Preguntas que tiene que saber contestar desde el prime
   `.env.example`. La clave se pide por privado; nunca va al repo.
 
 ## Cómo se prueba
-`tests/integracion/test_web_asistente.py` con las fixtures `alberto` y `lote_de_prueba` de
+`tests/integracion/test_asistente.py` (herramientas y bucle), `test_web_preguntar.py` (la pantalla) y
+`test_asistente_lateral.py` (panel en todas las pantallas, contexto, `ir_a`, acciones con token) con
+las fixtures `alberto` y `lote_de_prueba` de
 `tests/integracion/conftest.py` (cinco facturas con todos los casos, dos ejecuciones):
 - cada herramienta devuelve lo que toca con ese lote (por ejemplo, `factura("FA-1016_papelería.pdf")`
   dice No pagar por «ya está pagado según el ERP» y que antes era Pagar);
@@ -82,8 +86,53 @@ donde está la respuesta. Preguntas que tiene que saber contestar desde el prime
 - **Texto llano**: se le pide al modelo que no use markdown y la plantilla quita los `**` y `#` que
   se le escapen; la respuesta se escapa siempre como HTML.
 
+## Dónde está: el panel lateral
+El asistente está en la barra lateral, como en tantas webs: «Preguntar» abre un panel por la derecha
+(`web/panel/templates/panel/_asistente.html`, un `<dialog>` no modal de 420 px, a pantalla entera en
+el móvil) sin salir de donde esté Alberto. `/preguntar/` sigue existiendo a pantalla entera con el
+mismo código (`views/chat.py`). Las dos envían por htmx y añaden la respuesta abajo, con «Pensando…»
+mientras tanto. La conversación va en la sesión (`request.session["chat"]`, los últimos 20 mensajes),
+así que sigue ahí al cambiar de pantalla; el panel recuerda si estaba abierto (`sessionStorage`) y
+se abre también con `#asistente` en la dirección. Un toque de movimiento de 220 ms que se apaga con
+`prefers-reduced-motion`.
+
+**Sabe en qué pantalla está Alberto.** El formulario manda la ruta actual (`ruta`); `contexto_de`
+la resuelve con `django.urls.resolve` (solo rutas de esta web) y `frase_de_contexto` se la cuenta al
+modelo al final del mensaje de sistema: «Alberto está ahora en el detalle de la factura X (lote 1)».
+Así «esta factura» o «este proveedor» son los que tiene delante.
+
+## Llevarle a una pantalla: `ir_a`
+Herramienta de solo lectura (`asistente/navegacion.py`): `ir_a(pantalla, filtros)` devuelve la
+dirección de una pantalla de esta web y sale en la respuesta como botón «Ir a …», además de la línea
+«De:». Pantallas: `inicio`, `facturas` y `revisar` (con `resultado`, `proveedor` del maestro por
+código, NIF o nombre, `desde`/`hasta`, `texto`), `factura` (`file_id`), `proveedores`, `proveedor`,
+`ejecuciones`, `erp` y `asientos` (`pedido`). Las direcciones salen siempre de `reverse` y los
+filtros se comprueban uno a uno (los que no valen se avisan y se quitan): nunca una URL externa.
+
+## Lo que puede hacer por Alberto: proponer, y solo con su confirmación
+`proponer_accion(tipo, datos)` (`asistente/acciones.py`) admite solo estos tipos (lista blanca):
+- `marcar_pedido_para_revisar {pedido}` y `quitar_marca_de_pedido {pedido}` (`Pedido.revisar`);
+- `apuntar_nota_en_pedido {pedido, nota}` (se añade a `Pedido.nota`);
+- `apuntar_comentario_en_factura {file_id, comentario}`: solo en facturas escaladas y sin decidirlas
+  (no crea `RevisionHumana`; el comentario se ve en el detalle de la factura).
+
+La herramienta no cambia nada: comprueba que el pedido o la factura existen y devuelve una propuesta
+con un token firmado (`django.core.signing`, sal propia, caduca a los 10 minutos). La respuesta enseña
+una tarjeta «El asistente propone: …» con «Confirmar» y «No». Solo al pulsar Confirmar se hace un POST
+(con CSRF) a `/asistente/accion/` con el token: la vista lo lee (`leer_token`), rechaza los caducados,
+manipulados o de un tipo fuera de la lista, y `ejecutar` vuelve a comprobar el tipo y los datos antes
+de tocar nada. Cada acción confirmada queda en `AccionAsistente` (cuándo, tipo, datos, resultado, ok;
+migración 0006; se ve en el admin) y al pie de la conversación como «Hecho: …» con el enlace a su
+pantalla; la tarjeta desaparece de la sesión para que no se confirme dos veces.
+
+**Prohibido siempre**, y el código lo impide aunque el modelo lo pida o el token venga firmado: pagar
+o no pagar una factura, crear o borrar proveedores o pedidos, subir o repasar lotes y tocar el ERP.
+El mensaje de sistema se lo dice al modelo y le pide que, si Alberto se lo pide, le mande a la
+pantalla que toca (Para revisar, Proveedores, Subir facturas).
+
 ## Fuera de alcance
-Escribir en nada, consultar el ERP en vivo (se usa la copia), voz, memoria entre sesiones.
+Cualquier escritura fuera de las cuatro acciones de arriba, consultar el ERP en vivo (se usa la
+copia), voz, memoria entre sesiones.
 
 ## Por dónde empezar
 1. Rama desde `32-web-alberto` (o desde main cuando esté fusionada): `git switch -c 39-asistente`.
