@@ -129,6 +129,26 @@ def test_las_fuentes_enlazan_a_la_pantalla(copia_erp):
     assert r.fuentes and "asientos" in r.fuentes[0]["url"] and "PO-2026-0474" in r.fuentes[0]["url"]
 
 
+def test_el_detalle_de_una_factura_enlaza_a_su_pantalla(lote_asistente):
+    completar = _pide("detalle_factura", {"file_id": "factura_pagada.pdf"}, RespuestaModelo(texto="Ya estaba pagada"))
+    r = responder("¿por qué no se paga la FA-1016?", [], completar)
+    assert r.fuentes == [{"titulo": "Factura factura_pagada.pdf", "url": reverse("panel:factura", args=["lote1", "factura_pagada.pdf"])}]
+
+
+def test_buscar_enlaza_a_cada_factura_encontrada(lote_asistente):
+    completar = _pide("buscar_facturas", {"texto": "factura_"}, RespuestaModelo(texto="Hay tres"))
+    r = responder("¿qué facturas hay?", [], completar)
+    assert {f["url"] for f in r.fuentes} == {
+        reverse("panel:factura", args=["lote1", f]) for f in ("factura_bien.pdf", "factura_pagada.pdf", "factura_rara.pdf")
+    }
+
+
+def test_pendientes_y_resumen_enlazan_a_su_pantalla(lote_asistente):
+    for herramienta, url in (("pendientes_revision", reverse("panel:cola")), ("resumen_lote", reverse("panel:facturas"))):
+        r = responder("¿qué hay?", [], _pide(herramienta, {}, RespuestaModelo(texto="esto")))
+        assert [f["url"] for f in r.fuentes] == [url], herramienta
+
+
 def test_si_la_ia_falla_la_web_sigue(lote_asistente):
     def rota(mensajes, herramientas):
         raise ConnectionError("Helmcode no responde")
@@ -192,6 +212,18 @@ def test_preguntar_post_guarda_la_pregunta_y_su_coste(alberto, lote_asistente, m
 
     p = Pregunta.objects.get()
     assert p.texto == "¿cuántas se pagan?" and p.tokens_in == 12 and p.ok
+
+
+def test_la_pantalla_dice_de_donde_sale_la_respuesta(alberto, lote_asistente, monkeypatch):
+    """La línea «De:» con el enlace a la factura sale en el trozo que htmx añade a la conversación."""
+    monkeypatch.setattr(
+        "web.panel.asistente.helmcode.completar",
+        _pide("detalle_factura", {"file_id": "factura_pagada.pdf"}, RespuestaModelo(texto="Ya estaba pagada")),
+    )
+    html = alberto.post(reverse("panel:preguntar"), {"pregunta": "¿por qué no se paga la FA-1016?"}, HTTP_HX_REQUEST="true").content.decode()
+    assert "De:" in html
+    assert f'href="{reverse("panel:factura", args=["lote1", "factura_pagada.pdf"])}"' in html
+    assert "Factura factura_pagada.pdf" in html
 
 
 def test_la_conversacion_se_queda_en_la_sesion(alberto, lote_asistente, monkeypatch):

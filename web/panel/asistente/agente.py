@@ -19,6 +19,7 @@ from web.panel.asistente.herramientas import HERRAMIENTAS, ejecutar
 MAX_RONDAS = 4          # cuántas consultas puede encadenar por pregunta
 MAX_HISTORIAL = 10      # mensajes anteriores que se le pasan al modelo
 REINTENTOS = 1          # si la IA falla, un reintento y luego aviso
+MAX_ENLACES = 5         # facturas que se enlazan como mucho en la línea «De:»
 
 MENSAJE_FUERA_DE_TEMA = (
     "Solo puedo ayudarte con las facturas, pedidos y pagos de Alberto. "
@@ -76,18 +77,31 @@ class RespuestaAsistente:
 Completar = Callable[[list[dict], list[dict]], RespuestaModelo]
 
 
-def _fuente(nombre: str, datos: dict | None) -> dict | None:
-    """El enlace a la pantalla que enseña lo mismo que la herramienta, si existe."""
+def _enlace_factura(fila: dict) -> dict:
+    return {"titulo": f"Factura {fila['file_id']}", "url": reverse("panel:factura", args=[fila["lote"], fila["file_id"]])}
+
+
+def _fuentes(nombre: str, datos: dict | None) -> list[dict]:
+    """Los enlaces a las pantallas que enseñan lo mismo que la herramienta, si existen."""
     datos = datos or {}
     if nombre == "estado_pedido" and datos.get("pedido"):
-        return {"titulo": f"Asiento {datos['pedido']} en el ERP", "url": reverse("panel:asientos") + f"?q={datos['pedido']}"}
-    if nombre == "cambios_erp" and datos.get("de") and datos.get("a"):
-        return {"titulo": "Cambios entre copias del ERP", "url": reverse("panel:cambios", args=[datos["de"], datos["a"]])}
-    if nombre == "estado_sincronizacion":
-        return {"titulo": "Conexión con el ERP", "url": reverse("panel:conexion")}
+        return [{"titulo": f"Asiento {datos['pedido']} en el ERP", "url": reverse("panel:asientos") + f"?q={datos['pedido']}"}]
     if nombre == "estado_pedido":
-        return {"titulo": "Asientos del ERP", "url": reverse("panel:asientos")}
-    return None
+        return [{"titulo": "Asientos del ERP", "url": reverse("panel:asientos")}]
+    if nombre == "cambios_erp" and datos.get("de") and datos.get("a"):
+        return [{"titulo": "Cambios entre copias del ERP", "url": reverse("panel:cambios", args=[datos["de"], datos["a"]])}]
+    if nombre == "estado_sincronizacion":
+        return [{"titulo": "Conexión con el ERP", "url": reverse("panel:conexion")}]
+    if nombre == "detalle_factura" and datos.get("lote") and datos.get("file_id"):
+        return [_enlace_factura(datos)]
+    if nombre == "buscar_facturas":
+        filas = [f for f in datos.get("encontradas") or [] if f.get("lote") and f.get("file_id")]
+        return [_enlace_factura(f) for f in filas[:MAX_ENLACES]]
+    if nombre == "pendientes_revision":
+        return [{"titulo": "Para revisar", "url": reverse("panel:cola")}]
+    if nombre == "resumen_lote":
+        return [{"titulo": "Facturas del lote", "url": reverse("panel:facturas")}]
+    return []
 
 
 def responder(pregunta: str, historial: list[dict], completar: Completar) -> RespuestaAsistente:
@@ -131,8 +145,7 @@ def responder(pregunta: str, historial: list[dict], completar: Completar) -> Res
             })
             for ll in respuesta.llamadas:
                 resultado = ejecutar(ll.nombre, ll.argumentos)
-                f = _fuente(ll.nombre, resultado.get("datos"))
-                if f:
+                for f in _fuentes(ll.nombre, resultado.get("datos")):
                     fuentes[f["url"]] = f
                 mensajes.append({"role": "tool", "tool_call_id": ll.id,
                                  "content": json.dumps(resultado, ensure_ascii=False, default=str)})
