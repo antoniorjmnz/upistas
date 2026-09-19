@@ -10,6 +10,7 @@ outputs/*
 
 # Python
 *.sqlite
+*.sqlite3
 *.sqlite-*
 __pycache__/
 *.pyc
@@ -26,3 +27,6 @@ Thumbs.db
 .vscode/
 .idea/
 
+
+# Estado local de plugins de Claude Code
+.omc/

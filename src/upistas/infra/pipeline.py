@@ -33,9 +33,11 @@ def leer(ruta: str) -> dict | None:
 
 @DBOS.step()
 def decidir(file_id: str, extraida: dict | None, version_norma: str) -> dict:
-    factura = FacturaExtraida.model_validate(extraida) if extraida else None
-    decision = procesar.decidir(file_id, factura, contenedor.referencias(), contenedor.norma(version_norma))
-    return a_outcome(decision)
+    norma = contenedor.norma(version_norma)
+    if not extraida:  # sin factura legible no hace falta consultar referencias
+        return a_outcome(procesar.decidir(file_id, None, None, norma))
+    factura = FacturaExtraida.model_validate(extraida)
+    return a_outcome(procesar.decidir(file_id, factura, contenedor.referencias(), norma))
 
 
 @DBOS.workflow()

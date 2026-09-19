@@ -5,38 +5,57 @@ DBOS ni Django; todo eso se enchufa desde fuera. Las fronteras las vigila `lint-
 
 ```mermaid
 flowchart LR
+  subgraph fuera[Mundo de Alberto: no se toca]
+    PDF[Facturas PDF]
+    XLS[Excel]
+    BR[ERP bridge 2009]
+  end
   subgraph infra[infra]
-    CLI[cli] --> P[pipeline DBOS]
+    CLI[cli: run / erp sync]
+    P[pipeline DBOS]
     C[contenedor]
   end
   subgraph ad[adaptadores]
     L1[lector pdf_texto]
-    L2[lector LLM texto]
-    L3[lector LLM visión]
-    X[Excel de Alberto]
-    E[ERP bridge 2009]
+    L2[lectores LLM]
+    XA[Excel]
+    EH[cliente ERP http]
+    EC[ERP desde la copia]
+    DJ[almacén Django]
   end
   subgraph app[aplicacion]
     U[procesar: leer → decidir]
-    M[mapeo contratos ↔ dominio]
+    S[sincronizar_erp]
   end
   subgraph dom[dominio]
-    N[norma vN.toml]
-    R[reglas R1..R5]
-    I[importes y fechas]
+    N[norma vN.toml + reglas]
+    V[versiones y diferencias]
   end
-  P --> U
+  DB[(Nuestra BD: copia versionada del ERP, historial, decisiones)]
+  WEB[web Django: Conexión, Asientos, Facturas, Revisar]
+  BR -- solo lectura --> EH
+  PDF --> L1 & L2
+  XLS --> XA
+  CLI --> S & P
+  S --> EH
+  S --> V
+  S --> DJ --> DB
+  P --> U --> N
+  U -. referencias .-> EC --> DJ
+  WEB --> DB
   C -. monta .-> ad
-  U --> N --> R
-  U -. puertos .-> ad
 ```
+
+**El ERP solo se lee y solo desde un sitio.** `sincronizar_erp` lo descarga entero, lo guarda como
+una versión en nuestra base de datos y registra cada conexión. Las reglas y la web leen esa copia,
+nunca el bridge en vivo ([ADR-003](adr/003-erp-copia-local.md)).
 
 | Capa | Carpeta | Puede importar | Qué hay |
 |---|---|---|---|
 | Dominio | `src/upistas/dominio/` | nada del proyecto | Modelos, reglas, norma, parseo de importes. Funciones puras. |
-| Puertos | `src/upistas/puertos.py` | dominio, contratos | Interfaces: `LectorDocumento`, `FuenteMaestro`, `FuenteERP`, `ModeloLenguaje`. |
+| Puertos | `src/upistas/puertos.py` | dominio, contratos | Interfaces: `LectorDocumento`, `FuenteMaestro`, `FuenteERP`, `ClienteERP`, `AlmacenERP`, `ModeloLenguaje`. |
 | Aplicación | `src/upistas/aplicacion/` | dominio, puertos | Casos de uso. Reciben los adaptadores ya montados. |
-| Adaptadores | `src/upistas/adaptadores/` | todo lo anterior | Implementaciones: PDF, Excel, ERP, Helmcode... |
+| Adaptadores | `src/upistas/adaptadores/` | todo lo anterior | Implementaciones: PDF, Excel, cliente del ERP, copia del ERP, Helmcode, persistencia en Django... |
 | Infra | `src/upistas/infra/` | todo | DBOS, montaje (`contenedor.py`), CLI. |
 | Web | `web/` | aplicación e infra | Django: panel y bandeja de revisión. |
 
@@ -58,8 +77,11 @@ Dominio y reglas no cambian.
 **Otro proveedor de LLM o de respaldo** → un adaptador de `ModeloLenguaje` y elegirlo en
 `contenedor.py` o por `.env`.
 
-**Otra fuente de datos (otro ERP, una base de datos)** → un adaptador de `FuenteERP` o
-`FuenteMaestro` y cambiarlo en `contenedor.py`.
+**Otro ERP** → un adaptador de `ClienteERP` (cómo se descarga) y cambiarlo en `contenedor.py`.
+La copia versionada, el historial y las reglas no cambian.
+
+**Otra fuente de datos (una base de datos, otro Excel)** → un adaptador de `FuenteMaestro` y
+cambiarlo en `contenedor.py`.
 
 **Una pantalla del panel** → vista en `web/`, que llama a la aplicación; nunca a adaptadores.
 
