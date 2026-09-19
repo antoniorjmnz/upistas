@@ -27,7 +27,7 @@
 </div>
 
 <section class="tarjeta">
-  <h2>Qué cambió respecto al repaso anterior</h2>
+  <div class="cabecera-tarjeta"><h2>Qué cambió respecto al repaso anterior</h2></div>
   {% if not anterior %}
     <p class="suave">Es el primer repaso de este lote, así que no hay nada con lo que compararlo.</p>
   {% elif not cambios %}
@@ -41,34 +41,36 @@
 </section>
 
 <section class="tarjeta">
-  <h2>El fichero de resultados</h2>
+  <div class="cabecera-tarjeta"><h2>El fichero de resultados</h2></div>
   <p class="intro">Una línea por factura con el resultado y el porqué, tal como se entrega. Si alguien le pide
     «el jsonl», es este.</p>
-  <p style="margin: 18px 0 0;"><a class="boton" href="{% url 'panel:outcomes' ejecucion.id %}">Descargar el fichero de resultados</a></p>
+  <p class="acciones" style="margin: 18px 0 0;"><a class="boton" href="{% url 'panel:outcomes' ejecucion.id %}">{% icono "doc" 18 %}Descargar el fichero de resultados</a></p>
 </section>
 
-<details class="mas">
-  <summary>Detalles técnicos{% icono "chevron" 16 %}</summary>
-  <dl class="datos">
-    <dt>Norma</dt><dd>{{ ejecucion.norma }}, las reglas de pago en vigor ese día</dd>
-    <dt>Copia del ERP</dt>
-    <dd><a href="{% url 'panel:asientos' %}?version={{ ejecucion.version_erp }}">Ver los asientos con los que se decidió</a>
-      <span class="mono suave">{{ ejecucion.version_erp }}</span></dd>
-    <dt>Excel de proveedores</dt>
-    <dd>El maestro tal como estaba entonces <span class="mono suave">{{ ejecucion.version_excel }}</span></dd>
-    <dt>Empezó</dt><dd>{{ ejecucion.inicio|date:"d/m/Y H:i:s" }}</dd>
-    <dt>Acabó</dt><dd>{% if ejecucion.fin %}{{ ejecucion.fin|date:"d/m/Y H:i:s" }}{% else %}<span class="suave">todavía no</span>{% endif %}</dd>
-    <dt>Duración</dt>
-    <dd>{% if cifras.segundos %}{{ cifras.segundos|floatformat:1 }} segundos{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
-    <dt>Ritmo</dt>
-    <dd>{% if cifras.por_segundo %}{{ cifras.por_segundo|floatformat:1 }} facturas por segundo{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
-    <dt>Se pudieron leer</dt><dd>{{ cifras.leidos }} de {{ cifras.documentos }}</dd>
-    <dt>Sin inteligencia artificial</dt><dd>{{ cifras.sin_ia }}, solo con el texto del propio PDF</dd>
-    <dt>Cómo se leyeron</dt>
-    <dd><ul class="menuda">{% for m in cifras.metodos %}<li>{{ m.n }} {{ m.texto }}</li>{% empty %}<li>sin datos</li>{% endfor %}</ul></dd>
-    <dt>Coste</dt>
-    <dd>{{ cifras.coste_eur|euros }} <span class="suave">({{ cifras.tokens_in|intcomma }} tokens de entrada y {{ cifras.tokens_out|intcomma }} de salida)</span></dd>
-    {% for h in hardware %}<dt>{{ h.que }}</dt><dd>{{ h.valor }}</dd>{% endfor %}
-  </dl>
-</details>
+<section class="tarjeta">
+  <details class="mas">
+    <summary>Detalles técnicos{% icono "chevron" 16 %}</summary>
+    <dl class="datos">
+      <dt>Norma</dt><dd>{{ ejecucion.norma }}, las reglas de pago en vigor ese día</dd>
+      <dt>Copia del ERP</dt>
+      <dd><a href="{% url 'panel:asientos' %}?version={{ ejecucion.version_erp }}">Ver los asientos con los que se decidió</a>
+        <span class="mono suave">{{ ejecucion.version_erp }}</span></dd>
+      <dt>Excel de proveedores</dt>
+      <dd>El maestro tal como estaba entonces <span class="mono suave">{{ ejecucion.version_excel }}</span></dd>
+      <dt>Empezó</dt><dd>{{ ejecucion.inicio|date:"d/m/Y H:i:s" }}</dd>
+      <dt>Acabó</dt><dd>{% if ejecucion.fin %}{{ ejecucion.fin|date:"d/m/Y H:i:s" }}{% else %}<span class="suave">todavía no</span>{% endif %}</dd>
+      <dt>Duración</dt>
+      <dd>{% if cifras.segundos %}{{ cifras.segundos|floatformat:1 }} segundos{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
+      <dt>Ritmo</dt>
+      <dd>{% if cifras.por_segundo %}{{ cifras.por_segundo|floatformat:1 }} facturas por segundo{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
+      <dt>Se pudieron leer</dt><dd>{{ cifras.leidos }} de {{ cifras.documentos }}</dd>
+      <dt>Sin inteligencia artificial</dt><dd>{{ cifras.sin_ia }}, solo con el texto del propio PDF</dd>
+      <dt>Cómo se leyeron</dt>
+      <dd><ul class="menuda">{% for m in cifras.metodos %}<li>{{ m.n }} {{ m.texto }}</li>{% empty %}<li>sin datos</li>{% endfor %}</ul></dd>
+      <dt>Coste</dt>
+      <dd>{{ cifras.coste_eur|euros }} <span class="suave">({{ cifras.tokens_in|intcomma }} tokens de entrada y {{ cifras.tokens_out|intcomma }} de salida)</span></dd>
+      {% for h in hardware %}<dt>{{ h.que }}</dt><dd>{{ h.valor }}</dd>{% endfor %}
+    </dl>
+  </details>
+</section>
 {% endblock %}

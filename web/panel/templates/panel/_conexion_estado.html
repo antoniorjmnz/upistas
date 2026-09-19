@@ -13,7 +13,7 @@
 
 <section class="tarjeta">
   {% if en_uso %}
-    <h2>La copia con la que se trabaja</h2>
+    <div class="cabecera-tarjeta"><h2>La copia con la que se trabaja</h2></div>
     <div class="cifras">
       <div class="cifra"><b>{{ en_uso.n_asientos }}</b><span>asientos</span></div>
       <div class="cifra"><b>{{ pendientes }}</b><span>pendientes de pago</span></div>
@@ -33,7 +33,7 @@
     </div>
   {% endif %}
 
-  <p style="margin: 20px 0 0; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+  <p class="acciones" style="margin: 20px 0 0;">
     <button class="boton" hx-post="{% url 'panel:sincronizar' %}" hx-target="#estado" hx-disabled-elt="this" hx-indicator="#hablando">
       Sincronizar ahora
     </button>
