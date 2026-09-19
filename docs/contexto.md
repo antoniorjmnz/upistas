@@ -52,6 +52,7 @@ necesaria para el flujo principal.
 - **IA**: Helmcode (servidores en la UE, tarifa plana). `qwen3.6` para escaneos, `glm5.3` para texto. La clave va en tu `.env`; pídela por privado.
 - **La norma es un fichero** (`normas/v3.toml`). La v4 del sábado será otro fichero.
 - **Cada factura es un workflow duradero**: si el proceso se cae, al arrancar sigue donde iba sin repetir nada.
+- **Una sola base de datos** (`DATABASE_URL` en `.env`): la app y el estado del pipeline. SQLite en local; Postgres (`docker compose up -d`) para varios procesos.
 
 ## Cómo está el código
 Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X" en
@@ -67,8 +68,9 @@ Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X"
 | Cambiar el formato de los datos entre módulos | `contracts/` (PR aparte, avisando) |
 
 ## Estado actual
-Funciona de punta a punta: recorre las 500 facturas y genera `outputs/outcomes.jsonl`. Pero todavía
-**todas salen ESCALAR**, porque faltan la lectura de PDFs, el Excel, el ERP y casi todas las reglas.
+Funciona de punta a punta: sincroniza el ERP (copia local versionada, ver [ADR-003](adr/003-erp-copia-local.md)),
+recorre las 500 facturas y genera `outputs/outcomes.jsonl`. Pero todavía **todas salen ESCALAR**,
+porque faltan la lectura de PDFs, el Excel y casi todas las reglas.
 Eso es el milestone **Lote 1**. Lo que hay pendiente está en el
 [tablero](https://github.com/users/antoniorjmnz/projects/2), agrupado por milestone.
 
@@ -87,5 +89,10 @@ cp .env.example .env        # y pon HELMCODE_API_KEY
 sh scripts/setup.sh         # formato de commits
 uv sync --extra dev         # instala todo (necesitas uv: https://docs.astral.sh/uv/)
 uv run pytest               # tiene que salir todo en verde
+
+# en otra terminal, el ERP de Alberto (déjala abierta; sin make en Windows):
+python ../caja/alberto_erp.py
+
+uv run upistas erp sync     # copia local del ERP (516 asientos, ~4 s)
 uv run upistas run --limit 20
 ```

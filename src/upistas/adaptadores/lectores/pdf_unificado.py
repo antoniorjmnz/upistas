@@ -56,7 +56,12 @@ class LectorPdfUnificado:
                         json.dump(raw, f, ensure_ascii=False)
                         temporal = Path(f.name)
                     temporal.replace(cache)
-            return extraer_campos(ruta.name, raw["pages"])
+            return extraer_campos(ruta.name, raw["pages"], documento={
+                "sha256": sha,
+                "tipo": "escaneado" if any(p["route"] == "fal_ocr" for p in raw["pages"]) else "texto",
+                "paginas": raw["page_count"],
+                "bytes": len(contenido),
+            })
         except LecturaFallida:
             raise
         except (OSError, ValueError, RuntimeError) as exc:

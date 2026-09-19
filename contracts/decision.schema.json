@@ -3,20 +3,74 @@
   "$id": "decision",
   "title": "Decisión por factura (una línea de outcomes.jsonl, con traza)",
   "type": "object",
-  "required": ["file_id", "result"],
+  "required": [
+    "file_id",
+    "result"
+  ],
   "properties": {
-    "file_id": { "type": "string" },
-    "result": { "enum": ["PAGAR", "NO_PAGAR", "ESCALAR"] },
-    "motivo": { "type": "string", "description": "Frase legible para Alberto" },
-    "norma": { "type": "string", "description": "Versión de la norma aplicada, p.ej. v3" },
+    "file_id": {
+      "type": "string"
+    },
+    "result": {
+      "enum": [
+        "PAGAR",
+        "NO_PAGAR",
+        "ESCALAR"
+      ]
+    },
+    "motivo": {
+      "type": "string",
+      "description": "Frase legible para Alberto"
+    },
+    "norma": {
+      "type": "string",
+      "description": "Versión de la norma aplicada, p.ej. v3"
+    },
     "reglas": {
       "type": "array",
       "items": {
-        "type": "object", "required": ["id", "ok"],
-        "properties": { "id": { "type": "string", "description": "p.ej. R1_nif_iban" }, "ok": { "type": "boolean" }, "detalle": { "type": "string" } }
+        "type": "object",
+        "required": [
+          "id",
+          "ok"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "p.ej. R1_nif_iban"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "detalle": {
+            "type": "string"
+          }
+        }
       }
     },
-    "pedido": { "type": ["string", "null"] },
-    "run_id": { "type": "string" }
+    "pedido": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "alertas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lo que Alberto debe ver aunque la decisión sea clara: notas sospechosas, importe anómalo, contradicciones"
+    },
+    "metodo": {
+      "type": "string",
+      "description": "Cómo se leyó el documento: texto_determinista, texto_llm, vision_llm o ninguno"
+    },
+    "version_datos": {
+      "type": "string",
+      "description": "Copia del ERP y del Excel con la que se decidió"
+    }
   }
 }

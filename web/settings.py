@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "web.panel",
 ]
 
 MIDDLEWARE = [
@@ -73,12 +74,10 @@ WSGI_APPLICATION = "web.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+# La misma base de datos que el pipeline (DATABASE_URL en .env): SQLite en local, Postgres para escalar.
+from upistas.config import base_de_datos_django, settings as upistas_settings  # noqa: E402
+
+DATABASES = {"default": base_de_datos_django(upistas_settings.database_url)}
 
 
 # Password validation

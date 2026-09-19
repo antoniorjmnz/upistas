@@ -13,7 +13,8 @@ cruzando un Excel y un ERP de 2009. Equipo de 4, cada uno con su propio Claude.
 ## Comandos
 - `uv run pytest` — tests
 - `uv run python scripts/check.py` — lo mismo que la CI; tiene que pasar antes de abrir PR
-- `uv run upistas run [--limit N] [--norma v3]` — procesa La Caja → `outputs/outcomes.jsonl`
+- `uv run upistas erp sync` / `uv run upistas erp estado` — copia del ERP (arrancado aparte con `python ../caja/alberto_erp.py`)
+- `uv run upistas run [--limit N] [--norma v3] [--sin-sync]` — sincroniza el ERP y procesa La Caja → `outputs/outcomes.jsonl`
 - `uv run python scripts/gen_contracts.py` — tras cambiar `contracts/*.schema.json`
 - `/tarea N` empieza la issue N · `/pr` cierra el trabajo y abre la PR
 

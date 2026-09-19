@@ -21,6 +21,7 @@ dev = [
     "jsonschema>=4.25",
     "datamodel-code-generator>=0.33",
     "import-linter>=2.3",
+    "pytest-django>=4.11",
 ]
 ocr = [
     "fal-client==0.10.0",
@@ -39,6 +40,8 @@ packages = ["src/upistas", "web"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]
+DJANGO_SETTINGS_MODULE = "web.settings_test"
 
 # Fronteras entre capas. `lint-imports` falla si alguien las cruza (lo ejecuta check.py y la CI).
 [tool.importlinter]

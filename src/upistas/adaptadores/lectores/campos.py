@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import defaultdict
 
@@ -20,7 +21,7 @@ def etiqueta(palabra: str) -> str:
     return r"(?<!\w)" + r"[ \t]*".join(palabra) + r"(?!\w)"
 
 
-def extraer_campos(file_id: str, paginas: list[dict]) -> FacturaExtraida:
+def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = None) -> FacturaExtraida:
     candidatos = defaultdict(list)
     errores = []
 
@@ -88,6 +89,12 @@ def extraer_campos(file_id: str, paginas: list[dict]) -> FacturaExtraida:
     return FacturaExtraida.model_validate({
         "file_id": file_id,
         "metodo": "texto_determinista",
+        "lector": "pdf_unificado",
+        "documento": documento or {
+            "sha256": hashlib.sha256("\n".join(p.get("text", "") for p in paginas).encode()).hexdigest(),
+            "tipo": "otro",
+            "paginas": len(paginas),
+        },
         "campos": campos,
         "checks": {},
         "errores": errores,

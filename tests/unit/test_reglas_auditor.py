@@ -80,6 +80,7 @@ def test_error_de_lectura_impide_pagar_aunque_los_campos_cuadren():
 
     extraida = FacturaExtraida.model_validate({
         "file_id": "a.pdf", "metodo": "texto_determinista", "checks": {},
+        "documento": {"sha256": "0" * 64, "tipo": "texto", "paginas": 2},
         "campos": {k: {"valor": v, "confianza": 1} for k, v in campos.items()},
         "errores": ["Página 2: OCR sin texto"],
     })

@@ -1,18 +1,25 @@
-import os
-import tempfile
-from pathlib import Path
+from functools import cache
 
 import pytest
 
 # DBOS lee DATABASE_URL al importar el pipeline: cada sesión de tests usa su propia SQLite.
-_tmp = Path(tempfile.mkdtemp(prefix="upistas-test-"))
-os.environ["DATABASE_URL"] = f"sqlite:///{(_tmp / 'test.sqlite').as_posix()}"
 
 
 @pytest.fixture(autouse=True)
 def no_usar_excel_real_en_tests(monkeypatch):
     from upistas.infra import contenedor
+    from upistas.adaptadores.fuentes.memoria import ErpEnMemoria
 
+    erp_original = contenedor.erp
+
+    @cache
+    def erp_local():
+        if contenedor.settings.erp_snapshot is not None:
+            erp_original.cache_clear()
+            return erp_original()
+        return ErpEnMemoria()
+
+    monkeypatch.setattr(contenedor, "erp", erp_local)
     monkeypatch.setattr(contenedor, "rutas_maestro", lambda: ())
     contenedor.maestro.cache_clear()
     contenedor.referencias.cache_clear()

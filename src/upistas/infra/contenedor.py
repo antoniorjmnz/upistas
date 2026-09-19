@@ -12,16 +12,20 @@ from datetime import date
 from functools import cache
 from pathlib import Path
 
-from upistas.adaptadores.fuentes.erp_http import ErpHTTP
+from upistas.adaptadores.fuentes.erp_copia import ErpDesdeCopia
+from upistas.adaptadores.fuentes.erp_http import ClienteErpHttp
 from upistas.adaptadores.fuentes.excel import MaestroExcel
-from upistas.adaptadores.fuentes.memoria import ErpEnMemoria, MaestroEnMemoria
+from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.fuentes.snapshot import ErpSnapshot
 from upistas.adaptadores.lectores.fal_ocr import FalOCR
 from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnificado
+from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.config import ROOT, Settings, settings
 from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
-from upistas.puertos import FuenteERP, FuenteMaestro
+from upistas.dominio.versiones import version_asientos
+from upistas.infra import django_setup
+from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro
 
 
 @cache
@@ -53,16 +57,27 @@ def maestro() -> FuenteMaestro:
         raise ValueError("Hay varios maestros Excel; indica cuál usar mediante --excel o EXCEL_PATH")
     if candidatas:
         return MaestroExcel(candidatas[0])
-    return MaestroEnMemoria()  # Pendiente: adaptador del Excel de Alberto
+    return MaestroEnMemoria()  # Pendiente: adaptador del Excel de Alberto (#25)
+
+
+@cache
+def cliente_erp() -> ClienteERP:
+    """El bridge de 2009 en vivo. Solo lo usa la sincronización."""
+    return ClienteErpHttp(settings.erp_url, settings.erp_user, settings.erp_password)
+
+
+@cache
+def almacen_erp() -> AlmacenERP:
+    django_setup.configurar()
+    return AlmacenERPDjango()
 
 
 @cache
 def erp() -> FuenteERP:
+    """Con lo que deciden las reglas: la copia local, nunca el bridge en vivo."""
     if settings.erp_snapshot is not None:
         return ErpSnapshot(settings.erp_snapshot)
-    if settings.usar_erp_http:
-        return ErpHTTP(settings.erp_url, settings.erp_user, settings.erp_password)
-    return ErpEnMemoria()  # Pendiente: adaptador del bridge HTTP del ERP
+    return ErpDesdeCopia(almacen_erp())
 
 
 @cache
@@ -72,18 +87,24 @@ def norma(version: str) -> Norma:
 
 @cache
 def referencias() -> Referencias:
+    fuente = maestro()
+    asientos = erp().asientos()
+    if len({a.pedido for a in asientos}) != len(asientos):
+        raise ValueError("ERP: hay varios asientos para un mismo pedido; requiere revisión")
     return Referencias(
-        proveedores={p.nif: p for p in maestro().proveedores()},
-        pedidos={p.id: p for p in maestro().pedidos()},
-        asientos={a.pedido: a for a in erp().asientos()},
+        proveedores={p.nif: p for p in fuente.proveedores()},
+        pedidos={p.id: p for p in fuente.pedidos()},
+        asientos={a.pedido: a for a in asientos},
         hoy=settings.hoy or date.today(),
+        marcados_por_alberto=fuente.marcados_para_revisar() if isinstance(fuente, MaestroExcel) else frozenset(),
+        version_datos=f"{getattr(fuente, 'version', '')}:{version_asientos(asientos)}",
     )
 
 
 def configurar(nuevos: Settings) -> None:
     global settings
     settings = nuevos
-    for funcion in (lectores, maestro, erp, norma, referencias):
+    for funcion in (lectores, maestro, erp, cliente_erp, almacen_erp, norma, referencias):
         funcion.cache_clear()
 
 
@@ -97,5 +118,5 @@ def huella(version: str) -> str:
         "norma": asdict(norma(version)),
         "extractor": VERSION,
         "ocr": settings.usar_ocr,
-    }, sort_keys=True, default=str)
+    }, sort_keys=True, default=lambda v: sorted(v) if isinstance(v, (set, frozenset)) else str(v))
     return hashlib.sha256(contenido.encode()).hexdigest()

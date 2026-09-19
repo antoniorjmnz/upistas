@@ -22,7 +22,7 @@ from upistas.infra import contenedor
 
 COLA = "documentos"
 
-_config: DBOSConfig = {"name": "upistas", "system_database_url": settings.database_url}
+_config: DBOSConfig = {"name": "upistas", "system_database_url": settings.dbos_url}
 DBOS(config=_config)
 
 
@@ -34,9 +34,12 @@ def leer(ruta: str) -> dict | None:
 
 @DBOS.step()
 def decidir(file_id: str, extraida: dict | None, version_norma: str) -> dict:
-    factura = FacturaExtraida.model_validate(extraida) if extraida else None
-    decision = procesar.decidir(file_id, factura, contenedor.referencias(), contenedor.norma(version_norma))
-    return a_outcome(decision)
+    norma = contenedor.norma(version_norma)
+    if not extraida:  # sin factura legible no hace falta consultar referencias
+        return a_outcome(procesar.decidir(file_id, None, None, norma))
+    factura = FacturaExtraida.model_validate(extraida)
+    refs = contenedor.referencias()
+    return a_outcome(procesar.decidir(file_id, factura, refs, norma), version_datos=refs.version_datos, metodo=factura.metodo.value)
 
 
 @DBOS.workflow()
@@ -52,7 +55,7 @@ def iniciar() -> None:
 def encolar_lote(rutas: list[Path], lote: str, version_norma: str) -> list[WorkflowHandle]:
     cola = DBOS.retrieve_queue(COLA)
     handles = []
-    referencias = contenedor.huella(version_norma)
+    referencias = contenedor.huella(version_norma) if any(r.is_file() for r in rutas) else "sin_documentos"
     for ruta in rutas:
         contenido = hashlib.sha256(ruta.read_bytes()).hexdigest() if ruta.is_file() else "ausente"
         with SetWorkflowID(f"{lote}:{version_norma}:{referencias}:{ruta.name}:{contenido}"):

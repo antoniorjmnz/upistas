@@ -30,7 +30,7 @@ def test_excel_deduplica_identicos_y_normaliza(tmp_path):
     assert len(fuente.proveedores()) == 1
     assert fuente.proveedores()[0].iban == "ES1212341234123412341234"
     assert fuente.pedidos()[0].importe == Decimal("121.00")
-    assert not hasattr(fuente.pedidos()[0], "estado")
+    assert fuente.pedidos()[0].estado == "ABIERTO"
 
 
 @pytest.mark.parametrize("importe", [859.4, 2383.2, 121, 0.01, 100.005])
