@@ -40,23 +40,29 @@ def pedido_importe(factura, refs, params):
 
 @regla("R3_datos_fiscales")
 def datos_fiscales(factura, refs, params):
-    valores = (factura.base, factura.iva_pct, factura.iva, factura.total)
-    if any(v is None for v in valores):
-        return Comprobacion("R3_datos_fiscales", False, "Faltan datos legibles para verificar el cálculo del IVA")
-    if any(v < 0 for v in valores):
+    """Duda, no incumplimiento: sin importes legibles no se comprueba nada, y sin el tipo de IVA impreso
+    no se contrasta la cuota. La suma base + IVA = total no necesita el tipo: la prueba R3_iva_total."""
+    importes = (factura.base, factura.iva, factura.total)
+    if any(v is None for v in importes):
+        return Comprobacion("R3_datos_fiscales", False, "Faltan importes legibles para verificar el IVA y el total")
+    if any(v < 0 for v in (*importes, factura.iva_pct) if v is not None):
         return Comprobacion("R3_datos_fiscales", False, "Importes negativos: requieren revisión antes de aplicar la regla de IVA")
+    if factura.iva_pct is None:
+        return Comprobacion("R3_datos_fiscales", False, "Sin el tipo de IVA impreso no se puede contrastar la cuota")
     return Comprobacion("R3_datos_fiscales", True)
 
 
 @regla("R3_iva_total")
 def iva_total(factura, refs, params):
+    """Incumplimiento seguro con importes legibles: la cuota se contrasta solo con el tipo impreso;
+    la suma se comprueba siempre, con o sin tipo."""
     base, iva, total = factura.base, factura.iva, factura.total
     if None in (base, iva, total) or min(base, iva, total) < 0:
         return Comprobacion("R3_iva_total", True)
-    tipos = [factura.iva_pct] if factura.iva_pct is not None else params.get("tipos_iva", [21, 10, 4])
-    esperados = [(base * Decimal(str(tipo)) / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for tipo in tipos]
-    if not any(abs(iva - esperado) <= tolerancia(params) for esperado in esperados):
-        return Comprobacion("R3_iva_total", False, "La cuota de IVA no corresponde a la base y al tipo")
+    if factura.iva_pct is not None:
+        esperado = (base * Decimal(str(factura.iva_pct)) / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if abs(iva - esperado) > tolerancia(params):
+            return Comprobacion("R3_iva_total", False, "La cuota de IVA no corresponde a la base y al tipo")
     if abs(total - base - iva) > tolerancia(params):
         return Comprobacion("R3_iva_total", False, "El total no coincide con base más IVA")
     return Comprobacion("R3_iva_total", True)

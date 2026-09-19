@@ -19,7 +19,6 @@ si_falla = "NO_PAGAR"
 prioridad = 350
 [reglas.R3_iva_total.params]
 tolerancia = "0.01"
-tipos_iva = [21, 10, 4]
 
 [reglas.R5_erp_pendiente]
 si_falla = "ESCALAR"
@@ -38,7 +37,7 @@ prioridad = 400
 
 [reglas.R3_datos_fiscales]
 si_falla = "ESCALAR"
-prioridad = 400
+prioridad = 300
 
 [reglas.R6_evaluacion_disponible]
 si_falla = "ESCALAR"
@@ -66,12 +65,12 @@ prioridad = 350
 
 # Qué provoca cada regla al fallar y por qué, de mayor a menor prioridad:
 # R0_lectura → ESCALAR: un dato no se pudo leer; sin dato seguro no se da por probado ningún incumplimiento.
-# R3_datos_fiscales → ESCALAR: faltan importes legibles, o el tipo de IVA para contrastar la cuota.
 # R6_evaluacion_disponible → ESCALAR: hay notas y no se pudo evaluar su significado.
 # R1_nif_iban → NO_PAGAR: NIF fuera del maestro o IBAN distinto; incumple la regla 1 con seguridad.
 # R2_pedido_importe → NO_PAGAR: pedido inexistente o importe distinto; incumple la regla 2 con seguridad.
-# R3_iva_total → NO_PAGAR: cuota o total mal calculados con importes legibles; incumple la regla 3.
-# R4_fecha → NO_PAGAR: fecha imposible o futura; incumple la regla 4.
+# R3_iva_total → NO_PAGAR: total ≠ base + IVA, o cuota distinta del tipo impreso; incumple la regla 3.
+# R4_fecha → NO_PAGAR: fecha imposible (31/02) o futura; incumple la regla 4.
+# R3_datos_fiscales → ESCALAR: importes negativos o sin tipo de IVA impreso para contrastar la cuota; no tapa una suma mal hecha.
 # R6_notas → ESCALAR: nota relevante o instrucción en el documento; la mira una persona aunque el ERP diga PAGADA.
 # R6_contenido_oculto → ESCALAR: texto oculto o caracteres invisibles; la mira una persona.
 # R5_no_pagada → NO_PAGAR: pedido ya pagado en el ERP o aprobado en otro lote; nunca pagar dos veces.

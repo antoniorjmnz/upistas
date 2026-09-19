@@ -8,9 +8,9 @@ from upistas.dominio.importes import normaliza_iban
 from upistas.dominio.modelos import GRAVEDAD, Comprobacion, Decision, Factura, Resultado
 
 # Con estas causas no se puede dar por probado nada: un bloqueo por duplicado no las convierte en NO_PAGAR.
-DUDA_REAL = frozenset({"R0_lectura", "R3_datos_fiscales", "R6_evaluacion_disponible"})
+DUDA_REAL = frozenset({"R0_lectura", "R6_evaluacion_disponible"})
 # Si la norma ya había dejado la factura en revisión por esto, el duplicado se anota pero no decide.
-REVISION_PENDIENTE = frozenset({"R6_notas", "R6_contenido_oculto"})
+REVISION_PENDIENTE = frozenset({"R3_datos_fiscales", "R6_notas", "R6_contenido_oculto"})
 
 
 def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factura] | None = None,

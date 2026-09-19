@@ -271,6 +271,39 @@ def test_sin_tipo_de_iva_legible_escala():
     assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None), REFS).resultado == Resultado.ESCALAR
 
 
+def test_total_mal_sumado_sin_tipo_de_iva_no_se_paga():
+    # La suma base + IVA = total se comprueba sin el tipo: si no cuadra, incumple la regla 3 con seguridad.
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None, total=Decimal("122")), REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert "El total no coincide" in next(c for c in decision.comprobaciones if c.regla == "R3_iva_total").detalle
+    assert not next(c for c in decision.comprobaciones if c.regla == "R3_datos_fiscales").ok
+
+
+def test_sin_tipo_de_iva_la_cuota_no_se_contrasta():
+    # Sin el tipo impreso no se sabe si la cuota está mal (puede ser exenta, IRPF...): es duda, no incumplimiento.
+    # La suma cuadra (101 + 20 = 121) y el total coincide con el pedido; solo la cuota no es el 21 % de la base.
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None, base=Decimal("101"), iva=Decimal("20")), REFS)
+    assert decision.resultado == Resultado.ESCALAR
+    assert next(c for c in decision.comprobaciones if c.regla == "R3_iva_total").ok
+    assert "tipo de IVA" in decision.motivo
+
+
+@pytest.mark.parametrize("regla,cambio", INCUMPLIMIENTOS)
+def test_faltar_el_tipo_de_iva_no_tapa_otro_incumplimiento_seguro(regla, cambio):
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, **cambio, iva_pct=None), REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+
+
+def test_copia_exacta_sin_tipo_de_iva_y_suma_mal_no_se_paga():
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    factura = replace(FACTURA, iva_pct=None, total=Decimal("122"), sha256="a" * 64, numero="F-001")
+    copia = replace(factura, file_id="b.pdf")
+    decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(copia, REFS)], {"a.pdf": factura, "b.pdf": copia})
+    assert all(d.resultado == Resultado.NO_PAGAR for d in decisiones)
+
+
 def test_evaluacion_de_notas_fallida_escala():
     factura = replace(FACTURA, notas=(Nota("Gracias"),),
                       evaluacion_notas=EvaluacionNotas(True, "timeout", error="timeout"))
