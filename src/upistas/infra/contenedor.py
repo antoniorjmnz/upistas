@@ -8,12 +8,16 @@ from __future__ import annotations
 from datetime import date
 from functools import cache
 
-from upistas.adaptadores.fuentes.memoria import ErpEnMemoria, MaestroEnMemoria
+from upistas.adaptadores.fuentes.erp_copia import ErpDesdeCopia
+from upistas.adaptadores.fuentes.erp_http import ClienteErpHttp
+from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.lectores.pdf_texto import LectorPdfTexto
+from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.config import ROOT, settings
 from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
-from upistas.puertos import FuenteERP, FuenteMaestro, LectorDocumento
+from upistas.infra import django_setup
+from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, LectorDocumento
 
 
 @cache
@@ -24,12 +28,25 @@ def lectores() -> tuple[LectorDocumento, ...]:
 
 @cache
 def maestro() -> FuenteMaestro:
-    return MaestroEnMemoria()  # Pendiente: adaptador del Excel de Alberto
+    return MaestroEnMemoria()  # Pendiente: adaptador del Excel de Alberto (#25)
+
+
+@cache
+def cliente_erp() -> ClienteERP:
+    """El bridge de 2009 en vivo. Solo lo usa la sincronización."""
+    return ClienteErpHttp(settings.erp_url, settings.erp_user, settings.erp_password)
+
+
+@cache
+def almacen_erp() -> AlmacenERP:
+    django_setup.configurar()
+    return AlmacenERPDjango()
 
 
 @cache
 def erp() -> FuenteERP:
-    return ErpEnMemoria()  # Pendiente: adaptador del bridge HTTP del ERP
+    """Con lo que deciden las reglas: la copia local, nunca el bridge en vivo."""
+    return ErpDesdeCopia(almacen_erp())
 
 
 @cache

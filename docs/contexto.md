@@ -67,8 +67,9 @@ Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X"
 | Cambiar el formato de los datos entre módulos | `contracts/` (PR aparte, avisando) |
 
 ## Estado actual
-Funciona de punta a punta: recorre las 500 facturas y genera `outputs/outcomes.jsonl`. Pero todavía
-**todas salen ESCALAR**, porque faltan la lectura de PDFs, el Excel, el ERP y casi todas las reglas.
+Funciona de punta a punta: sincroniza el ERP (copia local versionada, ver [ADR-003](adr/003-erp-copia-local.md)),
+recorre las 500 facturas y genera `outputs/outcomes.jsonl`. Pero todavía **todas salen ESCALAR**,
+porque faltan la lectura de PDFs, el Excel y casi todas las reglas.
 Eso es el milestone **Lote 1**. Lo que hay pendiente está en el
 [tablero](https://github.com/users/antoniorjmnz/projects/2), agrupado por milestone.
 
@@ -87,5 +88,10 @@ cp .env.example .env        # y pon HELMCODE_API_KEY
 sh scripts/setup.sh         # formato de commits
 uv sync --extra dev         # instala todo (necesitas uv: https://docs.astral.sh/uv/)
 uv run pytest               # tiene que salir todo en verde
+
+# en otra terminal, el ERP de Alberto (déjala abierta; sin make en Windows):
+python ../caja/alberto_erp.py
+
+uv run upistas erp sync     # copia local del ERP (516 asientos, ~4 s)
 uv run upistas run --limit 20
 ```

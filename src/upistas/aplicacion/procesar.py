@@ -24,8 +24,8 @@ def leer_documento(ruta: Path, lectores: Sequence[LectorDocumento]) -> FacturaEx
     return None
 
 
-def decidir(file_id: str, extraida: FacturaExtraida | None, refs: Referencias, norma: Norma) -> Decision:
-    if extraida is None:
+def decidir(file_id: str, extraida: FacturaExtraida | None, refs: Referencias | None, norma: Norma) -> Decision:
+    if extraida is None or refs is None:
         return Decision(
             file_id=file_id,
             resultado=Resultado.ESCALAR,

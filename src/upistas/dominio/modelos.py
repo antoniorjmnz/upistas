@@ -39,9 +39,9 @@ class Asiento:
     id: str
     pedido: str
     proveedor_id: str
-    nif: str
+    nif: str  # puede venir vacío: el ERP tiene asientos sin NIF
     importe: Decimal
-    fecha: date
+    fecha: date | None
     estado: str  # PENDIENTE | PAGADA
 
 

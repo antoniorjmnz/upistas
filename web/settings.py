@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "web.panel",
 ]
 
 MIDDLEWARE = [
@@ -76,7 +77,7 @@ WSGI_APPLICATION = "web.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": os.getenv("DJANGO_DB", BASE_DIR / "web.sqlite3"),
     }
 }
 
