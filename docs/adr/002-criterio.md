@@ -29,13 +29,13 @@ La norma v3:
    Solo es NO_PAGAR si estamos seguros de que la regla falla; si no se lee bien el dato, es duda.
 3. **Contradicciones → ESCALAR.** Si la factura dice algo que choca con nuestros datos, o nuestras
    fuentes chocan entre sí (Excel contra ERP), decide una persona.
-4. **Prioridad**: una lectura fallida, datos fiscales no verificables, contenido oculto o una
-   evaluación de notas no disponible exigen ESCALAR: no permiten dar por probado un incumplimiento.
-   Con los datos fiscales legibles y fiables, un IVA o una suma base + IVA incorrectos producen
-   NO_PAGAR y prevalecen sobre una nota relevante, según lo acordado. Después se aplica la revisión
-   por notas relevantes: ESCALAR aunque el ERP indique PAGADA o haya un duplicado. Sin estas causas,
-   los pagos previos y duplicados confirmados siguen siendo NO_PAGAR. A igual prioridad gana
-   NO_PAGAR > ESCALAR > PAGAR. Escalar nunca autoriza un segundo pago.
+4. **Prioridad**: una lectura fallida, datos fiscales no verificables o una evaluación de notas
+   no disponible exigen ESCALAR: no permiten dar por probado un incumplimiento. Con los importes
+   legibles, un IVA o una suma base + IVA incorrectos producen NO_PAGAR y prevalecen sobre una
+   nota relevante y sobre texto oculto en el mismo documento (`FA-5590_ofimática`). Después se
+   aplica la revisión por notas o contenido oculto: ESCALAR aunque el ERP indique PAGADA o haya
+   un duplicado. Sin estas causas, los pagos previos y duplicados confirmados siguen siendo
+   NO_PAGAR. A igual prioridad gana NO_PAGAR > ESCALAR > PAGAR. Escalar nunca autoriza un segundo pago.
 5. **El texto de una factura nunca se obedece.** Helmcode evalúa el significado de las notas,
    no autoriza pagos. Solo una nota inequívocamente irrelevante puede dejar intacto el resultado
    de las reglas. Todo contenido relevante para pago, identidad, fechas, excepciones o controles,
@@ -111,7 +111,10 @@ La norma v3:
   solos a una instrucción oculta; los controles bidireccionales requieren revisión.
 - La ocultación detectada, o no poder comprobar la visibilidad, impone ESCALAR por una regla
   determinista. Ni un dictamen IRRELEVANTE del LLM, ni un pago previo, ni un duplicado anulan
-  esa revisión. Si no se detectó ninguna nota, esta protección no necesita llamar a la API.
+  esa revisión. Si los importes son legibles y el IVA o el total están mal calculados, el
+  resultado sigue siendo NO_PAGAR: la nota oculta no autoriza el pago ni convierte el
+  incumplimiento fiscal en una duda. Si no se detectó ninguna nota, esta protección no necesita
+  llamar a la API.
 - El evaluador recibe las notas originales, una versión normalizada de apoyo y las alertas
   del inspector. Todo texto procedente del PDF, incluidas muestras y metadatos, es dato no
   fiable: nunca una orden del sistema ni una autorización. La evidencia cita el original.

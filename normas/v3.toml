@@ -55,7 +55,7 @@ prioridad = 300
 
 [reglas.R6_contenido_oculto]
 si_falla = "ESCALAR"
-prioridad = 400
+prioridad = 300
 
 # 4. La fecha debe ser válida y no futura.
 [reglas.R4_fecha]
