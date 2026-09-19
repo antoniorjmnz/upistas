@@ -90,16 +90,21 @@ las fixtures `alberto` y `lote_de_prueba` de
 El asistente está en la barra lateral, como en tantas webs: «Preguntar» abre un panel por la derecha
 (`web/panel/templates/panel/_asistente.html`, un `<dialog>` no modal de 420 px, a pantalla entera en
 el móvil) sin salir de donde esté Alberto. `/preguntar/` sigue existiendo a pantalla entera con el
-mismo código (`views/chat.py`). Las dos envían por htmx y añaden la respuesta abajo, con «Pensando…»
-mientras tanto. La conversación va en la sesión (`request.session["chat"]`, los últimos 20 mensajes),
-así que sigue ahí al cambiar de pantalla; el panel recuerda si estaba abierto (`sessionStorage`) y
-se abre también con `#asistente` en la dirección. Un toque de movimiento de 220 ms que se apaga con
-`prefers-reduced-motion`.
+mismo código (`views/chat.py`) y sin el panel encima (una sola conversación y una sola caja); desde
+el panel se llega con «Abrir en pantalla completa». Las dos envían por htmx y añaden la respuesta
+abajo, con «Pensando…» mientras tanto. La conversación va en la sesión (`request.session["chat"]`,
+los últimos 20 mensajes), así que sigue ahí al cambiar de pantalla; el panel recuerda si estaba
+abierto (`sessionStorage`) y se abre también con `#asistente` en la dirección. Con el panel abierto
+en pantallas anchas (más de 1000 px) el contenido le deja sitio (`body.con-asistente`); en el móvil
+el panel lo tapa todo. Un toque de movimiento de 220 ms que se apaga con `prefers-reduced-motion`.
 
 **Sabe en qué pantalla está Alberto.** El formulario manda la ruta actual (`ruta`); `contexto_de`
-la resuelve con `django.urls.resolve` (solo rutas de esta web) y `frase_de_contexto` se la cuenta al
-modelo al final del mensaje de sistema: «Alberto está ahora en el detalle de la factura X (lote 1)».
-Así «esta factura» o «este proveedor» son los que tiene delante.
+la resuelve con `django.urls.resolve` (solo rutas de esta web) y se queda solo con la pantalla y los
+identificadores comprobados en la base de datos (lote y file_id de una factura que existe, nombre y
+código del proveedor): nunca la ruta tal cual ni lo que venga tras el «?», que lo escribe cualquiera
+y acabaría en el prompt. `frase_de_contexto` se lo cuenta al modelo al final del mensaje de sistema:
+«Alberto está ahora en el detalle de la factura X (lote 1)». Así «esta factura» o «este proveedor»
+son los que tiene delante.
 
 ## Llevarle a una pantalla: `ir_a`
 Herramienta de solo lectura (`asistente/navegacion.py`): `ir_a(pantalla, filtros)` devuelve la
@@ -117,13 +122,19 @@ filtros se comprueban uno a uno (los que no valen se avisan y se quitan): nunca 
   (no crea `RevisionHumana`; el comentario se ve en el detalle de la factura).
 
 La herramienta no cambia nada: comprueba que el pedido o la factura existen y devuelve una propuesta
-con un token firmado (`django.core.signing`, sal propia, caduca a los 10 minutos). La respuesta enseña
-una tarjeta «El asistente propone: …» con «Confirmar» y «No». Solo al pulsar Confirmar se hace un POST
-(con CSRF) a `/asistente/accion/` con el token: la vista lo lee (`leer_token`), rechaza los caducados,
-manipulados o de un tipo fuera de la lista, y `ejecutar` vuelve a comprobar el tipo y los datos antes
-de tocar nada. Cada acción confirmada queda en `AccionAsistente` (cuándo, tipo, datos, resultado, ok;
-migración 0006; se ve en el admin) y al pie de la conversación como «Hecho: …» con el enlace a su
-pantalla; la tarjeta desaparece de la sesión para que no se confirme dos veces.
+con un token firmado (`django.core.signing`, sal propia, caduca a los 10 minutos) que lleva un `nonce`
+de un solo uso. La vista Preguntar apunta ese nonce como pendiente en la sesión
+(`request.session["propuestas_pendientes"]`). La respuesta enseña una tarjeta «El asistente propone: …»
+con «Confirmar» y «No». Solo al pulsar Confirmar se hace un POST (con CSRF) a `/asistente/accion/` con
+el token: la vista lo lee (`leer_token`), rechaza los caducados, manipulados o de un tipo fuera de la
+lista, y también los que ya no están pendientes en la sesión o cuyo nonce ya está en el registro
+(`ya_hecha`): reenviar el mismo token no repite nada. `ejecutar` vuelve a comprobar el tipo y los
+datos antes de tocar nada, y si algo falla (lo esperado o no) deja la fila con `ok=False` y un aviso
+llano en vez de un error 500. Cada acción confirmada queda en `AccionAsistente` (cuándo, tipo, datos
+con el nonce, resultado, ok; migración 0007; se ve en el admin) y al pie de la conversación como
+«Hecho: …» con el enlace a su pantalla. «No» manda el mismo formulario con `rechazar=1`: la propuesta
+se olvida (sesión y tarjeta) sin hacer nada, y queda «Vale, no se hace nada.»; sin JS funciona igual y
+la tarjeta ya no está al recargar.
 
 **Prohibido siempre**, y el código lo impide aunque el modelo lo pida o el token venga firmado: pagar
 o no pagar una factura, crear o borrar proveedores o pedidos, subir o repasar lotes y tocar el ERP.
