@@ -1,8 +1,29 @@
-# Postgres para escalar el pipeline (opcional: en local basta SQLite).
-# Arrancar: docker compose up -d   → luego DATABASE_URL=postgresql://upistas:upistas@localhost:5432/upistas
+# Referencia para levantar todo junto en un ordenador con Docker: la web, Postgres y el ERP del reto.
+#   cp .env.example .env   (y rellenar las claves)
+#   docker compose up -d --build      → http://localhost:8000
+# En local sin Docker basta SQLite (docs/web.md). Para sacarla del portátil de verdad: docs/despliegue.md.
 services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    # Lo de aquí manda sobre lo del .env: dentro de Docker la base y el ERP son los otros servicios.
+    environment:
+      DATABASE_URL: postgresql://upistas:upistas@postgres:5432/upistas
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      ERP_URL: http://127.0.0.1:8009
+    volumes:
+      - almacen:/datos/almacen
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
-    image: postgres:17
+    image: postgres:16
     environment:
       POSTGRES_USER: upistas
       POSTGRES_PASSWORD: upistas
@@ -11,5 +32,25 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U upistas -d upistas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # El ERP del reto (el bridge de 2009) es un proceso aparte: aquí, el alberto_erp.py de La Caja montado
+  # desde fuera (CAJA_DIR en el .env o ../caja). Solo escucha en 127.0.0.1, así que comparte la red del
+  # servicio web y la web lo ve en http://127.0.0.1:8009, igual que en el portátil.
+  # El sábado: command: ["python", "/caja/alberto_erp.py", "--lote2", "/caja/erp_export_lote2.csv"]
+  erp:
+    image: python:3.12-slim
+    command: ["python", "/caja/alberto_erp.py", "--puerto", "8009"]
+    volumes:
+      - ${CAJA_DIR:-../caja}:/caja:ro
+    network_mode: "service:web"
+    depends_on:
+      - web
+
 volumes:
   pgdata:
+  almacen:
