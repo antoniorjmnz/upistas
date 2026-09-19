@@ -6,25 +6,30 @@ Lo que hay dentro y cómo lo tratamos:
 - `Pedidos_2025_OLD`: dos pedidos antiguos; se cargan marcados como archivados.
 - `pendiente_revisar`: pedidos que el propio Alberto marcó a mano para mirar.
 - `Norma_Pagos_v3`: el texto de la norma. Las demás hojas son basura y se ignoran.
-Las hojas se buscan por nombre y las columnas por cabecera, no por posición.
+Las hojas se buscan por nombre y las columnas por cabecera, no por posición. La limpieza de cada fila
+(cabeceras, NIF, IBAN, importes, fechas) está en `filas.py`, compartida con los CSV de altas.
 """
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
 from functools import cached_property
 from pathlib import Path
 
 import openpyxl
 
-from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_importe
+from upistas.adaptadores.fuentes.filas import (
+    CABECERAS_PEDIDO,
+    CABECERAS_PROVEEDOR,
+    PATRON_NIF,  # noqa: F401  (lo usa el formulario de proveedores de la web)
+    PATRON_PEDIDO,
+    cabecera,
+    es_cabecera,
+    leer_pedidos,
+    leer_proveedores,
+    texto,
+)
 from upistas.dominio.modelos import Pedido, Proveedor
-
-PATRON_PEDIDO = re.compile(r"^PO-\d{4}-\d{4}$")
-PATRON_NIF = re.compile(r"^[A-Z]\d{7}[A-Z0-9]$")
 
 
 @dataclass
@@ -82,118 +87,35 @@ class MaestroExcel:
         if ws is None:
             self.avisos.append("No hay hoja Proveedores")
             return []
-        vistos: dict[str, Proveedor] = {}
-        por_nif: dict[str, Proveedor] = {}
-        for fila in self._filas(ws, {"id", "razon social", "nif", "iban"}):
-            pid = _texto(fila.get("id"))
-            if not pid:
-                continue
-            p = Proveedor(
-                id=pid,
-                nombre=_texto(fila.get("razon social")),
-                nif=_texto(fila.get("nif")).upper(),
-                iban=normaliza_iban(_texto(fila.get("iban"))) or "",
-                ciudad=_texto(fila.get("ciudad")),
-                condiciones_dias=_dias(fila.get("condiciones")),
-            )
-            anterior = vistos.get(pid) or por_nif.get(p.nif)
-            if anterior and (anterior.id, anterior.nif, anterior.iban) != (p.id, p.nif, p.iban):
-                raise ValueError(f"Maestro contradictorio: proveedor {pid}")
-            if pid in vistos:
-                if vistos[pid] != p:
-                    self.avisos.append(f"Proveedor {pid} repetido con datos distintos; se usa el primero")
-                else:
-                    self.avisos.append(f"Proveedor {pid} repetido")
-                continue
-            if not PATRON_NIF.match(p.nif):
-                self.avisos.append(f"Proveedor {pid} con NIF raro: {p.nif!r}")
-            vistos[pid] = p
-            if p.nif:
-                por_nif[p.nif] = p
-        return list(vistos.values())
+        return leer_proveedores(self._filas(ws, CABECERAS_PROVEEDOR), self.avisos)
 
     def _leer_pedidos(self, ws, estado_por_defecto: str) -> list[Pedido]:
         if ws is None:
             return []
-        pedidos: list[Pedido] = []
-        vistos: set[str] = set()
-        for fila in self._filas(ws, {"pedido", "importe"}):
-            pid = _texto(fila.get("pedido"))
-            if not PATRON_PEDIDO.match(pid):
-                continue
-            if pid in vistos:
-                self.avisos.append(f"Pedido {pid} repetido en el Excel")
-                continue
-            importe = _decimal(fila.get("importe") if "importe" in fila else fila.get("importe_total"))
-            if importe is None:
-                self.avisos.append(f"Pedido {pid} sin importe legible")
-                continue
-            vistos.add(pid)
-            pedidos.append(
-                Pedido(
-                    id=pid,
-                    proveedor_id=_texto(fila.get("proveedorid")),
-                    nif=_texto(fila.get("nif")).upper(),
-                    importe=importe,
-                    estado=_texto(fila.get("estado")).upper() or estado_por_defecto,
-                    fecha=_fecha(fila.get("fecha_pedido")),
-                )
-            )
-        return pedidos
+        return leer_pedidos(self._filas(ws, CABECERAS_PEDIDO), self.avisos, estado_por_defecto, origen="el Excel")
 
     @staticmethod
     def _filas(ws, obligatorias: set[str]):
         """Filas como dict {cabecera normalizada: valor}. La cabecera se busca en las 5 primeras filas."""
         iterador = ws.iter_rows(values_only=True)
-        cabecera = None
+        nombres = None
         for _ in range(5):
             fila = next(iterador, None)
             if fila is None:
                 return
-            nombres = [_cabecera(c) for c in fila]
-            if any(o in nombres or any(n.startswith(o) for n in nombres) for o in obligatorias):
-                cabecera = nombres
+            candidata = [cabecera(c) for c in fila]
+            if es_cabecera(candidata, obligatorias):
+                nombres = candidata
                 break
-        if cabecera is None:
+        if nombres is None:
             return
         for fila in iterador:
             if fila is None or all(c is None for c in fila):
                 continue
-            yield {n: v for n, v in zip(cabecera, fila) if n}
+            yield {n: v for n, v in zip(nombres, fila) if n}
 
     @staticmethod
     def _columna(ws) -> list[str]:
         if ws is None:
             return []
-        return [_texto(f[0]) for f in ws.iter_rows(values_only=True) if f and f[0] is not None and _texto(f[0])]
-
-
-def _cabecera(valor) -> str:
-    return re.sub(r"\s+", " ", str(valor or "")).strip().lower().replace("_", "_") if valor is not None else ""
-
-
-def _texto(valor) -> str:
-    return "" if valor is None else str(valor).strip()
-
-
-def _decimal(valor) -> Decimal | None:
-    if valor is None or valor == "":
-        return None
-    try:
-        importe = Decimal(str(valor))
-    except InvalidOperation:
-        importe = parse_importe(str(valor))
-    return importe if importe is not None and importe.is_finite() else None
-
-
-def _fecha(valor) -> date | None:
-    if isinstance(valor, datetime):
-        return valor.date()
-    if isinstance(valor, date):
-        return valor
-    return parse_fecha(_texto(valor))
-
-
-def _dias(valor) -> int | None:
-    m = re.search(r"\d+", _texto(valor))
-    return int(m.group(0)) if m else None
+        return [texto(f[0]) for f in ws.iter_rows(values_only=True) if f and f[0] is not None and texto(f[0])]
