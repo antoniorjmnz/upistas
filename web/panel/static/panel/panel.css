@@ -284,3 +284,8 @@ td.porque { max-width: 42ch; }
 .formulario .pie-formulario { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .conmutador { display: inline-flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; color: var(--tinta); cursor: pointer; }
 .conmutador input { width: 20px; height: 20px; accent-color: var(--marca); }
+
+/* Los mensajes de Django llegan con sus propias etiquetas */
+.aviso.success { background: var(--pagar-fondo); color: #085D3A; border-color: var(--pagar-borde); }
+.aviso.warning { background: var(--revisar-fondo); color: #7A2E0E; border-color: var(--revisar-borde); }
+.aviso.error { background: var(--nopagar-fondo); color: #7A271A; border-color: var(--nopagar-borde); }
