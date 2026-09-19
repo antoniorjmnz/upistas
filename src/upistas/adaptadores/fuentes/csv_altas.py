@@ -25,6 +25,8 @@ from upistas.adaptadores.fuentes.filas import (
 )
 from upistas.dominio.modelos import Pedido, Proveedor
 
+ILEGIBLE = "tiene caracteres que no se han podido leer"
+
 
 @dataclass
 class AltasCSV:
@@ -74,8 +76,11 @@ def filas_csv(ruta: Path, obligatorias: set[str], avisos: list[str]) -> Iterator
 
 
 def tabla_csv(nombre: str, datos: bytes, avisos: list[str]) -> tuple[list[str], list[Fila]]:
-    """Las cabeceras normalizadas y las filas con contenido de un CSV ya en memoria (subido por la web)."""
+    """Las cabeceras normalizadas y las filas con contenido de un CSV ya en memoria (subido por la web).
+    Si el fichero trae bytes que no son de ninguna codificación conocida, se lee igual y se avisa."""
     lineas = _lineas(datos)
+    if any("�" in linea for linea in lineas):
+        avisos.append(f"{nombre}: {ILEGIBLE}")
     if not lineas:
         avisos.append(f"{nombre}: está vacío")
         return [], []

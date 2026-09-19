@@ -22,7 +22,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db.models import QuerySet
 
-from upistas.adaptadores.fuentes.csv_altas import tabla_csv, tipo_de_fichero
+from upistas.adaptadores.fuentes.csv_altas import ILEGIBLE, tabla_csv, tipo_de_fichero
 from upistas.adaptadores.fuentes.filas import (
     PATRON_PEDIDO,
     importe_de_fila,
@@ -75,7 +75,7 @@ class Fichero:
     tipo: str | None  # proveedores | pedidos | None si no se reconoce
     columnas: list[str] = field(default_factory=list)  # cabeceras normalizadas
     filas: list[dict] = field(default_factory=list)
-    aviso: str = ""  # por qué no vale, en palabras de Alberto
+    aviso: str = ""  # por qué no vale, o qué reparo tiene aunque se lea, en palabras de Alberto
 
     @property
     def titulo(self) -> str:
@@ -152,7 +152,7 @@ def leer(nombre: str, datos: bytes) -> Fichero:
         columnas, filas = tabla_csv(nombre, datos, avisos)
     except (csv.Error, UnicodeDecodeError):
         return Fichero(nombre, None, aviso=f"«{nombre}» no se puede leer como un fichero de texto con columnas.")
-    if avisos:
+    if not columnas:
         return Fichero(nombre, None, aviso=f"«{nombre}» está vacío.")
     tipo = tipo_de_fichero(columnas)
     if tipo is None:
@@ -161,7 +161,10 @@ def leer(nombre: str, datos: bytes) -> Fichero:
             "(ID, Razon Social, NIF, IBAN… o pedido, proveedor_id, importe_total…)."))
     if not filas:
         return Fichero(nombre, None, columnas, aviso=f"«{nombre}» solo trae la cabecera, ninguna fila.")
-    return Fichero(nombre, tipo, columnas, filas)
+    aviso = ""
+    if any(ILEGIBLE in a for a in avisos):  # se lee igual, pero que Alberto sepa que algo sale mal escrito
+        aviso = f"«{nombre}» {ILEGIBLE}: donde debía haber una letra sale «�». Revise los nombres antes de aplicar."
+    return Fichero(nombre, tipo, columnas, filas, aviso)
 
 
 def guardar(ficheros: list[Fichero]) -> str:
@@ -218,7 +221,7 @@ def previsualizar(ficheros: list[Fichero]) -> Previsualizacion:
     vistas: list[VistaFichero] = []
     proveedores: list[Proveedor] = []
     pedidos: list[Pedido] = []
-    avisos = [f.aviso for f in ficheros if f.tipo is None]
+    avisos = [f.aviso for f in ficheros if f.aviso]  # los que no valen y los que se leen con reparos
 
     for fichero in sorted(ficheros, key=lambda f: f.tipo != "proveedores"):
         if fichero.tipo == "proveedores":

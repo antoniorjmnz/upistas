@@ -239,6 +239,14 @@ def test_con_importe_e_importe_total_manda_la_misma_columna_para_decidir_y_para_
     assert Pedido.objects.get(numero="PO-2026-0700").importe == Decimal("10.00")
 
 
+def test_un_fichero_con_caracteres_ilegibles_se_lee_pero_avisa_arriba(alberto, maestro, almacen):
+    token = subir(alberto, fichero("roto.csv", b"ID,Razon Social,NIF,IBAN,Ciudad,Condiciones\nP020,Cer\x81micas S.L.,B50123456,ES2100491500051234567890,Zaragoza,60 dias\n"))
+    html = previa(alberto, token)
+    assert "«roto.csv» tiene caracteres que no se han podido leer: donde debía haber una letra sale «�»." in html
+    assert "<b>1 proveedor nuevo, 0 cambian, 0 filas inválidas</b>" in html
+    assert "Cer�micas S.L." in html
+
+
 def test_un_fichero_que_no_se_reconoce_junto_a_uno_bueno_se_avisa_y_se_sigue(alberto, maestro, almacen):
     token = subir(alberto, fichero("lista.csv", "nombre,telefono\nPepe,600000000\n"),
                   fichero("pedidos.csv", CABECERA_PEDIDOS + "PO-2026-0700,P001,B46102331,10.00,ABIERTO,2026-09-01\n"))

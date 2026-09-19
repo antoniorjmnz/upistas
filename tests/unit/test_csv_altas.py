@@ -73,6 +73,16 @@ def test_acepta_un_csv_guardado_desde_windows(tmp_path):
     assert len(provs) == 1 and provs[0].nombre == "Cerámicas Aragón S.L." and provs[0].condiciones_dias == 60
 
 
+def test_un_fichero_con_bytes_que_no_son_de_ninguna_codificacion_se_lee_pero_avisa(tmp_path):
+    """0x81 no es ninguna letra en cp1252: se sustituye por «�» y se dice, en vez de entrar en silencio."""
+    ruta = tmp_path / "proveedores_rotos.csv"
+    ruta.write_bytes(b"ID;Razon Social;NIF;IBAN;Ciudad;Condiciones\nP020;Cer\x81micas Arag\xf3n S.L.;B50123456;ES21 0049 1500 0512 3456 7890;Zaragoza;60 dias\n")
+    altas = AltasCSV(rutas_proveedores=(ruta,))
+    provs = altas.proveedores()
+    assert len(provs) == 1 and provs[0].nombre == "Cer�micas Aragón S.L."
+    assert "proveedores_rotos.csv: tiene caracteres que no se han podido leer" in altas.avisos
+
+
 def test_avisa_si_el_fichero_no_tiene_las_columnas_o_esta_vacio(tmp_path):
     (tmp_path / "raro.csv").write_text("nombre,telefono\nPepe,600000000\n", encoding="utf-8")
     (tmp_path / "vacio.csv").write_text("", encoding="utf-8")

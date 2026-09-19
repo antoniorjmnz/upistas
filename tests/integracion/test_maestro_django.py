@@ -258,6 +258,16 @@ def test_solo_los_csv_si_no_hay_excel_a_mano(altas_csv, tmp_path, monkeypatch, c
     assert "1 proveedor nuevo, 2 pedidos nuevos, 0 cambiados" in capsys.readouterr().out
 
 
+def test_importar_maestro_avisa_si_un_csv_trae_caracteres_que_no_se_pueden_leer(excel_pequeno, tmp_path, capsys):
+    ruta = tmp_path / "proveedores_rotos.csv"
+    ruta.write_bytes(b"ID,Razon Social,NIF,IBAN,Ciudad,Condiciones\nP020,Cer\x81micas S.L.,B50123456,ES2100491500051234567890,Zaragoza,60 dias\n")
+
+    call_command("importar_maestro", excel=str(excel_pequeno), proveedores_csv=[str(ruta)])
+
+    assert Proveedor.objects.filter(codigo="P020").exists()
+    assert "Aviso: proveedores_rotos.csv: tiene caracteres que no se han podido leer" in capsys.readouterr().out
+
+
 def test_importar_maestro_avisa_si_no_encuentra_un_csv(excel_pequeno, tmp_path):
     from django.core.management.base import CommandError
 
