@@ -85,7 +85,10 @@ Arriba en la barra lateral, las de Alberto:
   pantalla donde está la respuesta. Lo hace Fran (#39); el diseño está en [asistente.md](asistente.md).
   Está en un panel lateral que se abre desde cualquier pantalla (y en `/preguntar/` a pantalla entera);
   sabe en qué pantalla está Alberto, le lleva a otra con un botón «Ir a…» y le propone unas pocas cosas
-  (marcar un pedido, apuntar una nota o un comentario) que solo se hacen si pulsa «Confirmar».
+  (marcar un pedido, apuntar una nota o un comentario) que solo se hacen si pulsa «Confirmar». Las
+  conversaciones se guardan: «Conversaciones» (arriba del chat) las lista con «Nueva», papelera y
+  «Borrar todas», y las tres últimas salen en el menú, bajo «Preguntar». Mientras piensa, una burbuja
+  con tres puntos; el proveedor de IA del chat se cambia en el `.env` (`ASISTENTE_*`).
 
 Donde salga una factura hay un botón **Previsualizar**: abre su PDF encima de la página, sin salir de la
 lista ni descargar nada. Se cierra con el botón Cerrar, con Escape o pulsando fuera.
