@@ -1,0 +1,23 @@
+{# Lo que Alberto decide sobre una factura escalada. Espera `decision` (Decision) y, si ya la revisó, `revision`. #}
+{% load panel_extras %}
+<div id="revision-{{ decision.id }}" class="revision">
+  {% if revision %}
+    <p>
+      <span class="pildora {{ revision.resultado|pildora }}">{{ revision.resultado|etiqueta }}</span>
+      <span class="suave">{{ revision.quien }}, {{ revision.cuando|date:"d/m H:i" }}</span>
+      {% if revision.comentario %}<br><span class="suave">«{{ revision.comentario }}»</span>{% endif %}
+    </p>
+  {% endif %}
+  <form method="post" action="{% url 'panel:revisar' decision.documento.lote decision.documento.file_id %}"
+        hx-post="{% url 'panel:revisar' decision.documento.lote decision.documento.file_id %}"
+        hx-target="#revision-{{ decision.id }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <label>Comentario
+      <input type="text" name="comentario" maxlength="500" placeholder="Por qué lo decide así (opcional)">
+    </label>
+    <div class="acciones">
+      <button class="boton" type="submit" name="resultado" value="PAGAR">Pagar</button>
+      <button class="boton secundario" type="submit" name="resultado" value="NO_PAGAR">No pagar</button>
+    </div>
+  </form>
+</div>
