@@ -5,7 +5,12 @@ from dataclasses import replace
 from datetime import date
 
 from upistas.dominio.importes import normaliza_iban
-from upistas.dominio.modelos import Comprobacion, Decision, Factura, Resultado
+from upistas.dominio.modelos import GRAVEDAD, Comprobacion, Decision, Factura, Resultado
+
+# Con estas causas no se puede dar por probado nada: un bloqueo por duplicado no las convierte en NO_PAGAR.
+DUDA_REAL = frozenset({"R0_lectura", "R3_datos_fiscales", "R6_evaluacion_disponible"})
+# Si la norma ya había dejado la factura en revisión por esto, el duplicado se anota pero no decide.
+REVISION_PENDIENTE = frozenset({"R6_notas", "R6_contenido_oculto"})
 
 
 def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factura] | None = None,
@@ -17,17 +22,12 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
 
     def bloquear(file_id, regla, detalle, resultado):
         actual = salida[file_id]
-        iva_probado = any(not c.ok and c.regla == "R3_iva_total" for c in actual.comprobaciones)
-        if resultado == Resultado.ESCALAR and actual.resultado == Resultado.NO_PAGAR:
-            if not actual.comprobaciones or any(not c.ok and c.regla in (
-                "R5_no_pagada", "R5_hash_previo", "R5_copia_hash", "R5_reenvio", "R3_iva_total",
-            ) for c in actual.comprobaciones):
-                resultado = Resultado.NO_PAGAR
-        if any(not c.ok and c.regla in ("R0_lectura", "R3_datos_fiscales", "R6_evaluacion_disponible") for c in actual.comprobaciones):
-            resultado = Resultado.ESCALAR
-        elif not iva_probado and any(not c.ok and c.regla == "R6_contenido_oculto" for c in actual.comprobaciones):
-            resultado = Resultado.ESCALAR
-        elif not iva_probado and actual.resultado == Resultado.ESCALAR and any(not c.ok and c.regla == "R6_notas" for c in actual.comprobaciones):
+        fallidas = {c.regla for c in actual.comprobaciones if not c.ok}
+        # Un duplicado nunca rebaja lo ya decidido: gana el resultado más restrictivo.
+        if GRAVEDAD[actual.resultado] > GRAVEDAD[resultado]:
+            resultado = actual.resultado
+        # Y tampoco convierte una duda en un incumplimiento probado.
+        if fallidas & DUDA_REAL or (actual.resultado == Resultado.ESCALAR and fallidas & REVISION_PENDIENTE):
             resultado = Resultado.ESCALAR
         motivo = detalle if actual.resultado == Resultado.PAGAR else f"{actual.motivo}; {detalle}"
         salida[file_id] = replace(actual, resultado=resultado, motivo=motivo,

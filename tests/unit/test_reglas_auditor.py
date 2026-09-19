@@ -289,6 +289,30 @@ def test_duplicado_con_iva_y_nota_oculta_no_se_paga():
     assert all(d.resultado == Resultado.NO_PAGAR for d in decisiones)
 
 
+@pytest.mark.parametrize("regla,cambio", [c for c in INCUMPLIMIENTOS if "pedido" not in c[1]])
+def test_duplicado_ambiguo_no_rebaja_un_no_pagar(regla, cambio):
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    incumple = replace(FACTURA, **cambio, sha256="a" * 64, numero="F-001")
+    otra = replace(FACTURA, file_id="b.pdf", sha256="b" * 64, numero="F-002")
+    decisiones = resolver_duplicados([norma.evaluar(incumple, REFS), norma.evaluar(otra, REFS)], {"a.pdf": incumple, "b.pdf": otra})
+    por = {d.file_id: d for d in decisiones}
+    assert por["a.pdf"].resultado == Resultado.NO_PAGAR
+    assert not next(c for c in por["a.pdf"].comprobaciones if c.regla == "R5_duplicado").ok
+    assert por["b.pdf"].resultado == Resultado.ESCALAR
+
+
+def test_copia_exacta_de_una_lectura_dudosa_sigue_escalando():
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    dudosa = replace(FACTURA, iban="ES0000000000000000000000", errores_lectura=("Página 2: OCR sin texto",), sha256="a" * 64, numero="F-001")
+    copia = replace(dudosa, file_id="b.pdf")
+    decisiones = resolver_duplicados([norma.evaluar(dudosa, REFS), norma.evaluar(copia, REFS)], {"a.pdf": dudosa, "b.pdf": copia})
+    assert all(d.resultado == Resultado.ESCALAR for d in decisiones)
+
+
 def test_duplicados_por_hash_y_por_pedido():
     from upistas.dominio.duplicados import resolver_duplicados
 
