@@ -305,3 +305,18 @@ details.filtro.activo > summary { border-color: var(--marca); color: var(--marca
 .filtro-panel .pie-formulario { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
 .filtros-puestos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--tinta-2); }
 @media (max-width: 640px) { .filtro-panel { right: auto; left: 0; min-width: min(320px, 90vw); } }
+
+/* Filas de facturas: cada pieza en su columna, para que los botones no se metan donde va el avatar */
+.fila > .av, .fila-factura > .av { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+.fila .quien, .fila-factura .quien { grid-column: 2; grid-row: 1; }
+.fila .importe, .fila-factura .importe { grid-column: 3; grid-row: 1; }
+.fila .accion, .fila-factura .accion { grid-column: 4; grid-row: 1 / span 2; flex-wrap: nowrap; }
+.fila .porque, .fila-factura .porque { grid-column: 2 / 4; grid-row: 2; }
+.fila.tres .porque, .fila-factura.tres .porque, .fila-factura:not(:has(.accion)) .porque { grid-column: 2 / -1; }
+@media (max-width: 640px) {
+  .fila > .av, .fila-factura > .av { grid-row: 1; }
+  .fila .quien, .fila-factura .quien { grid-column: 2; }
+  .fila .importe, .fila-factura .importe { grid-column: 2; grid-row: 2; text-align: left; }
+  .fila .porque, .fila-factura .porque { grid-column: 2; grid-row: 3; }
+  .fila .accion, .fila-factura .accion { grid-column: 2; grid-row: 4; flex-wrap: wrap; }
+}
