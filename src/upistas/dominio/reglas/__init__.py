@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 import pkgutil
 from collections.abc import Callable, Mapping
+from functools import cache
 from typing import Any
 
 from upistas.dominio.modelos import Comprobacion, Factura, Referencias
@@ -43,6 +44,7 @@ def disponibles() -> list[str]:
     return sorted(_REGISTRO)
 
 
+@cache
 def _cargar_modulos() -> None:
     for mod in pkgutil.iter_modules(__path__):
         importlib.import_module(f"{__name__}.{mod.name}")

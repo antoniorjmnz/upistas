@@ -18,6 +18,7 @@ def construir_referencias(
     hoy: date,
     version_erp: str,
     pedidos_ya_decididos: frozenset[str] = frozenset(),
+    hashes_ya_aprobados: frozenset[str] = frozenset(),
 ) -> Referencias:
     por_pedido: dict[str, list[FacturaResumen]] = defaultdict(list)
     for r in lecturas_del_lote:
@@ -29,8 +30,11 @@ def construir_referencias(
     asientos = erp.asientos()
     if len({a.pedido for a in asientos}) != len(asientos):
         raise ValueError("ERP: hay varios asientos para un mismo pedido; requiere revisión")
+    proveedores = maestro.proveedores()
     return Referencias(
-        proveedores={p.nif: p for p in maestro.proveedores()},
+        proveedores={p.nif: p for p in proveedores if p.nif},
+        proveedores_por_id={p.id: p for p in proveedores},
+        hashes_ya_aprobados=hashes_ya_aprobados,
         pedidos={p.id: p for p in maestro.pedidos()},
         asientos={a.pedido: a for a in asientos},
         hoy=hoy,

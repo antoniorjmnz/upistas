@@ -25,10 +25,15 @@ _PATRONES = {
         r"computo de aciertos", r"hardcode", r"tu propio despliegue",
     ],
     "pide_saltar_regla": [
-        r"no (debe |deben )?(recalcul|bloquear|procede contrastar|contrastar)", r"ignorar", r"sin escalado",
-        r"continu(ar|ese|e) (el|la|con el) (pago|proceso|conciliacion)", r"proced(a|ase) al (alta|abono)",
-        r"complete el pago", r"tomese (como|la)", r"debe tomarse como", r"tomarla como valida", r"validarse por razon social",
-        r"no procede contrastar", r"ya esta aprobad", r"aprobad[oa]s? (de palabra|por el)", r"de alta con los datos",
+        r"\b(?:paga(?:r|d|lo)?|pague(?:n)?|abona(?:r)?|abone)\b.{0,80}\b(?:aunque|incluso si|aun si)\b.{0,80}(?:no (?:cuadr|coincid)|falt[ae]|invalid|discrepanc|pagad)",
+        r"no (debe |deben )?(recalcul|bloquear|procede contrastar|contrastar|comprobar|validar|consultar)",
+        r"\bignor(?:a|ar|e)\b.{0,80}\b(?:erp|iva|iban|nif|importe|total|fecha|discrepancia|regla|control)",
+        r"\bsin (?:escalado|comprobar|validar|contrastar)\b", r"proced(a|ase) al alta",
+        r"\bpagad[oa]\b.{0,140}(?:procedase al abono|continuese el pago|pagar|pagarse)",
+        r"tomese (?:como|la) (?:fecha de emision|fecha de la factura|fecha|base|total|importe)",
+        r"debe tomarse como", r"tomarla como valida", r"validarse por razon social",
+        r"no procede contrastar", r"(?:diferencia|discrepancia).{0,100}(?:ya esta aprobad|aprobad[oa]s? (?:de palabra|por el))",
+        r"de alta con los datos", r"no registr(?:es|ar|e).{0,60}(?:discrepancia|error|diferencia)",
     ],
     "info_negocio": [
         r"anulad", r"no procede pago", r"en revision", r"cumplimiento", r"cuenta bancaria", r"nuevo numero de cuenta",
@@ -47,6 +52,11 @@ def normalizar(texto: str) -> str:
     """Minúsculas y sin tildes, para que 'procédase' y 'procedase' sean lo mismo."""
     sin_tildes = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"\s+", " ", sin_tildes).strip().lower()
+
+
+def controles_invisibles(texto: str) -> tuple[str, ...]:
+    return tuple(sorted({f"U+{ord(c):04X}" for c in texto
+                         if unicodedata.category(c) in ("Cf", "Cc") and c not in "\n\r\t"}))
 
 
 def clasificar(texto: str) -> tuple[str, ...]:

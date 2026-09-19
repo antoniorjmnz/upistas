@@ -83,3 +83,20 @@ def test_extraer_pdf_roto_conserva_su_error_y_continua(opciones):
     assert len(filas) == 2
     assert filas[1]["extraccion"] is None
     assert filas[1]["errores"]
+
+
+def test_timeout_de_lectura_se_registra_sin_bloquear_la_extraccion(opciones, monkeypatch):
+    import subprocess
+    from upistas.infra import lectura_acotada
+
+    opciones.timeout_lectura = 0.01
+
+    def agotar_tiempo(comando, **kwargs):
+        assert kwargs["timeout"] == opciones.timeout_lectura
+        raise subprocess.TimeoutExpired(comando, kwargs["timeout"])
+
+    monkeypatch.setattr(lectura_acotada.subprocess, "run", agotar_tiempo)
+    assert cli.cmd_extract(opciones) == 0
+    fila = json.loads((cli.settings.outputs_dir / opciones.salida).read_text(encoding="utf-8"))
+    assert fila["extraccion"] is None
+    assert "Tiempo de lectura agotado" in fila["errores"][0]

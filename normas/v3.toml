@@ -22,6 +22,31 @@ si_falla = "ESCALAR"
 
 [reglas.R5_no_pagada]
 si_falla = "NO_PAGAR"
+prioridad = 100
+
+[reglas.R5_hash_previo]
+si_falla = "NO_PAGAR"
+prioridad = 100
+
+[reglas.R0_lectura]
+si_falla = "ESCALAR"
+prioridad = 300
+
+[reglas.R6_proveedor_referencias]
+si_falla = "ESCALAR"
+prioridad = 50
+
+[reglas.R6_revision_interna]
+si_falla = "ESCALAR"
+prioridad = 50
+
+[reglas.R6_notas]
+si_falla = "ESCALAR"
+prioridad = 300
+
+[reglas.R6_contenido_oculto]
+si_falla = "ESCALAR"
+prioridad = 300
 
 # 4. La fecha debe ser válida y no futura.
 [reglas.R4_fecha]

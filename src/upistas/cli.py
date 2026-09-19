@@ -7,11 +7,15 @@
 import argparse
 import json
 import sys
+import unicodedata
 from dataclasses import replace
 from pathlib import Path
 
-from upistas.aplicacion.procesar import leer_documento
 from upistas.config import settings
+
+
+def texto_seguro(texto: str) -> str:
+    return "".join(f"\\u{ord(c):04x}" if unicodedata.category(c) in ("Cc", "Cf") and c not in "\n\t" else c for c in texto)
 
 
 def _resumen_sync(s) -> str:
@@ -72,15 +76,16 @@ def guardar_jsonl(filas: list[dict], nombre: str) -> Path:
 
 
 def cmd_extract(args: argparse.Namespace) -> int:
-    from upistas.infra import contenedor
+    from upistas.infra import contenedor, lectura_acotada
 
-    contenedor.configurar(replace(settings, usar_ocr=args.ocr))
+    contenedor.configurar(replace(settings, usar_ocr=args.ocr,
+                                  lectura_timeout_s=getattr(args, "timeout_lectura", settings.lectura_timeout_s)))
     pdfs = documentos(args)
     if not pdfs:
         return 1
     filas = []
     for ruta in pdfs:
-        lectura = leer_documento(ruta, contenedor.inspector(), contenedor.lectores())
+        lectura = lectura_acotada.leer(ruta, contenedor.settings)
         extraida = lectura.extraida
         filas.append({
             "file_id": ruta.name,
@@ -102,6 +107,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         erp_url=getattr(args, "erp_url", None) or settings.erp_url,
         usar_erp_http=bool(getattr(args, "erp_url", None)),
         usar_ocr=args.ocr,
+        lectura_timeout_s=getattr(args, "timeout_lectura", settings.lectura_timeout_s),
     ))
     rutas = documentos(args)
     if not rutas:
@@ -142,21 +148,24 @@ def cmd_run(args: argparse.Namespace) -> int:
     print("\nRESULTADOS", flush=True)
     for indice, decision in enumerate(inf.decisiones, 1):
         print("\n" + "=" * 72)
-        print(f"[{indice:03d}/{len(inf.decisiones):03d}] {decision.file_id}")
+        print(f"[{indice:03d}/{len(inf.decisiones):03d}] {texto_seguro(decision.file_id)}")
         print("\nTEXTO EXTRAIDO:")
-        print(contenedor.texto_extraido(por_nombre[decision.file_id]) or "(No se pudo recuperar texto)")
+        print(texto_seguro(contenedor.texto_extraido(por_nombre[decision.file_id]) or "(No se pudo recuperar texto)"))
         print(f"\nRESULTADO: {decision.resultado}")
-        print(f"MOTIVO: {decision.motivo}", flush=True)
+        print(f"MOTIVO: {texto_seguro(decision.motivo)}", flush=True)
         if decision.alertas:
-            print("ALERTAS: " + "; ".join(decision.alertas), flush=True)
+            print("ALERTAS: " + texto_seguro("; ".join(decision.alertas)), flush=True)
 
     r = inf.ejecucion.resumen
     print("\nRESUMEN")
     for estado in ("PAGAR", "NO_PAGAR", "ESCALAR"):
         print(f"  {estado}: {r[estado]}")
-    print(f"{len(inf.decisiones)} facturas en {inf.segundos_lectura + inf.segundos_decision:.1f}s")
+    print(f"{len(inf.decisiones)} facturas en {inf.segundos_lectura + inf.segundos_decision + r.get('segundos_notas', 0):.1f}s")
     if r["tokens_in"] or r["coste_eur"]:
         print(f"IA: {r['tokens_in']} tokens de entrada, {r['tokens_out']} de salida, {r['coste_eur']:.4f} EUR")
+    if r.get("notas_evaluadas"):
+        print(f"Notas: {r['notas_evaluadas']} documentos, {r['notas_desde_cache']} desde caché, "
+              f"{r['notas_fallidas']} evaluaciones no disponibles")
     if args.salida:
         salida = guardar_jsonl([d.outcome for d in inf.decisiones], args.salida)
         print(f"Informe guardado en {salida}")
@@ -164,7 +173,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"Respecto a la ejecución #{inf.anterior.id} ({inf.anterior.inicio.astimezone():%d/%m %H:%M}, datos {inf.anterior.version_datos}): "
               f"{len(inf.cambios)} facturas cambian de resultado")
         for c in inf.cambios[:15]:
-            print(f"  {c.file_id}: {c.antes} -> {c.despues} ({c.motivo})")
+            print(texto_seguro(f"  {c.file_id}: {c.antes} -> {c.despues} ({c.motivo})"))
         if len(inf.cambios) > 15:
             print(f"  ... y {len(inf.cambios) - 15} más")
     return 0
@@ -183,6 +192,7 @@ def main() -> None:
     run.add_argument("--erp-url", default=settings.erp_url, help="URL del bridge HTTP; por defecto ERP_URL o http://127.0.0.1:8009")
     run.add_argument("--ocr", action="store_true", help="Habilita Fal GOT-OCR para escaneos; requiere FAL_KEY y el extra ocr")
     run.add_argument("--norma", default="v3")
+    run.add_argument("--timeout-lectura", type=float, default=settings.lectura_timeout_s, help="Segundos máximos por documento, incluida la llamada OCR")
     run.add_argument("--salida", help="Opcional: guardar además un informe JSONL en outputs")
     run.add_argument("--limit", type=int, default=0, help="Procesar solo los N primeros (pruebas)")
     run.add_argument("--sin-sync", action="store_true", help="No hablar con el ERP: usar la última copia")
@@ -191,6 +201,7 @@ def main() -> None:
     extract.add_argument("--facturas", type=Path, help="Carpeta de PDFs; por defecto CAJA_DIR/facturas")
     extract.add_argument("--ocr", action="store_true", help="Habilita OCR de pago con Fal; requiere FAL_KEY y el extra ocr")
     extract.add_argument("--limit", type=int, default=0)
+    extract.add_argument("--timeout-lectura", type=float, default=settings.lectura_timeout_s)
     extract.add_argument("--salida", default="extraidas.jsonl")
     extract.set_defaults(func=cmd_extract)
     erp = sub.add_parser("erp", help="Conexión con el ERP de Alberto")

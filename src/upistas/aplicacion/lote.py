@@ -2,19 +2,20 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass, replace
 
 from upistas.dominio.duplicados import resolver_duplicados
-from upistas.dominio.modelos import Comprobacion, Decision, Referencias, Resultado
+from upistas.dominio.modelos import Comprobacion, Decision, EvaluacionNotas, Factura, Referencias, Resultado
 from upistas.dominio.norma import Norma
 from upistas.puertos import DecisionGuardada, RegistroLectura
 
 from upistas.aplicacion import procesar
-from upistas.aplicacion.mapeo import a_outcome
+from upistas.aplicacion.mapeo import a_factura, a_outcome
 
 
-def consolidar_lote(outcomes: list[dict]) -> list[dict]:
+def consolidar_lote(outcomes: list[dict], facturas: Mapping[str, Factura] | None = None,
+                    hashes_aprobados: frozenset[str] = frozenset()) -> list[dict]:
     decisiones = [Decision(
         file_id=o["file_id"],
         resultado=Resultado(o["result"]),
@@ -25,24 +26,33 @@ def consolidar_lote(outcomes: list[dict]) -> list[dict]:
         alertas=tuple(o.get("alertas") or []),
     ) for o in outcomes]
     return [{**original, **a_outcome(d, version_datos=original.get("version_datos") or "", metodo=original.get("metodo"))}
-            for original, d in zip(outcomes, resolver_duplicados(decisiones))]
+            for original, d in zip(outcomes, resolver_duplicados(decisiones, facturas, hashes_aprobados))]
 
 
-def decidir_lote(lecturas: Sequence[RegistroLectura], refs: Referencias, norma: Norma) -> list[DecisionGuardada]:
+def decidir_lote(lecturas: Sequence[RegistroLectura], refs: Referencias, norma: Norma,
+                 evaluaciones: Mapping[str, EvaluacionNotas] | None = None) -> list[DecisionGuardada]:
     """Rápido y determinista: las reglas no hablan con nadie. Se puede repetir cuantas veces haga falta."""
     salida = []
+    evaluaciones = evaluaciones or {}
     for r in sorted(lecturas, key=lambda x: x.file_id):
         lectura = procesar.Lectura(documento=r.documento(), extraida=r.extraida, intentos=r.intentos)
-        d = procesar.decidir(r.file_id, lectura, refs, norma)
+        evaluacion = evaluaciones.get(r.file_id)
+        d = procesar.decidir(r.file_id, lectura, refs, norma, evaluacion)
+        if r.sha256:
+            d = replace(d, comprobaciones=d.comprobaciones + (Comprobacion("D0_sha256", True, r.sha256),))
         outcome = a_outcome(d, refs.version_datos, r.metodo)
-        notas = tuple({"texto": n.texto, "categorias": [c.value for c in n.categorias]} for n in (r.extraida.notas or [])) if r.extraida else ()
+        notas = tuple({"texto": n.texto, "categorias": [c.value for c in n.categorias],
+                       "evaluacion": asdict(evaluacion) if evaluacion else None}
+                      for n in (r.extraida.notas or [])) if r.extraida else ()
         salida.append(
             DecisionGuardada(
                 file_id=r.file_id, resultado=d.resultado.value, motivo=d.motivo, pedido=d.pedido,
                 metodo=r.metodo, outcome=outcome, notas=notas, alertas=tuple(d.alertas),
             )
         )
-    consolidados = consolidar_lote([d.outcome for d in salida])
+    facturas = {r.file_id: replace(a_factura(r.extraida), sha256=r.sha256) if r.extraida
+                else Factura(r.file_id, sha256=r.sha256) for r in lecturas}
+    consolidados = consolidar_lote([d.outcome for d in salida], facturas, refs.hashes_ya_aprobados)
     return [replace(d, resultado=o["result"], motivo=o["motivo"], outcome=o) for d, o in zip(salida, consolidados)]
 
 
