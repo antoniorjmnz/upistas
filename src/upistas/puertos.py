@@ -14,6 +14,30 @@ from typing import Protocol
 from upistas.contracts.factura_extraida import FacturaExtraida
 from upistas.dominio.modelos import Asiento, Pedido, Proveedor
 
+# --- Documentos -----------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DocumentoInspeccionado:
+    """Un fichero abierto con cuidado: qué es y qué trae de raro. Lo producen los inspectores."""
+
+    file_id: str
+    ruta: str
+    sha256: str
+    bytes: int
+    tipo: str  # texto | escaneado | blanco | roto | cifrado | otro
+    paginas: int = 0
+    texto_por_pagina: tuple[str, ...] = ()
+    alertas: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def legible(self) -> bool:
+        return self.tipo in ("texto", "escaneado")
+
+
+class Inspector(Protocol):
+    def inspeccionar(self, ruta: Path) -> DocumentoInspeccionado: ...
+
 
 class LecturaFallida(Exception):
     """El lector no pudo sacar la factura de este documento. El siguiente lector lo intentará."""
@@ -24,9 +48,9 @@ class LectorDocumento(Protocol):
 
     nombre: str
 
-    def acepta(self, ruta: Path) -> bool: ...
+    def acepta(self, doc: DocumentoInspeccionado) -> bool: ...
 
-    def leer(self, ruta: Path) -> FacturaExtraida: ...
+    def leer(self, doc: DocumentoInspeccionado) -> FacturaExtraida: ...
 
 
 class FuenteMaestro(Protocol):
@@ -104,9 +128,18 @@ class AlmacenERP(Protocol):
     def ultima(self, solo_correctas: bool = True) -> Sincronizacion | None: ...
 
 
+# --- IA ---------------------------------------------------------------------------------------
+
+
+class RespuestaInvalida(Exception):
+    """El modelo respondió algo que no es el JSON que se le pidió."""
+
+
 class ModeloLenguaje(Protocol):
     """Un LLM que devuelve JSON conforme a un esquema. Solo extrae; nunca decide pagos."""
 
     nombre: str
 
-    def extraer_json(self, instrucciones: str, texto: str | None = None, imagenes: list[bytes] | None = None) -> dict: ...
+    def extraer_json(self, instrucciones: str, texto: str | None = None, imagenes: list[bytes] | None = None) -> tuple[dict, dict]:
+        """Devuelve (json, uso). `uso` trae tokens_in, tokens_out, modelo y segundos."""
+        ...

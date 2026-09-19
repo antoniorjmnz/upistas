@@ -46,8 +46,8 @@ def documento(ruta: Path):
 
 
 def procesar(ruta):
-    extraida = leer_documento(ruta, contenedor.lectores())
-    return a_outcome(decidir(ruta.name, extraida, contenedor.referencias(), contenedor.norma("v3")))
+    lectura = leer_documento(ruta, contenedor.inspector(), contenedor.lectores())
+    return a_outcome(decidir(ruta.name, lectura, contenedor.referencias(), contenedor.norma("v3")))
 
 
 def test_pdf_a_outcome_con_ambos_enfoques(entorno):

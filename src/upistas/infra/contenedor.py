@@ -18,6 +18,7 @@ from upistas.adaptadores.fuentes.excel import MaestroExcel
 from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.fuentes.snapshot import ErpSnapshot
 from upistas.adaptadores.lectores.fal_ocr import FalOCR
+from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnificado
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.config import ROOT, Settings, settings
@@ -25,7 +26,12 @@ from upistas.dominio.modelos import Referencias
 from upistas.dominio.norma import Norma
 from upistas.dominio.versiones import version_asientos
 from upistas.infra import django_setup
-from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro
+from upistas.puertos import AlmacenERP, ClienteERP, FuenteERP, FuenteMaestro, Inspector
+
+
+@cache
+def inspector() -> Inspector:
+    return InspectorPdf()
 
 
 @cache

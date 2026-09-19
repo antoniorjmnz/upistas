@@ -42,7 +42,7 @@ Helmcode (LLM) · pymupdf · openpyxl. Motivos y alternativas en [ADR-001](docs/
 
 ## Arrancar
 ```bash
-git clone https://github.com/ikurotime/500-sombras-de-alberto ../caja   # datos del reto
+git -c core.autocrlf=false clone https://github.com/ikurotime/500-sombras-de-alberto ../caja   # sin -c, en Windows git rompe los PDF   # datos del reto
 cp .env.example .env            # y rellena HELMCODE_API_KEY
 sh scripts/setup.sh             # plantilla de commit + hooks
 uv sync --extra dev             # instala todo (Python 3.12 incluido)

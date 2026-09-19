@@ -11,7 +11,7 @@ from tempfile import NamedTemporaryFile
 import pymupdf
 
 from upistas.adaptadores.lectores.campos import extraer_campos
-from upistas.puertos import LecturaFallida
+from upistas.puertos import DocumentoInspeccionado, LecturaFallida
 
 VERSION = "unificado-3"
 
@@ -29,15 +29,21 @@ class LectorPdfUnificado:
         self.ocr = ocr
         self.cache_dir = cache_dir
 
-    def acepta(self, ruta: Path) -> bool:
-        return ruta.suffix.lower() == ".pdf"
+    def acepta(self, ruta: Path | DocumentoInspeccionado) -> bool:
+        return ruta.legible if isinstance(ruta, DocumentoInspeccionado) else ruta.suffix.lower() == ".pdf"
 
-    def leer(self, ruta: Path):
+    def leer(self, ruta: Path | DocumentoInspeccionado):
+        inspeccion = ruta if isinstance(ruta, DocumentoInspeccionado) else None
+        ruta = Path(inspeccion.ruta) if inspeccion else ruta
         try:
+            if inspeccion and not inspeccion.legible:
+                raise LecturaFallida(f"Documento {inspeccion.tipo}")
             if ruta.stat().st_size > 25 * 1024 * 1024:
                 raise LecturaFallida("PDF superior al límite de 25 MB")
             contenido = ruta.read_bytes()
             sha = hashlib.sha256(contenido).hexdigest()
+            if inspeccion and inspeccion.sha256 != sha:
+                raise LecturaFallida("El documento cambió después de inspeccionarlo")
             clave = f"{sha}-{VERSION}-{'ocr' if self.ocr else 'nativo'}"
             cache = self.cache_dir / f"{clave}.json" if self.cache_dir else None
             raw = None
@@ -58,9 +64,10 @@ class LectorPdfUnificado:
                     temporal.replace(cache)
             return extraer_campos(ruta.name, raw["pages"], documento={
                 "sha256": sha,
-                "tipo": "escaneado" if any(p["route"] == "fal_ocr" for p in raw["pages"]) else "texto",
+                "tipo": inspeccion.tipo if inspeccion else ("escaneado" if any(p["route"] == "fal_ocr" for p in raw["pages"]) else "texto"),
                 "paginas": raw["page_count"],
                 "bytes": len(contenido),
+                "alertas": list(inspeccion.alertas) if inspeccion else [],
             })
         except LecturaFallida:
             raise

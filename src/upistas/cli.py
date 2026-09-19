@@ -90,11 +90,12 @@ def cmd_extract(args: argparse.Namespace) -> int:
         return 1
     filas = []
     for ruta in pdfs:
-        extraida = leer_documento(ruta, contenedor.lectores())
+        lectura = leer_documento(ruta, contenedor.inspector(), contenedor.lectores())
+        extraida = lectura.extraida
         filas.append({
             "file_id": ruta.name,
             "extraccion": extraida.model_dump(mode="json") if extraida else None,
-            "errores": extraida.errores or [] if extraida else ["No se pudo extraer el documento"],
+            "errores": extraida.errores or [] if extraida else [lectura.motivo_fallo],
         })
     salida = guardar_jsonl(filas, args.salida)
     print(f"{len(filas)} documentos extraídos sin clasificar -> {salida}")
@@ -155,6 +156,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(contenedor.texto_extraido(ruta) or "(No se pudo recuperar texto)")
         print(f"\nRESULTADO: {resultado['result']}")
         print(f"MOTIVO: {resultado['motivo']}", flush=True)
+        if resultado.get("alertas"):
+            print("ALERTAS: " + "; ".join(resultado["alertas"]), flush=True)
     resumen = Counter(r["result"] for r in resultados)
     print("\nRESUMEN")
     for estado in ("PAGAR", "NO_PAGAR", "ESCALAR"):

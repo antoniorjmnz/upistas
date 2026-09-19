@@ -84,4 +84,8 @@ def test_error_de_lectura_impide_pagar_aunque_los_campos_cuadren():
         "campos": {k: {"valor": v, "confianza": 1} for k, v in campos.items()},
         "errores": ["Página 2: OCR sin texto"],
     })
-    assert decidir("a.pdf", extraida, REFS, Norma.desde_toml(NORMA)).resultado == Resultado.ESCALAR
+    from upistas.aplicacion.procesar import Lectura
+    from upistas.puertos import DocumentoInspeccionado
+
+    lectura = Lectura(DocumentoInspeccionado("a.pdf", "a.pdf", "0" * 64, 0, "texto", 2), extraida)
+    assert decidir("a.pdf", lectura, REFS, Norma.desde_toml(NORMA)).resultado == Resultado.ESCALAR
