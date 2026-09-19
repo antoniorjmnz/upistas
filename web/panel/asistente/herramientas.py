@@ -1,13 +1,16 @@
-"""Herramientas de solo lectura que el asistente puede usar para responder a Alberto.
+"""Herramientas que el asistente puede usar para responder a Alberto.
 
 El modelo elige cuál llamar y con qué argumentos; nosotros ejecutamos la consulta sobre
-nuestra base de datos y le devolvemos el resultado. El modelo nunca escribe ni toca el ERP.
+nuestra base de datos y le devolvemos el resultado. Todas son de solo lectura menos
+`proponer_accion`, que tampoco escribe: deja una propuesta que Alberto confirma o no
+(acciones.py). El modelo nunca toca el ERP.
 """
 from __future__ import annotations
 
 import json
 
 from web.panel import consultas
+from web.panel.asistente import acciones, navegacion
 
 # Formato OpenAI tool-calling (Helmcode es compatible con la API de OpenAI).
 HERRAMIENTAS = [
@@ -79,6 +82,66 @@ HERRAMIENTAS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "ir_a",
+            "description": (
+                "La dirección de una pantalla de esta web, para llevar a Alberto a ella (sale como botón «Ir a…»). "
+                "Pantallas: inicio, facturas, revisar, factura, proveedores, proveedor, ejecuciones, erp, asientos. "
+                "facturas y revisar admiten filtros resultado/proveedor/desde/hasta/texto; factura pide file_id; "
+                "proveedor pide proveedor (código, NIF o nombre); asientos admite pedido."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pantalla": {"type": "string", "enum": list(navegacion.PANTALLAS)},
+                    "filtros": {
+                        "type": "object",
+                        "properties": {
+                            "resultado": {"type": "string", "enum": ["PAGAR", "NO_PAGAR", "ESCALAR"]},
+                            "proveedor": {"type": "string", "description": "Código P001, NIF o nombre del proveedor"},
+                            "desde": {"type": "string", "description": "Fecha AAAA-MM-DD"},
+                            "hasta": {"type": "string", "description": "Fecha AAAA-MM-DD"},
+                            "texto": {"type": "string", "description": "Lo que se escribiría en el buscador"},
+                            "file_id": {"type": "string", "description": "Nombre del fichero de la factura"},
+                            "pedido": {"type": "string", "description": "Número de pedido (para asientos)"},
+                            "lote": {"type": "string"},
+                        },
+                    },
+                },
+                "required": ["pantalla"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "proponer_accion",
+            "description": (
+                "Propone una acción para que Alberto la confirme con un botón; no la ejecuta. Solo estas: "
+                "marcar_pedido_para_revisar {pedido}, quitar_marca_de_pedido {pedido}, "
+                "apuntar_nota_en_pedido {pedido, nota}, apuntar_comentario_en_factura {file_id, comentario} "
+                "(solo en facturas escaladas, sin decidirlas). Nada más: ni pagar, ni crear, ni borrar, ni el ERP."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tipo": {"type": "string", "enum": list(acciones.TIPOS)},
+                    "datos": {
+                        "type": "object",
+                        "properties": {
+                            "pedido": {"type": "string"},
+                            "nota": {"type": "string"},
+                            "file_id": {"type": "string"},
+                            "comentario": {"type": "string"},
+                        },
+                    },
+                },
+                "required": ["tipo", "datos"],
+            },
+        },
+    },
 ]
 
 _FUNCIONES = {
@@ -89,6 +152,8 @@ _FUNCIONES = {
     "estado_pedido": lambda pedido="": consultas.estado_pedido(pedido),
     "cambios_erp": lambda: consultas.cambios_erp(),
     "estado_sincronizacion": lambda: consultas.estado_sincronizacion(),
+    "ir_a": lambda pantalla="", filtros=None: navegacion.ir_a(pantalla, filtros),
+    "proponer_accion": lambda tipo="", datos=None: acciones.proponer(tipo, datos),
 }
 
 
