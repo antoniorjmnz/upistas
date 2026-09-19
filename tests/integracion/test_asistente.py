@@ -308,7 +308,7 @@ def test_el_cliente_de_helmcode_no_reintenta_por_su_cuenta():
     from web.panel.asistente import helmcode
 
     cliente = helmcode._cliente("clave-de-prueba", "http://127.0.0.1:9/v1")
-    assert cliente.max_retries == 0 and cliente.timeout == helmcode.TIMEOUT_SEGUNDOS == 15
+    assert cliente.max_retries == 0 and cliente.timeout == helmcode.TIMEOUT_SEGUNDOS == 40
 
 
 def test_historial_se_pasa_al_modelo(lote_asistente):

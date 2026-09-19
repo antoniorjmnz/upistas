@@ -5,7 +5,7 @@ from functools import cache
 
 from web.panel.asistente.agente import Llamada, RespuestaModelo, SinCliente
 
-TIMEOUT_SEGUNDOS = 15  # la web no puede quedarse colgada esperando a la IA
+TIMEOUT_SEGUNDOS = 40  # las respuestas reales tardan entre 13 y 36 s; con un solo reintento, el peor caso queda en minuto y medio
 
 __all__ = ["SinCliente", "TIMEOUT_SEGUNDOS", "completar"]
 
