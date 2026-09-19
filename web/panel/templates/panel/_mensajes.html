@@ -1,6 +1,7 @@
+{% load panel_extras %}
 {% for m in mensajes %}
   <div class="mensaje {{ m.quien }}">
-    <p>{{ m.texto }}</p>
+    <p>{{ m.texto|sin_markdown|linebreaksbr }}</p>
     {% if m.fuentes %}
       <p class="fuentes">De:
         {% for f in m.fuentes %}<a href="{{ f.url }}">{{ f.titulo }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}

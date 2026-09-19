@@ -267,6 +267,16 @@ def test_el_prompt_tambien_acota_el_tema():
     assert MENSAJE_FUERA_DE_TEMA in SISTEMA
 
 
+def test_el_prompt_pide_texto_llano_y_el_filtro_quita_el_markdown_que_se_escape():
+    from web.panel.templatetags.panel_extras import sin_markdown
+
+    assert "sin asteriscos" in SISTEMA and "markdown" in SISTEMA
+    assert sin_markdown("## Resumen\n**Se paga una** factura.\n### Detalle\n  # otra\nEl nº #3 sigue") == (
+        "Resumen\nSe paga una factura.\nDetalle\notra\nEl nº #3 sigue"
+    )
+    assert sin_markdown(None) == ""
+
+
 # --- la pantalla -------------------------------------------------------------------------------
 
 
@@ -298,6 +308,13 @@ def test_la_pantalla_dice_de_donde_sale_la_respuesta(alberto, lote_asistente, mo
     assert "De:" in html
     assert f'href="{reverse("panel:factura", args=["lote1", "factura_pagada.pdf"])}"' in html
     assert "Factura factura_pagada.pdf" in html
+
+
+def test_la_respuesta_sale_sin_markdown_y_escapada(alberto, lote_asistente, monkeypatch):
+    monkeypatch.setattr("web.panel.asistente.helmcode.completar", _texto("## Resumen\n**Se paga una** factura <b>hoy</b>"))
+    html = alberto.post(reverse("panel:preguntar"), {"pregunta": "¿cuántas se pagan?"}, HTTP_HX_REQUEST="true").content.decode()
+    assert "**" not in html and "##" not in html
+    assert "Resumen<br>Se paga una factura &lt;b&gt;hoy&lt;/b&gt;" in html  # texto llano, con saltos y sin HTML colado
 
 
 def test_la_conversacion_se_queda_en_la_sesion(alberto, lote_asistente, monkeypatch):

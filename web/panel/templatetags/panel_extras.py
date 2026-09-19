@@ -144,6 +144,17 @@ def estatico(ruta: str) -> str:
 
 
 @register.filter
+def sin_markdown(texto: str | None) -> str:
+    """Quita el markdown que se le escapa a la IA: las ** de negrita y las # de los títulos.
+
+    Devuelve texto normal, sin marcar como seguro: la plantilla lo sigue escapando."""
+    import re
+
+    limpio = str(texto or "").replace("**", "")
+    return re.sub(r"(?m)^[ \t]*#{1,6}[ \t]+", "", limpio)
+
+
+@register.filter
 def fecha_corta(texto: str | None) -> str:
     """'2026-01-08' → '8/1/2026'. Lo que no sea una fecha se deja tal cual."""
     from datetime import date
