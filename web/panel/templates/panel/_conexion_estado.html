@@ -1,0 +1,77 @@
+{% load humanize %}
+{% if fallo_reciente %}
+<div class="aviso mal" role="alert">
+  <div>
+    <b>El ERP no respondió en la última conexión</b> ({{ ultima.inicio|date:"d/m H:i" }}): {{ ultima.error }}.<br>
+    {% if en_uso %}Seguimos trabajando con la copia de {{ en_uso.fin|naturaltime }}; no se ha perdido nada.{% else %}Todavía no hay ninguna copia: arranque el ERP y pulse «Sincronizar ahora».{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="fila">
+  <section class="tarjeta" style="flex: 1 1 420px;">
+    <h2>Copia en uso</h2>
+    {% if en_uso %}
+      <div class="cifras">
+        <div class="cifra"><b>{{ en_uso.n_asientos }}</b><span>asientos</span></div>
+        <div class="cifra"><b>{{ pendientes }}</b><span>pendientes de pago</span></div>
+        <div class="cifra"><b>{{ pagados }}</b><span>ya pagados</span></div>
+      </div>
+      <p class="suave" style="margin: 12px 0 0;">
+        Descargada {{ en_uso.fin|naturaltime }} ({{ en_uso.fin|date:"d/m/Y H:i" }}) ·
+        versión <span class="mono">{{ en_uso.version_id }}</span> ·
+        {% if en_uso.lote2_cargado %}con la actualización del lote 2{% else %}sin la actualización del lote 2{% endif %}
+      </p>
+    {% else %}
+      <p class="suave">Aún no hay copia del ERP.</p>
+    {% endif %}
+  </section>
+  <section class="tarjeta" style="flex: 0 1 320px; display: flex; flex-direction: column; gap: 10px; justify-content: center;">
+    <button class="boton" hx-post="{% url 'panel:sincronizar' %}" hx-target="#estado" hx-disabled-elt="this" hx-indicator="#hablando">
+      Sincronizar ahora
+    </button>
+    <span id="hablando" class="htmx-indicator suave" style="align-items: center; gap: 8px;">
+      <span class="girando" aria-hidden="true"></span> Hablando con el ERP de 2009… (unos 4 segundos)
+    </span>
+    <span class="suave" style="font-size: 13px;">Cada lote sincroniza solo al empezar. Este botón es para cuando usted sepa que algo ha cambiado.</span>
+  </section>
+</div>
+
+<section class="tarjeta">
+  <h2>Historial de conexiones</h2>
+  <div class="tabla-caja">
+    <table>
+      <thead>
+        <tr>
+          <th>Cuándo</th><th>Resultado</th><th class="num">Duración</th><th class="num">Peticiones</th>
+          <th class="num" title="ORA-00600: el ERP falla una de cada diez consultas; reintentamos solos">Reintentos</th>
+          <th class="num" title="ERP-429: demasiadas peticiones; esperamos lo que pide">Esperas</th>
+          <th class="num" title="SES-401: la sesión caducó; volvimos a entrar">Reconexiones</th>
+          <th>Cambios en el ERP</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in historial %}
+        <tr>
+          <td>{{ s.inicio|date:"d/m H:i:s" }}</td>
+          <td>{% if s.ok %}<span class="pildora bien">Correcta</span>{% else %}<span class="pildora mal" title="{{ s.error }}">Falló</span>{% endif %}</td>
+          <td class="num">{{ s.segundos|floatformat:1 }} s</td>
+          <td class="num">{{ s.peticiones }}</td>
+          <td class="num">{{ s.reintentos_ora }}</td>
+          <td class="num">{{ s.esperas_429 }}</td>
+          <td class="num">{{ s.relogins }}</td>
+          <td>
+            {% if not s.ok %}<span class="suave">{{ s.error|truncatechars:70 }}</span>
+            {% elif s.hay_cambios and s.version_anterior %}
+              <a class="pildora ojo" href="{% url 'panel:cambios' s.version_anterior s.version_id %}">{{ s.nuevos }} nuevos · {{ s.modificados }} modificados · {{ s.eliminados }} eliminados →</a>
+            {% elif s.es_primera %}<span class="suave">Primera copia</span>
+            {% else %}<span class="suave">Sin cambios</span>{% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="suave">Todavía no se ha conectado nunca.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
