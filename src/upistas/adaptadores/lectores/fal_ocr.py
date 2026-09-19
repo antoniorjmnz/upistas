@@ -5,6 +5,10 @@ from upistas.puertos import LecturaFallida
 
 
 class FalOCR:
+    nombre = "fal"
+    ruta = "fal_ocr"
+    modelo = "fal-ai/got-ocr/v2"
+
     def __call__(self, imagen: bytes) -> str:
         try:
             import fal_client
