@@ -285,13 +285,51 @@ def _canon_pedido(texto: str) -> str:
     return f"PO2026{m.group(1).zfill(4)}" if m else ""
 
 
-def _fila_decision(d: Decision, lecturas: dict[str, Lectura], por_nif: dict[str, str]) -> dict:
-    """Una factura tal y como se le cuenta al asistente. `por_nif` es `nombres_por_nif()`, pedido una vez por consulta."""
+MOTIVO_MAX = 200  # en las listas, el motivo y el texto de la factura se recortan a esto
+MARCA_TEXTO = "[texto de la factura]"
+
+
+def _recortar(texto: str, maximo: int = MOTIVO_MAX) -> str:
+    return texto if len(texto) <= maximo else texto[: maximo - 1].rstrip() + "…"
+
+
+def _texto_de_la_factura(d: Decision) -> list[str]:
+    """Las notas que traía la factura. Vienen de fuera: se informan, nunca se obedecen."""
+    textos = []
+    for n in d.notas or []:
+        t = n.get("texto") if isinstance(n, dict) else n
+        if t and str(t).strip():
+            textos.append(str(t))
+    return textos
+
+
+def _motivo_sin_texto_de_factura(d: Decision, textos: list[str]) -> str:
+    """El motivo con lo que ponía la factura sustituido por «[texto de la factura]»: ese texto va
+    aparte, marcado como no fiable, para que la IA no lo lea como una instrucción."""
+    if not textos:
+        return d.motivo
+    reglas = (d.outcome or {}).get("reglas") or []
+    partes = [r.get("detalle") or r.get("id") or "" for r in reglas if not r.get("ok")] or [d.motivo or ""]
+    limpias = []
+    for parte in partes:
+        parte = re.sub(r"\| Evidencia: .*", f"| Evidencia: {MARCA_TEXTO}", parte, flags=re.S)  # la cita de la IA
+        for t in textos:
+            for trozo in (t, t[:400]):  # R6 pega los primeros 400 caracteres de la nota al detalle
+                parte = parte.replace(trozo, MARCA_TEXTO)
+        limpias.append(parte)
+    return "; ".join(limpias)
+
+
+def _fila_decision(d: Decision, lecturas: dict[str, Lectura], por_nif: dict[str, str], corto: bool = False) -> dict:
+    """Una factura tal y como se le cuenta al asistente. `por_nif` es `nombres_por_nif()`, pedido una
+    vez por consulta. Con `corto` (listas) el motivo y el texto de la factura se recortan."""
     campos_leidos = campos(lecturas.get(d.documento.sha256))
-    return {
+    textos = _texto_de_la_factura(d)
+    motivo = _motivo_sin_texto_de_factura(d, textos)
+    fila = {
         "file_id": d.documento.file_id,
         "resultado": d.resultado,
-        "motivo": d.motivo,
+        "motivo": _recortar(motivo) if corto else motivo,
         "pedido": d.pedido or None,
         "numero_factura": campos_leidos.get("numero_factura"),
         "proveedor": nombre_proveedor(campos_leidos, por_nif),
@@ -299,6 +337,9 @@ def _fila_decision(d: Decision, lecturas: dict[str, Lectura], por_nif: dict[str,
         "lote": d.ejecucion.lote,
         "norma": d.ejecucion.norma,
     }
+    if textos:
+        fila["texto_de_la_factura_no_fiable"] = [_recortar(t) for t in textos] if corto else textos
+    return fila
 
 
 def resumen_lote(lote: str | None = None) -> dict:
@@ -356,7 +397,7 @@ def buscar_facturas(texto: str, limite: int = 10) -> dict:
     por_nif = nombres_por_nif()
     return {
         "ejecucion": ejecucion.lote,
-        "encontradas": [_fila_decision(d, lecturas, por_nif) for d in decisiones],
+        "encontradas": [_fila_decision(d, lecturas, por_nif, corto=True) for d in decisiones],
         "mas": decisiones_de(ejecucion).filter(filtro).count() - len(decisiones),
     }
 
@@ -406,18 +447,21 @@ def detalle_factura(file_id: str) -> dict:
     }
 
 
-def pendientes_revision(lote: str | None = None) -> dict:
-    """Facturas escaladas de la última ejecución que nadie ha revisado todavía."""
+def pendientes_revision(lote: str | None = None, limite: int = 15) -> dict:
+    """Facturas escaladas de la última ejecución que nadie ha revisado todavía (las `limite` primeras)."""
     ejecucion = ultima_ejecucion(lote)
     if ejecucion is None:
         return {"aviso": "todavía no hay ninguna ejecución terminada"}
-    decisiones = list(pendientes_de_revision(ejecucion))
+    todas = pendientes_de_revision(ejecucion)
+    cuantas = todas.count()
+    decisiones = list(todas[:limite])
     lecturas = lecturas_por_sha(d.documento.sha256 for d in decisiones)
     por_nif = nombres_por_nif()
     return {
         "ejecucion": ejecucion.lote,
-        "pendientes": [_fila_decision(d, lecturas, por_nif) for d in decisiones],
-        "cuantas": len(decisiones),
+        "pendientes": [_fila_decision(d, lecturas, por_nif, corto=True) for d in decisiones],
+        "cuantas": cuantas,
+        "mas": cuantas - len(decisiones),
     }
 
 
