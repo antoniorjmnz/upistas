@@ -145,10 +145,12 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Monta la carpeta de entrega y comprueba que los outcomes cuadran con La Caja.")
     p.add_argument("--destino", type=Path, default=ROOT.parent / "la-caja-outcomes", help="Carpeta del repo aparte (por defecto ../la-caja-outcomes)")
     p.add_argument("--git", action="store_true", help="Crear el repo aparte y hacer un commit local; nunca hace push")
+    p.add_argument("--plan", type=Path, default=ROOT / "docs" / PLAN,
+                   help="Ruta del albertitos_plan.pdf (vive fuera del repo; por defecto docs/albertitos_plan.pdf)")
     args = p.parse_args(argv)
     from upistas.config import settings  # aquí y no arriba: check.py importa este fichero sin cargar el producto
 
-    return montar_entrega(settings.outputs_dir, ROOT / "docs" / PLAN, settings.caja_dir, args.destino, args.git)
+    return montar_entrega(settings.outputs_dir, args.plan, settings.caja_dir, args.destino, args.git)
 
 
 if __name__ == "__main__":
