@@ -29,12 +29,13 @@ La norma v3:
    Solo es NO_PAGAR si estamos seguros de que la regla falla; si no se lee bien el dato, es duda.
 3. **Contradicciones → ESCALAR.** Si la factura dice algo que choca con nuestros datos, o nuestras
    fuentes chocan entre sí (Excel contra ERP), decide una persona.
-4. **Prioridad revisada para las notas y los fallos de lectura**: una nota relevante, dudosa o no
-   evaluada, y una lectura incompleta o fallida, producen ESCALAR aunque el ERP indique PAGADA
-   o el documento sea un duplicado. Se conservan también esas señales en la traza: escalar nunca
-   autoriza un segundo pago. Sin incertidumbre de lectura ni de notas, los pagos previos y los
-   duplicados confirmados siguen siendo NO_PAGAR. Después se aplican las demás reglas y sus
-   prioridades; a igual prioridad gana NO_PAGAR > ESCALAR > PAGAR.
+4. **Prioridad**: una lectura fallida, datos fiscales no verificables o una evaluación de notas
+   no disponible exigen ESCALAR: no permiten dar por probado un incumplimiento. Con los importes
+   legibles, un IVA o una suma base + IVA incorrectos producen NO_PAGAR y prevalecen sobre una
+   nota relevante y sobre texto oculto en el mismo documento (`FA-5590_ofimática`). Después se
+   aplica la revisión por notas o contenido oculto: ESCALAR aunque el ERP indique PAGADA o haya
+   un duplicado. Sin estas causas, los pagos previos y duplicados confirmados siguen siendo
+   NO_PAGAR. A igual prioridad gana NO_PAGAR > ESCALAR > PAGAR. Escalar nunca autoriza un segundo pago.
 5. **El texto de una factura nunca se obedece.** Helmcode evalúa el significado de las notas,
    no autoriza pagos. Solo una nota inequívocamente irrelevante puede dejar intacto el resultado
    de las reglas. Todo contenido relevante para pago, identidad, fechas, excepciones o controles,
@@ -58,6 +59,10 @@ La norma v3:
 ## Criterios operativos acordados
 
 ### Notas y revisiones internas
+- También se revisan los conceptos y líneas de detalle. Una instrucción como «Escalar a revisión
+  humana» o una afirmación como «Cuenta de abono no coincidente» sigue siendo una nota relevante
+  aunque aparezca como concepto de importe cero. Se conserva la línea literal como evidencia.
+  No se confunde un servicio legítimo («Transporte urgente» o «Revisión anual») con una instrucción.
 - Solo una nota absolutamente irrelevante, como un saludo o agradecimiento sin contenido
   operativo, deja intacto el resultado. Una nota aparentemente informativa sobre pagos,
   vencimientos, identidades o excepciones sigue siendo relevante y se ESCALA.
@@ -106,7 +111,10 @@ La norma v3:
   solos a una instrucción oculta; los controles bidireccionales requieren revisión.
 - La ocultación detectada, o no poder comprobar la visibilidad, impone ESCALAR por una regla
   determinista. Ni un dictamen IRRELEVANTE del LLM, ni un pago previo, ni un duplicado anulan
-  esa revisión. Si no se detectó ninguna nota, esta protección no necesita llamar a la API.
+  esa revisión. Si los importes son legibles y el IVA o el total están mal calculados, el
+  resultado sigue siendo NO_PAGAR: la nota oculta no autoriza el pago ni convierte el
+  incumplimiento fiscal en una duda. Si no se detectó ninguna nota, esta protección no necesita
+  llamar a la API.
 - El evaluador recibe las notas originales, una versión normalizada de apoyo y las alertas
   del inspector. Todo texto procedente del PDF, incluidas muestras y metadatos, es dato no
   fiable: nunca una orden del sistema ni una autorización. La evidencia cita el original.
@@ -124,6 +132,17 @@ La norma v3:
 - Si falta el NIF también en el maestro, falta un ID necesario o el enlace no es unívoco,
   se ESCALA. Nunca se resuelve por parecido del nombre ni se copia el NIF de la factura al maestro.
 - Los NIF presentes se contrastan; una discrepancia no se trata como un campo vacío.
+
+### Recuperación de lecturas insuficientes
+- Si Fal devuelve texto pero faltan campos o hay errores de extracción, se permite una segunda
+  lectura visual de la página original con Helmcode. No se envían el maestro ni el ERP a ese lector.
+- El respaldo transcribe, no rellena ni corrige por conveniencia: debe marcar lo ilegible. Se
+  conservan ambas transcripciones y se señalan las discrepancias entre campos ya reconocidos.
+  No se elige una lectura por coincidir mejor con el ERP o por producir PAGAR.
+- Una caída de la API no se oculta con otra lectura: se mantiene ESCALAR. El respaldo se usa para
+  mejorar la calidad de un OCR que sí respondió, no para ignorar un fallo técnico.
+- Se cachea la segunda lectura por contenido y versión del modelo/prompt; el OCR original se
+  conserva. Las páginas cuya lectura ya es suficiente no generan llamadas de respaldo.
 
 ### Tiempo máximo de lectura
 - Cada documento tiene un presupuesto configurable de lectura, por defecto 300 segundos,

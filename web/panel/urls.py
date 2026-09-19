@@ -17,6 +17,7 @@ urlpatterns = [
     path("facturas/", facturas.lista, name="facturas"),
     path("facturas/<str:lote>/<str:file_id>/", facturas.detalle, name="factura"),
     path("facturas/<str:lote>/<str:file_id>/pdf/", facturas.pdf, name="factura_pdf"),
+    path("facturas/<str:lote>/<str:file_id>/pdf-marcado/", facturas.pdf_marcado, name="factura_pdf_marcado"),
     path("facturas/<str:lote>/<str:file_id>/revisar/", revision.revisar, name="revisar"),
     path("revisar/", revision.cola, name="cola"),
     path("preguntar/", chat.preguntar, name="preguntar"),

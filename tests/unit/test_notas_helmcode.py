@@ -82,7 +82,15 @@ def test_respuesta_truncada_escala():
     evaluacion = EvaluadorNotasHelmcode("", URL, "modelo", cliente=cliente_falso(fin="length")).evaluar(
         replace(FACTURA, notas=(Nota("Gracias"),)), REFS,
     )
-    assert evaluacion.requiere_revision and evaluacion.error
+    assert evaluacion.requiere_revision and "truncad" in evaluacion.error
+
+
+def test_presupuesto_de_respuesta_se_envia():
+    cliente = cliente_falso()
+    EvaluadorNotasHelmcode("", URL, "modelo", cliente=cliente, max_tokens=4096).evaluar(
+        replace(FACTURA, notas=(Nota("Gracias"),)), REFS,
+    )
+    assert cliente.chat.completions.create.call_args.kwargs["max_tokens"] == 4096
 
 
 def test_cache_valida_y_cambio_de_contexto(tmp_path):

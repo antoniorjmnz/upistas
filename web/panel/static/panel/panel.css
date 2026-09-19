@@ -218,6 +218,19 @@ dialog.visor::backdrop { background: rgba(17, 24, 39, .55); }
 .visor-cab a { font-size: 14px; }
 dialog.visor iframe { display: block; width: 100%; height: calc(92vh - 57px); border: 0; background: #525659; }
 
+/* Preguntar: el chat de Alberto */
+.tarjeta.preguntar { display: flex; flex-direction: column; gap: 16px; }
+.chat { display: flex; flex-direction: column; gap: 10px; }
+.mensaje { max-width: 75ch; border-radius: var(--radio); padding: 10px 16px; }
+.mensaje p { margin: 0; white-space: pre-wrap; }
+.mensaje.alberto { align-self: flex-end; background: var(--marca-claro); color: var(--marca-osc); }
+.mensaje.asistente { align-self: flex-start; background: var(--fondo); border: 1px solid var(--linea); }
+.mensaje .fuentes { margin-top: 6px; font-size: 13px; color: var(--suave); }
+.formpregunta { display: flex; gap: 10px; align-items: center; }
+.formpregunta .buscador { flex: 1; }
+.formpregunta .htmx-indicator { align-items: center; gap: 6px; white-space: nowrap; }
+button.chip { font: inherit; }
+
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
 .girando { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: girar .8s linear infinite; }

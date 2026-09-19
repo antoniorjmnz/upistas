@@ -266,3 +266,233 @@ def atajos_de_fecha(hoy=None) -> list[dict]:
         {"nombre": "Este trimestre", "desde": trimestre_inicio.isoformat(), "hasta": trimestre_fin.isoformat()},
         {"nombre": "Este año", "desde": date(hoy.year, 1, 1).isoformat(), "hasta": date(hoy.year, 12, 31).isoformat()},
     ]
+
+
+# --- Asistente «Preguntar»: consultas que las herramientas del chat convierten en respuestas ----
+
+import re  # noqa: E402
+from decimal import Decimal  # noqa: E402
+
+from django.db.models import Q  # noqa: E402
+
+from web.panel.models import AsientoERP, Documento, SincronizacionERP, VersionERP  # noqa: E402
+
+
+def _canon_pedido(texto: str) -> str:
+    """'PO-2026-0474', 'po 2026 474', '474' → 'PO20260474' (o '' si no parece pedido)."""
+    s = re.sub(r"[^A-Z0-9]", "", texto.upper())
+    m = re.search(r"PO?2026(\d{3,5})$", s) or re.fullmatch(r"(\d{3,5})", s)
+    return f"PO2026{m.group(1).zfill(4)}" if m else ""
+
+
+def _fila_decision(d: Decision, lecturas: dict[str, Lectura]) -> dict:
+    campos_leidos = campos(lecturas.get(d.documento.sha256))
+    return {
+        "file_id": d.documento.file_id,
+        "resultado": d.resultado,
+        "motivo": d.motivo,
+        "pedido": d.pedido or None,
+        "numero_factura": campos_leidos.get("numero_factura"),
+        "proveedor": campos_leidos.get("proveedor_nombre"),
+        "total": campos_leidos.get("total"),
+        "lote": d.ejecucion.lote,
+        "norma": d.ejecucion.norma,
+    }
+
+
+def resumen_lote(lote: str | None = None) -> dict:
+    """Cuántas facturas se pagan, no se pagan y se escalan en la última ejecución, y cuánto suman."""
+    ejecucion = ultima_ejecucion(lote)
+    if ejecucion is None:
+        return {"aviso": "todavía no hay ninguna ejecución terminada; hay que procesar un lote primero"}
+    decisiones = list(decisiones_de(ejecucion))
+    lecturas = lecturas_por_sha(d.documento.sha256 for d in decisiones)
+    conteo = {r: 0 for r in ("PAGAR", "NO_PAGAR", "ESCALAR")}
+    a_pagar = Decimal("0")
+    for d in decisiones:
+        conteo[d.resultado] = conteo.get(d.resultado, 0) + 1
+        if d.resultado == "PAGAR":
+            total = campos(lecturas.get(d.documento.sha256)).get("total")
+            if total is not None:
+                a_pagar += Decimal(str(total))
+    return {
+        "lote": ejecucion.lote,
+        "norma": ejecucion.norma,
+        "version_datos": ejecucion.version_datos,
+        "cuando": ejecucion.fin.isoformat() if ejecucion.fin else None,
+        "facturas": len(decisiones),
+        "pagar": conteo["PAGAR"],
+        "no_pagar": conteo["NO_PAGAR"],
+        "escalar": conteo["ESCALAR"],
+        "importe_a_pagar": float(a_pagar),
+    }
+
+
+def buscar_facturas(texto: str, limite: int = 10) -> dict:
+    """Facturas de la última ejecución que coinciden con un nombre de fichero, nº de factura,
+    pedido, NIF o nombre de proveedor."""
+    ejecucion = ultima_ejecucion()
+    if ejecucion is None:
+        return {"aviso": "todavía no hay ninguna ejecución terminada"}
+    texto = (texto or "").strip()
+    if not texto:
+        return {"aviso": "no has dicho qué buscar"}
+    shas = Lectura.objects.filter(
+        Q(extraida__campos__numero_factura__valor__icontains=texto)
+        | Q(extraida__campos__proveedor_nombre__icontains=texto)
+        | Q(extraida__campos__nif__valor__icontains=texto)
+    ).values("sha256")
+    canon = _canon_pedido(texto)
+    filtro = (
+        Q(documento__file_id__icontains=texto)
+        | Q(pedido__icontains=texto)
+        | Q(documento__sha256__in=shas)
+    )
+    if canon:
+        filtro |= Q(pedido__icontains=canon[6:])  # los dígitos del pedido: "2026-0474", "PO20260474"...
+    decisiones = list(decisiones_de(ejecucion).filter(filtro)[:limite])
+    lecturas = lecturas_por_sha(d.documento.sha256 for d in decisiones)
+    return {
+        "ejecucion": ejecucion.lote,
+        "encontradas": [_fila_decision(d, lecturas) for d in decisiones],
+        "mas": decisiones_de(ejecucion).filter(filtro).count() - len(decisiones),
+    }
+
+
+def detalle_factura(file_id: str) -> dict:
+    """Todo lo que sabemos de una factura: qué se leyó, qué reglas aplicaron y por qué salió así."""
+    documento = Documento.objects.filter(file_id__iexact=file_id.strip()).order_by("-primera_vez").first()
+    if documento is None:
+        parecidas = list(
+            Documento.objects.filter(file_id__icontains=file_id.strip()).values_list("file_id", flat=True)[:5]
+        )
+        return {"aviso": f"no hay ninguna factura «{file_id}»", "parecidas": parecidas}
+    decision = (
+        Decision.objects.filter(documento=documento, ejecucion__estado="terminada")
+        .select_related("ejecucion").order_by("-ejecucion__inicio").first()
+    )
+    lectura = Lectura.objects.filter(sha256=documento.sha256).first()
+    revision = RevisionHumana.objects.filter(documento=documento).first()
+    campos_leidos = campos(lectura)
+    return {
+        "file_id": documento.file_id,
+        "lote": documento.lote,
+        "tipo": documento.tipo,
+        "paginas": documento.paginas,
+        "alertas_fichero": list(documento.alertas or []),
+        "decision": _fila_decision(decision, {documento.sha256: lectura}) if decision else None,
+        "reglas": (decision.outcome or {}).get("reglas") if decision else None,
+        "lectura": (
+            {
+                "metodo": lectura.metodo,
+                "lector": lectura.lector,
+                "modelo": lectura.modelo,
+                "segundos": lectura.segundos,
+                "tokens": lectura.tokens_in + lectura.tokens_out,
+                "coste_eur": lectura.coste_eur,
+                "campos": {
+                    n: campos_leidos.get(n)
+                    for n in ("numero_factura", "proveedor_nombre", "nif", "iban", "pedido", "fecha", "base", "iva", "total")
+                },
+            }
+            if lectura else None
+        ),
+        "revision_humana": (
+            {"resultado": revision.resultado, "quien": revision.quien, "comentario": revision.comentario}
+            if revision else None
+        ),
+    }
+
+
+def pendientes_revision(lote: str | None = None) -> dict:
+    """Facturas escaladas de la última ejecución que nadie ha revisado todavía."""
+    ejecucion = ultima_ejecucion(lote)
+    if ejecucion is None:
+        return {"aviso": "todavía no hay ninguna ejecución terminada"}
+    decisiones = list(pendientes_de_revision(ejecucion))
+    lecturas = lecturas_por_sha(d.documento.sha256 for d in decisiones)
+    return {
+        "ejecucion": ejecucion.lote,
+        "pendientes": [_fila_decision(d, lecturas) for d in decisiones],
+        "cuantas": len(decisiones),
+    }
+
+
+def estado_pedido(pedido: str) -> dict:
+    """Qué dice la copia del ERP sobre un pedido: asiento, importe y si ya está pagado."""
+    en_uso = SincronizacionERP.objects.filter(ok=True).first()
+    if en_uso is None or not en_uso.version_id:
+        return {"aviso": "todavía no hay copia del ERP; hay que sincronizar en «Conexión con el ERP»"}
+    canon = _canon_pedido(pedido)
+    if not canon:
+        return {"aviso": f"«{pedido}» no parece un número de pedido (PO-2026-NNNN)"}
+    asiento = next(
+        (a for a in AsientoERP.objects.filter(version_id=en_uso.version_id)
+         if _canon_pedido(a.pedido) == canon),
+        None,
+    )
+    if asiento is None:
+        return {"aviso": f"el pedido {pedido} no está en la copia del ERP (versión {en_uso.version_id})"}
+    decision = (
+        Decision.objects.filter(pedido=asiento.pedido, ejecucion__estado="terminada")
+        .select_related("documento", "ejecucion").order_by("-ejecucion__inicio").first()
+    )
+    return {
+        "pedido": asiento.pedido,
+        "asiento": asiento.asiento_id,
+        "proveedor_id": asiento.proveedor_id,
+        "nif": asiento.nif or None,
+        "importe": float(asiento.importe),
+        "fecha": asiento.fecha.isoformat() if asiento.fecha else None,
+        "estado_erp": asiento.estado,
+        "version_erp": en_uso.version_id,
+        "decision_nuestra": (
+            {"file_id": decision.documento.file_id, "resultado": decision.resultado, "motivo": decision.motivo}
+            if decision else None
+        ),
+    }
+
+
+def cambios_erp() -> dict:
+    """Qué cambió en el ERP entre la copia en uso y la anterior (lote 2, el dato del domingo...)."""
+    from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
+    from upistas.dominio.versiones import diferencias
+
+    # Las versiones se ordenan por su sincronización (id autoincremental), no por `creada`:
+    # dos descargas pueden llevar el mismo timestamp y el orden saldría al revés.
+    sincs = SincronizacionERP.objects.filter(ok=True).values_list("version_id", flat=True)
+    ultimas = list(dict.fromkeys(sincs))[:2]  # SincronizacionERP ordena -inicio,-id: primero la en uso
+    if len(ultimas) < 2:
+        return {"aviso": "solo hay una versión del ERP; no hay nada con lo que comparar"}
+    antes = VersionERP.objects.get(pk=ultimas[1])
+    despues = VersionERP.objects.get(pk=ultimas[0])
+    almacen = AlmacenERPDjango()
+    d = diferencias(almacen.asientos(antes.pk), almacen.asientos(despues.pk))
+    return {
+        "de": antes.pk,
+        "a": despues.pk,
+        "nuevos": list(d.nuevos),
+        "eliminados": list(d.eliminados),
+        "modificados": [
+            {"asiento": c.asiento, "campo": c.campo, "antes": c.antes, "despues": c.despues}
+            for c in d.modificados
+        ],
+        "pedidos_afectados": sorted(d.pedidos_afectados),
+        "aviso": "no hay diferencias entre las dos últimas copias" if d.vacias else None,
+    }
+
+
+def estado_sincronizacion() -> dict:
+    """Cómo va la conexión con el ERP: última sincronización y versión en uso."""
+    ultima = SincronizacionERP.objects.select_related("version").first()
+    if ultima is None:
+        return {"aviso": "nunca se ha sincronizado con el ERP"}
+    return {
+        "cuando": ultima.inicio.isoformat(),
+        "ok": ultima.ok,
+        "version": ultima.version_id,
+        "asientos": ultima.n_asientos,
+        "lote2_cargado": ultima.lote2_cargado,
+        "error": ultima.error or None,
+        "cambios": {"nuevos": ultima.nuevos, "modificados": ultima.modificados, "eliminados": ultima.eliminados},
+    }

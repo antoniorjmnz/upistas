@@ -50,6 +50,10 @@
     {% for n in notas %}<p>«{{ n.texto }}»</p>{% endfor %}
     {% for a in alertas %}<p>El fichero trae {{ a }}.</p>{% endfor %}
     <p>No se tiene en cuenta: se decide con los datos.</p>
+    {% if con_oculto %}
+      <p>Esta factura lleva texto que no se ve al abrirla.
+        <a href="{% url 'panel:factura_pdf_marcado' documento.lote documento.file_id %}" target="_blank" rel="noopener">Ver el PDF con lo escondido señalado en rojo</a></p>
+    {% endif %}
   </div>
 </div>
 {% endif %}

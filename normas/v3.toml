@@ -12,7 +12,8 @@ si_falla = "ESCALAR"
 tolerancia = "0.01"
 
 [reglas.R3_iva_total]
-si_falla = "ESCALAR"
+si_falla = "NO_PAGAR"
+prioridad = 350
 [reglas.R3_iva_total.params]
 tolerancia = "0.01"
 tipos_iva = [21, 10, 4]
@@ -30,7 +31,15 @@ prioridad = 100
 
 [reglas.R0_lectura]
 si_falla = "ESCALAR"
-prioridad = 300
+prioridad = 400
+
+[reglas.R3_datos_fiscales]
+si_falla = "ESCALAR"
+prioridad = 400
+
+[reglas.R6_evaluacion_disponible]
+si_falla = "ESCALAR"
+prioridad = 400
 
 [reglas.R6_proveedor_referencias]
 si_falla = "ESCALAR"

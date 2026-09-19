@@ -242,3 +242,25 @@ class Pedido(models.Model):
 
     def __str__(self) -> str:
         return f"{self.numero} · {self.proveedor.codigo}"
+
+
+# --- Asistente (chatbot de «Preguntar») -------------------------------------------------------
+
+
+class Pregunta(models.Model):
+    """Cada pregunta de Alberto al asistente: cuánto tardó y cuánto costó (para #31)."""
+
+    cuando = models.DateTimeField(auto_now_add=True)
+    texto = models.TextField()
+    respuesta = models.TextField(blank=True)
+    ok = models.BooleanField(default=True)
+    error = models.TextField(blank=True)
+    tokens_in = models.PositiveIntegerField(default=0)
+    tokens_out = models.PositiveIntegerField(default=0)
+    segundos = models.FloatField(default=0)
+
+    class Meta:
+        ordering = ["-cuando"]
+
+    def __str__(self) -> str:
+        return f"{self.cuando:%d/%m %H:%M} · {self.texto[:60]}"

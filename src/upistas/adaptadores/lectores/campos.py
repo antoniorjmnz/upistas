@@ -30,8 +30,8 @@ def separar_notas(texto: str) -> tuple[str, list[str]]:
         categorias = clasificar(linea)
         dato = bool(re.match(r"^(?:nif|cif|iban|cuenta|factura|invoice|fecha|pedido|ref|po|base|subtotal|iva|total|importe|cuota|cliente|bill to|proveedor)\b", normal))
         inicio = bool(re.match(r"^(?:notas?|observaci(?:on|ones)|aviso|comentario|instrucciones?|condiciones de pago)\b", normal))
-        afirmacion = bool(re.search(r"\b(?:pedido|proveedor)\b.{0,50}(?:anulad|cancelad|en revision)|\biban\b.{0,50}\bno coincide", normal))
-        inicio = inicio or "pide_saltar_regla" in categorias or afirmacion or (categorias != ("otra",) and not dato)
+        afirmacion = bool(re.search(r"\b(?:pedido|proveedor)\b.{0,50}(?:anulad|cancelad|en revision)|\b(?:iban|cuenta de abono|cuenta bancaria)\b.{0,50}\b(?:no coincid|no coincident|distint)", normal))
+        inicio = inicio or any(c in categorias for c in ("pide_saltar_regla", "dirigida_al_sistema")) or afirmacion or (categorias != ("otra",) and not dato)
         if final or inicio or (actual and not dato):
             final = final or (tras_total and inicio)
             actual.append(linea)
@@ -123,7 +123,7 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
 
     return FacturaExtraida.model_validate({
         "file_id": file_id,
-        "metodo": "texto_determinista",
+        "metodo": "vision_llm" if any(p.get("route") == "vision_llm" for p in paginas) else "texto_determinista",
         "lector": "pdf_unificado",
         "documento": documento or {
             "sha256": hashlib.sha256("\n".join(p.get("text", "") for p in paginas).encode()).hexdigest(),

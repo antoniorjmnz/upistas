@@ -1,4 +1,4 @@
-"""Preguntar: la pantalla del asistente mientras Fran lo termina (#39). Honesta y sin nada que mandar."""
+"""Preguntar: la pantalla del asistente (#39). El comportamiento del chat está en test_asistente."""
 import pytest
 from django.urls import reverse
 
@@ -11,19 +11,17 @@ def preguntar(alberto) -> str:
     return respuesta.content.decode()
 
 
-def test_explica_para_que_sirve_y_que_podra_preguntar(alberto):
+def test_explica_para_que_sirve_y_que_puede_preguntar(alberto):
     html = preguntar(alberto)
     assert "Pregunte lo que quiera" in html
-    assert "le llevará a la pantalla donde está la respuesta" in html
+    assert "nunca toco el ERP" in html
     assert "¿Por qué no se paga la FA-1016?" in html and "¿Está pagado el pedido PO-2026-0474?" in html
 
 
-def test_dice_la_verdad_de_cuando_estara(alberto):
-    assert "Lo está preparando Fran; estará listo para el domingo." in preguntar(alberto)
-
-
-def test_todavia_no_se_puede_escribir_ni_mandar_nada(alberto):
+def test_se_puede_escribir_y_mandar(alberto):
+    """El cuadro está activo y hay un formulario real que envía la pregunta."""
     html = preguntar(alberto)
-    assert 'type="search" disabled' in html
-    assert "Muy pronto: ¿cuánto vamos a pagar este mes?" in html
-    assert "<form" not in html
+    assert 'type="search" name="pregunta"' in html
+    assert "disabled" not in html.split('name="pregunta"')[1].split(">")[0]  # el input no está deshabilitado
+    assert "<form" in html and 'hx-post' in html
+    assert "Pensando" in html  # el aviso de espera mientras la IA responde

@@ -1,0 +1,12 @@
+{% for m in mensajes %}
+  <div class="mensaje {{ m.quien }}">
+    <p>{{ m.texto }}</p>
+    {% if m.fuentes %}
+      <p class="fuentes">De:
+        {% for f in m.fuentes %}<a href="{{ f.url }}">{{ f.titulo }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
+      </p>
+    {% endif %}
+  </div>
+{% empty %}
+  <p class="suave" id="vacio">Aún no ha preguntado nada.</p>
+{% endfor %}

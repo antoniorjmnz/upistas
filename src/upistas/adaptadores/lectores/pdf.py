@@ -113,17 +113,22 @@ def _controles_fuera_de_campos(texto: str) -> list[str]:
     return []
 
 
-def _visibilidad_texto(pagina) -> list[str]:
+def ocultos_de_pagina(pagina) -> tuple[list[dict], str | None]:
+    """Trozos de texto que no se ven al abrir el PDF: dónde están, qué dicen y por qué se esconden.
+
+    Devuelve (ocultos, aviso). `aviso` no es None si la página es demasiado compleja o la
+    inspección falla: entonces no se puede asegurar que no haya texto escondido.
+    """
     try:
         spans = pagina.get_texttrace()
         dibujos = pagina.get_drawings()
         if len(spans) > 10000 or len(dibujos) > 2000:
-            return [f"visibilidad del texto no verificable: página {pagina.number + 1}, estructura demasiado compleja"]
+            return [], f"visibilidad del texto no verificable: página {pagina.number + 1}, estructura demasiado compleja"
         opacos = [d for d in dibujos if d.get("fill") is not None and d.get("fill_opacity", 1) >= 0.99
                   and len(d.get("items", [])) == 1 and d["items"][0][0] == "re"]
         imagenes = [(i, pymupdf.Rect(b)) for i, (tipo, b) in enumerate(pagina.get_bboxlog()) if tipo == "fill-image"]
         visible = pymupdf.Rect(0, 0, pagina.cropbox.width, pagina.cropbox.height)
-        encontrados = {}
+        ocultos = []
         for span in spans:
             texto = "".join(chr(c[0]) for c in span.get("chars", ()) if 0 <= c[0] <= 0x10FFFF).strip()
             if not texto:
@@ -150,12 +155,23 @@ def _visibilidad_texto(pagina) -> list[str]:
                 i > orden and r.contains(caja) for i, r in imagenes
             ):
                 motivos.append("texto potencialmente tapado por contenido posterior")
-            for motivo in motivos:
-                encontrados.setdefault(motivo, ascii(texto[:120]))
-        return [f"texto potencialmente oculto: página {pagina.number + 1}; {motivo}; muestra={muestra}"
-                for motivo, muestra in encontrados.items()]
+            if motivos:
+                ocultos.append({"caja": caja, "texto": texto, "motivos": motivos})
+        return ocultos, None
     except Exception as exc:
-        return [f"visibilidad del texto no verificable: página {pagina.number + 1} ({type(exc).__name__})"]
+        return [], f"visibilidad del texto no verificable: página {pagina.number + 1} ({type(exc).__name__})"
+
+
+def _visibilidad_texto(pagina) -> list[str]:
+    ocultos, aviso = ocultos_de_pagina(pagina)
+    if aviso:
+        return [aviso]
+    encontrados = {}
+    for s in ocultos:
+        for motivo in s["motivos"]:
+            encontrados.setdefault(motivo, ascii(s["texto"][:120]))
+    return [f"texto potencialmente oculto: página {pagina.number + 1}; {motivo}; muestra={muestra}"
+            for motivo, muestra in encontrados.items()]
 
 
 def _contenido_activo(pdf: pymupdf.Document) -> list[str]:

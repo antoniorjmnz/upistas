@@ -227,6 +227,7 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     reglas = (decision.outcome or {}).get("reglas") or []
     revision = consultas.revisiones_por_documento(lote).get(documento.id)
 
+    alertas = list(dict.fromkeys((documento.alertas or []) + (decision.alertas or [])))
     return render(request, "panel/factura.html", {
         "decision": decision,
         "documento": documento,
@@ -243,7 +244,8 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
             {"texto": n.get("texto", ""), "categorias": [CATEGORIAS.get(c, c) for c in (n.get("categorias") or [])]}
             for n in (decision.notas or [])
         ],
-        "alertas": list(dict.fromkeys((documento.alertas or []) + (decision.alertas or []))),
+        "alertas": alertas,
+        "con_oculto": any(a.startswith(("texto potencialmente oculto", "visibilidad del texto no verificable")) for a in alertas),
         "tipo": TIPO.get(documento.tipo, documento.tipo),
         "metodo": METODO.get(lectura.metodo, lectura.metodo) if lectura else METODO["ninguno"],
         "historial": Decision.objects.filter(documento=documento).select_related("ejecucion").order_by("ejecucion__inicio"),
@@ -261,3 +263,38 @@ def pdf(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     if not Path(documento.ruta).is_file():
         raise Http404(f"El PDF ya no está donde lo dejamos ({documento.ruta}). Vuelva a copiar la carpeta de facturas.")
     return FileResponse(open(documento.ruta, "rb"), content_type="application/pdf")
+
+
+def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
+    """El mismo PDF, pero con el texto escondido marcado en rojo y transcrito al pie.
+
+    El original no se toca: se sirve una copia en memoria. Así Alberto ve dónde estaba el
+    texto que no se veía y qué decía, sin perder la versión tal cual llegó.
+    """
+    import pymupdf
+
+    from upistas.adaptadores.lectores.pdf import ocultos_de_pagina
+
+    documento = get_object_or_404(Documento, lote=lote, file_id=file_id)
+    ruta = Path(documento.ruta)
+    if not ruta.is_file():
+        raise Http404(f"El PDF ya no está donde lo dejamos ({documento.ruta}). Vuelva a copiar la carpeta de facturas.")
+
+    original = pymupdf.open(ruta)
+    try:
+        for pagina in original:
+            ocultos, _ = ocultos_de_pagina(pagina)
+            if not ocultos:
+                continue
+            pagina.add_freetext_annot(
+                pymupdf.Rect(40, pagina.rect.height - 100, pagina.rect.width - 40, pagina.rect.height - 16),
+                "Texto escondido en esta página (no se veía al abrirla):\n"
+                + "\n".join(f"«{s['texto'][:180]}»" for s in ocultos),
+                fontsize=9, text_color=(0.55, 0, 0), fill_color=(1, 0.95, 0.8),
+            )
+            for s in ocultos:
+                pagina.draw_rect(s["caja"], color=(0.8, 0, 0), width=1.2)
+        datos = original.tobytes()
+    finally:
+        original.close()
+    return HttpResponse(datos, content_type="application/pdf")

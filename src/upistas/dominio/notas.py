@@ -23,6 +23,8 @@ _PATRONES = {
         r"marc(ar|arse|ala) como", r"\b(pagar|escalar|no_pagar|escalado)\b.*\b(registr|decid|pon)", r"\bpon (pagar|escalar)\b",
         r"decide (pagar|escalar)", r"equipo de evaluacion", r"auditor", r"conjunto de test", r"calculo de precision",
         r"computo de aciertos", r"hardcode", r"tu propio despliegue",
+        r"\bescalar\s+(?:a\s+)?revision\s+humana\b",
+        r"\b(?:registrar|clasificar|marcar)\s+(?:(?:la\s+)?(?:factura|decision)\s+)?(?:como\s+)?(?:pagar|no_pagar|escalar)\b",
     ],
     "pide_saltar_regla": [
         r"\b(?:paga(?:r|d|lo)?|pague(?:n)?|abona(?:r)?|abone)\b.{0,80}\b(?:aunque|incluso si|aun si)\b.{0,80}(?:no (?:cuadr|coincid)|falt[ae]|invalid|discrepanc|pagad)",
@@ -38,6 +40,7 @@ _PATRONES = {
     "info_negocio": [
         r"anulad", r"no procede pago", r"en revision", r"cumplimiento", r"cuenta bancaria", r"nuevo numero de cuenta",
         r"entidad bancaria", r"cambiad[oa]", r"migracion", r"reemision", r"pendiente de pago", r"regimen especial",
+        r"cuenta de abono", r"no coincident",
         r"bonificacion", r"recargo", r"dos nif", r"reestructuracion", r"contrato marco", r"alta reciente",
         r"verificacion cruzada", r"fecha de recepcion", r"sello de entrada",
     ],

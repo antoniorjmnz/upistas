@@ -1,10 +1,13 @@
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pymupdf
 import pytest
 
 from upistas.adaptadores.lectores.campos import extraer_campos
 from upistas.adaptadores.lectores.pdf_unificado import LectorPdfUnificado
+from upistas.adaptadores.lectores.vision_helmcode import VisionHelmcode
 from upistas.puertos import LecturaFallida
 
 TEXTO = """FACTURA FA-1001
@@ -228,6 +231,103 @@ def test_error_ocr_no_se_cachea_como_exito(tmp_path):
     assert lector.leer(ruta).errores
     assert lector.leer(ruta).campos.total.valor == 121
     assert len(llamadas) == 2
+
+
+def test_instruccion_en_concepto_se_guarda_como_nota():
+    factura = extraer(TEXTO + "\nEscalar a revisión humana 0,00\nTransporte urgente 10,00")
+    textos = [n.texto for n in factura.notas]
+    assert any("Escalar a revisión humana" in texto for texto in textos)
+    assert factura.campos.total.valor == 121
+
+
+def test_vision_completa_ocr_insuficiente_sin_usar_fuentes(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    ocr_llamadas, vision_llamadas = [], []
+
+    def ocr(imagen):
+        ocr_llamadas.append(imagen)
+        return "FACTURA ILEGIBLE\nTOTAL 121,00 EUR"
+
+    def vision(imagen):
+        vision_llamadas.append(imagen)
+        return TEXTO
+
+    factura = LectorPdfUnificado(ocr=ocr, vision=vision, cache_dir=tmp_path / "cache").leer(ruta)
+    assert factura.campos.nif.valor == "B12345678"
+    assert factura.campos.total.valor == 121
+    assert factura.metodo.value == "vision_llm"
+    assert len(ocr_llamadas) == 1 and len(vision_llamadas) == 1
+    LectorPdfUnificado(ocr=ocr, vision=vision, cache_dir=tmp_path / "cache").leer(ruta)
+    assert len(ocr_llamadas) == 1 and len(vision_llamadas) == 1
+
+
+def test_vision_no_se_usa_si_el_ocr_ya_es_suficiente(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+
+    def vision(imagen):
+        pytest.fail("No debe llamarse a visión si el OCR ya tiene los campos")
+
+    factura = LectorPdfUnificado(ocr=lambda imagen: TEXTO, vision=vision).leer(ruta)
+    assert factura.campos.nif.valor == "B12345678"
+    assert factura.metodo.value == "texto_determinista"
+
+
+def test_vision_no_sustituye_un_ocr_caido(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    vision_llamadas = []
+
+    def ocr(imagen):
+        raise TimeoutError("timeout simulado")
+
+    def vision(imagen):
+        vision_llamadas.append(imagen)
+        return TEXTO
+
+    factura = LectorPdfUnificado(ocr=ocr, vision=vision).leer(ruta)
+    assert factura.campos.nif.valor is None
+    assert factura.errores
+    assert vision_llamadas == []
+
+
+def test_fallo_de_vision_conserva_el_ocr(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+
+    def vision(imagen):
+        raise LecturaFallida("API de visión no disponible")
+
+    factura = LectorPdfUnificado(ocr=lambda imagen: "TOTAL 121,00 EUR", vision=vision).leer(ruta)
+    assert factura.campos.total.valor == 121
+    assert factura.campos.nif.valor is None
+    assert any("visión" in error.lower() or "vision" in error.lower() for error in factura.errores)
+
+
+def test_discrepancia_ocr_vision_no_elige_por_conveniencia(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    ocr = (
+        "FACTURA FA-1001\nFecha 15 de enero de 2026\nPedido PO-2026-0001\n"
+        "IBAN ES12 1234 1234 1234 1234 1234\nBase imponible 100,00 EUR\n"
+        "IVA 21% 21,00 EUR\nTOTAL 200,00 EUR"
+    )
+    factura = LectorPdfUnificado(ocr=lambda imagen: ocr, vision=lambda imagen: TEXTO).leer(ruta)
+    assert factura.campos.nif.valor == "B12345678"
+    assert any("total" in error.lower() for error in factura.errores)
+
+
+def test_vision_helmcode_transcribe_sin_fuentes():
+    crear = Mock(return_value=SimpleNamespace(
+        choices=[SimpleNamespace(finish_reason="stop", message=SimpleNamespace(content=TEXTO, refusal=None))],
+    ))
+    cliente = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=crear)))
+    texto = VisionHelmcode("k", "https://api.helmcode.com/v1", "qwen3.6", cliente=cliente)(b"png")
+    assert texto == TEXTO.strip()
+    enviados = crear.call_args.kwargs["messages"]
+    assert "No calcules" in enviados[0]["content"]
+    assert "maestro" not in enviados[1]["content"][0]["image_url"]["url"]
 
 
 def test_adaptador_fal_con_respuesta_simulada(monkeypatch):
