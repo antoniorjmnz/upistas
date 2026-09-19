@@ -1,0 +1,20 @@
+{% extends "panel/base.html" %}
+{% block titulo %}Entrar · Pagos de Alberto{% endblock %}
+{% block contenido %}
+<section class="tarjeta entrar">
+  <h1>Entrar</h1>
+  <p class="intro">Aquí ve qué facturas se pagan, cuáles no y cuáles tiene que mirar usted, con la explicación de cada una.</p>
+  {% if form.errors %}<div class="aviso mal">Usuario o contraseña incorrectos.</div>{% endif %}
+  <form method="post" action="{% url 'panel:entrar' %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label for="id_username">Usuario
+      <input id="id_username" type="text" name="username" autocomplete="username" autofocus required value="{{ form.username.value|default:'' }}">
+    </label>
+    <label for="id_password">Contraseña
+      <input id="id_password" type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="boton" type="submit">Entrar</button>
+  </form>
+</section>
+{% endblock %}

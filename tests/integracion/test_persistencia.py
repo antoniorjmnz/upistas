@@ -80,3 +80,25 @@ def test_ejecuciones_decisiones_y_memoria_de_pagos_entre_lotes():
     dec.terminar_ejecucion(e2.id, {})
     assert [e.id for e in dec.ejecuciones("lote1")] == [e2.id, e1.id]
     assert dec.pedidos_aprobados(excepto_lote="lote2") == {"PO-2026-0002"}  # la última ejecución de lote1 ya no paga PO-0001
+
+
+def test_pasada_parcial_conserva_aprobaciones_y_hash_original():
+    lecturas, dec = RepositorioLecturasDjango(), RepositorioDecisionesDjango()
+    for fid, sha in (("a.pdf", "1" * 64), ("b.pdf", "2" * 64)):
+        lecturas.guardar(registro("lote1", fid, extraida(fid), sha))
+    primera = dec.iniciar_ejecucion("lote1", "v3", "erp", "excel", {})
+    dec.guardar_decisiones(primera.id, [
+        DecisionGuardada("a.pdf", "PAGAR", "ok", "PO-1", "vision_llm", {}),
+        DecisionGuardada("b.pdf", "PAGAR", "ok", "PO-2", "vision_llm", {
+            "reglas": [{"id": "D0_sha256", "ok": True, "detalle": "2" * 64}],
+        }),
+    ])
+    dec.terminar_ejecucion(primera.id, {})
+    parcial = dec.iniciar_ejecucion("lote1", "v3", "erp", "excel", {})
+    dec.guardar_decisiones(parcial.id, [DecisionGuardada("a.pdf", "NO_PAGAR", "revisada", "PO-1", "vision_llm", {})])
+    dec.terminar_ejecucion(parcial.id, {})
+    lecturas.guardar(registro("lote1", "b.pdf", extraida("b.pdf"), "3" * 64))
+    assert dec.pedidos_aprobados("lote2") == {"PO-2"}
+    assert dec.hashes_aprobados("lote2") == {"2" * 64}
+    assert dec.pedidos_aprobados("lote1") == frozenset()
+    assert dec.hashes_aprobados("lote1") == frozenset()

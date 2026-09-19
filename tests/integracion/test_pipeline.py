@@ -99,7 +99,7 @@ def test_cli_unificada_con_pdf_excel_y_erp(dbos_lanzado, tmp_path, monkeypatch):
         assert json.loads(salida.read_text(encoding="utf-8"))["result"] == "PAGAR"
         (carpeta / "b.pdf").write_bytes((carpeta / "a.pdf").read_bytes())
         assert cli.cmd_run(args) == 0
-        assert [json.loads(linea)["result"] for linea in salida.read_text(encoding="utf-8").splitlines()] == ["ESCALAR", "ESCALAR"]
+        assert [json.loads(linea)["result"] for linea in salida.read_text(encoding="utf-8").splitlines()] == ["PAGAR", "NO_PAGAR"]
         erp.write_text(json.dumps([{**asiento, "estado": "PAGADA"}]), encoding="utf-8")
         assert cli.cmd_run(args) == 0
         assert [json.loads(linea)["result"] for linea in salida.read_text(encoding="utf-8").splitlines()] == ["NO_PAGAR", "NO_PAGAR"]
@@ -110,8 +110,11 @@ def test_cli_unificada_con_pdf_excel_y_erp(dbos_lanzado, tmp_path, monkeypatch):
 def test_lee_decide_y_guarda_cada_documento(dbos_lanzado, carpeta, monkeypatch):
     from upistas.infra import contenedor
     from upistas.adaptadores.lectores.pdf_texto import LectorPdfTexto
+    from upistas.aplicacion.procesar import leer_documento
 
     monkeypatch.setattr(contenedor, "lectores", lambda: (LectorPdfTexto(),))
+    monkeypatch.setattr(pipeline.lectura_acotada, "leer", lambda ruta, configuracion, documento=None:
+                        leer_documento(ruta, contenedor.inspector(), contenedor.lectores()))
 
     monkeypatch.setattr(contenedor, "cliente_erp", lambda: ClienteFalso((
         Asiento("AS-00001", "PO-2026-0001", "P001", "B46102331", Decimal("121.00"), date(2026, 1, 8), "PENDIENTE"),

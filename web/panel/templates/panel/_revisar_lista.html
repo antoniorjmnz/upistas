@@ -1,0 +1,34 @@
+{# Las facturas escaladas de la página, agrupadas por el motivo por el que están aquí. #}
+{% load panel_extras %}
+{% if not grupos %}
+  <p class="tarjeta suave">{{ vacio }}</p>
+{% else %}
+  {% for g in grupos %}
+  <section class="tarjeta">
+    <h2>{{ g.titulo }}</h2>
+    <p class="suave">{{ g.filas|length }} factura{{ g.filas|length|pluralize }} con este mismo motivo.</p>
+    {% for f in g.filas %}
+      {% with doc=f.decision.documento %}
+      <article class="factura">
+        <p class="titulo">
+          <a href="{% url 'panel:factura' doc.lote doc.file_id %}">{{ doc.file_id }}</a>
+          {% if f.proveedor %}<span>{{ f.proveedor }}</span>{% endif %}
+          {% if f.total %}<span class="importe">{{ f.total|euros }}</span>{% endif %}
+          {% if f.decision.pedido %}<span class="mono suave">{{ f.decision.pedido }}</span>{% endif %}
+          <a class="ver-pdf" href="{% url 'panel:factura_pdf' doc.lote doc.file_id %}">Ver el PDF</a>
+        </p>
+        <p class="porque">{{ f.decision.motivo }}</p>
+        {% include "panel/_revisar_form.html" with decision=f.decision revision=f.revision %}
+      </article>
+      {% endwith %}
+    {% endfor %}
+  </section>
+  {% endfor %}
+{% endif %}
+{% if pagina.paginator.num_pages > 1 %}
+<nav class="paginas" aria-label="Páginas">
+  {% if pagina.has_previous %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.previous_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.previous_page_number }}" hx-target="#lista" hx-push-url="true">← Anterior</a>{% endif %}
+  <span class="suave">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  {% if pagina.has_next %}<a href="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.next_page_number }}" hx-get="?q={{ q|urlencode }}&amp;estado={{ estado }}&amp;lote={{ lote|urlencode }}&amp;pagina={{ pagina.next_page_number }}" hx-target="#lista" hx-push-url="true">Siguiente →</a>{% endif %}
+</nav>
+{% endif %}

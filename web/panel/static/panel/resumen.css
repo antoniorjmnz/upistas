@@ -1,0 +1,6 @@
+/* Lo poco que el resumen y las ejecuciones necesitan y no estaba ya en panel.css. */
+
+/* Selector de lote, cuando hay más de uno. */
+.lotes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.lotes a { text-decoration: none; }
+.lotes a.activa { background: var(--marca-fondo); color: var(--marca); }

@@ -34,3 +34,6 @@ Thumbs.db
 
 # Copia de La Caja que usa la CI
 caja/
+
+# Worktrees temporales de los agentes de Claude Code
+.claude/worktrees/
