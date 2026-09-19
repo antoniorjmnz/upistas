@@ -92,3 +92,42 @@ NOMBRE_REGLA = {
 
 def nombre_regla(id_regla: str) -> str:
     return NOMBRE_REGLA.get(id_regla, id_regla)
+
+
+# Cómo se leyó cada factura, dicho para Alberto.
+METODOS = {
+    "texto_determinista": "leídas del texto del PDF, sin inteligencia artificial",
+    "ocr_determinista": "escaneadas, pasadas por reconocimiento de texto",
+    "texto_llm": "leídas con ayuda de la inteligencia artificial",
+    "vision_llm": "escaneadas, leídas por la inteligencia artificial mirando la imagen",
+    "ninguno": "no se pudieron leer",
+}
+
+
+def nombre_lote(lote: str) -> str:
+    """"lote1" → "Lote 1". Cualquier otro nombre se deja como está."""
+    return f"Lote {lote[4:]}" if lote.startswith("lote") and lote[4:].isdigit() else lote
+
+
+def cifras(ejecucion: Ejecucion) -> dict:
+    """Las cifras de una pasada ya masticadas: cuántas de cada, cuánto tardó y cuánto costó."""
+    r = ejecucion.resumen or {}
+    documentos = r.get("documentos") or 0
+    segundos = r.get("segundos")
+    if not segundos and ejecucion.fin:
+        segundos = (ejecucion.fin - ejecucion.inicio).total_seconds()
+    por_metodo = r.get("por_metodo") or {}
+    return {
+        "documentos": documentos,
+        "PAGAR": r.get("PAGAR") or 0,
+        "NO_PAGAR": r.get("NO_PAGAR") or 0,
+        "ESCALAR": r.get("ESCALAR") or 0,
+        "leidos": r.get("leidos") or 0,
+        "segundos": segundos,
+        "por_segundo": round(documentos / segundos, 1) if segundos and documentos else None,
+        "tokens_in": r.get("tokens_in") or 0,
+        "tokens_out": r.get("tokens_out") or 0,
+        "coste_eur": r.get("coste_eur") or 0,
+        "sin_ia": por_metodo.get("texto_determinista") or 0,
+        "metodos": [{"texto": METODOS.get(m, m), "n": n} for m, n in sorted(por_metodo.items(), key=lambda kv: -kv[1])],
+    }

@@ -48,6 +48,7 @@ TIPO = {
 
 METODO = {
     "texto_determinista": "Leyendo el texto del PDF, sin inteligencia artificial",
+    "ocr_determinista": "Reconociendo el texto del escaneado, sin inteligencia artificial",
     "texto_llm": "Con inteligencia artificial, sobre el texto del PDF",
     "vision_llm": "Con inteligencia artificial, mirando la imagen del escaneado",
     "ninguno": "No se pudo leer",

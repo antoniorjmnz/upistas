@@ -33,6 +33,8 @@ h2 { margin: 0 0 10px; font-size: 17px; }
 .cifra { background: var(--tarjeta); border: 1px solid var(--linea); border-radius: var(--radio); padding: 14px 18px; }
 .cifra b { display: block; font-size: 28px; line-height: 1.2; }
 .cifra span { color: var(--suave); font-size: 14px; }
+.cifra .detalle { display: block; margin-top: 4px; font-size: 13px; color: var(--suave); }
+.cifra b.importe { font-size: 22px; }
 
 .aviso { border-radius: var(--radio); padding: 14px 18px; display: flex; gap: 12px; align-items: flex-start; }
 .aviso.mal { background: var(--mal-fondo); color: #6E1C16; border: 1px solid #E7B4AE; }
@@ -43,6 +45,12 @@ h2 { margin: 0 0 10px; font-size: 17px; }
 .boton:hover { background: #0A3F3D; }
 .boton:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #7FB8B5; outline-offset: 2px; }
 .boton[disabled] { opacity: .6; cursor: progress; }
+a.boton { display: inline-block; text-decoration: none; }
+
+ul.lista { list-style: none; margin: 0; padding: 0; }
+ul.lista li { padding: 10px 0; border-bottom: 1px solid var(--linea-2); }
+ul.lista li:last-child { border-bottom: 0; }
+ul.menuda { list-style: none; margin: 4px 0 0; padding: 0; color: var(--suave); font-size: 13px; }
 
 .pildora { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .pildora.bien { background: var(--bien-fondo); color: var(--bien); }

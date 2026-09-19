@@ -62,3 +62,11 @@ def regla(id_regla: str) -> str:
     from web.panel.consultas import nombre_regla
 
     return nombre_regla(id_regla)
+
+
+@register.filter
+def lote(nombre: str) -> str:
+    """"lote1" → "Lote 1"."""
+    from web.panel.consultas import nombre_lote
+
+    return nombre_lote(nombre)

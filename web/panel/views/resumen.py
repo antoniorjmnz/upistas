@@ -5,8 +5,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
 from web.panel import consultas
+from web.panel.consultas import cifras, nombre_lote
 from web.panel.models import SincronizacionERP
-from web.panel.views.ejecuciones import cifras, nombre_lote
 
 EN_PORTADA = 5  # cuántos cambios y cuántos pendientes se enseñan sin salir de la portada
 

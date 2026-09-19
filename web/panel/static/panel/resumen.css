@@ -1,19 +1,6 @@
 /* Lo poco que el resumen y las ejecuciones necesitan y no estaba ya en panel.css. */
 
-/* Una cifra grande puede llevar debajo una aclaración pequeña, y a veces es un importe (más largo). */
-.cifra .detalle { display: block; margin-top: 4px; font-size: 13px; color: var(--suave); }
-.cifra b.importe { font-size: 22px; }
-
-/* El botón de panel.css, cuando es un enlace (descargar el fichero de resultados). */
-a.boton { display: inline-block; text-decoration: none; }
-
 /* Selector de lote, cuando hay más de uno. */
 .lotes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .lotes a { text-decoration: none; }
 .lotes a.activa { background: var(--marca-fondo); color: var(--marca); }
-
-/* Listas de facturas: las que cambiaron y las que hay que mirar. */
-ul.lista { list-style: none; margin: 0; padding: 0; }
-ul.lista li { padding: 10px 0; border-bottom: 1px solid var(--linea-2); }
-ul.lista li:last-child { border-bottom: 0; }
-ul.menuda { list-style: none; margin: 4px 0 0; padding: 0; color: var(--suave); font-size: 13px; }
