@@ -30,6 +30,7 @@ from upistas.adaptadores.fuentes.filas import (
     pedido_de_fila,
     proveedor_de_fila,
     texto,
+    valor_importe,
 )
 from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.persistencia.django_maestro import CENTIMOS, MaestroDjango, plural
@@ -309,7 +310,7 @@ def _pedidos(fichero: Fichero, conocidos: dict[str, Proveedor], envio: dict, a_a
 
 def _que_trae(datos: dict, proveedor: Proveedor | None, importe: Decimal | None, fecha=None) -> str:
     """«Ofimática Cieza S.L. · 3.139,66 € · 17/08/2026»; lo que no se entiende, tal cual venía."""
-    crudo = texto(datos.get("importetotal") if "importetotal" in datos else datos.get("importe"))
+    crudo = texto(valor_importe(datos))
     quien = proveedor.nombre if proveedor else texto(datos.get("proveedorid")).upper()
     cuanto = _bonito(importe) if importe is not None else crudo
     cuando = _bonito(fecha) if fecha is not None else texto(datos.get("fechapedido"))
@@ -324,7 +325,7 @@ def _fallo_numero_e_importe(pid: str, importe: Decimal | None, datos: dict, envi
     if pid in envio:
         return f"Repetido: ya venía en la fila {envio[pid][1]}."
     if importe is None:
-        crudo = texto(datos.get("importetotal") if "importetotal" in datos else datos.get("importe"))
+        crudo = texto(valor_importe(datos))
         return f"El importe «{crudo}» no es un número." if crudo else "No trae importe."
     if importe <= 0:
         return "El importe tiene que ser mayor que cero."

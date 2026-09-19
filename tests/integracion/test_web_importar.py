@@ -209,6 +209,19 @@ def test_acepta_punto_y_coma_bom_y_cabeceras_del_excel(alberto, maestro, almacen
     assert "Suministros Levante S.L. · 2.490,00 € · 01/09/2026" in html
 
 
+def test_con_importe_e_importe_total_manda_la_misma_columna_para_decidir_y_para_ensenar(alberto, maestro, almacen):
+    """`filas.py` prefiere «importe»; la vista previa enseña y explica esa misma celda, no la otra."""
+    token = subir(alberto, fichero("dos_importes.csv", "pedido,proveedor_id,nif,importe,importe_total,estado,fecha_pedido\n"
+        + "PO-2026-0700,P001,B46102331,10.00,99.00,ABIERTO,2026-09-01\n"
+        + "PO-2026-0701,P001,B46102331,mil,20.00,ABIERTO,2026-09-01\n"))
+    html = previa(alberto, token)
+    assert "Suministros Levante S.L. · 10,00 € · 01/09/2026" in html and "99,00" not in html
+    assert "El importe «mil» no es un número." in html and "«20.00»" not in html
+
+    aplicar(alberto, token)
+    assert Pedido.objects.get(numero="PO-2026-0700").importe == Decimal("10.00")
+
+
 def test_un_fichero_que_no_se_reconoce_junto_a_uno_bueno_se_avisa_y_se_sigue(alberto, maestro, almacen):
     token = subir(alberto, fichero("lista.csv", "nombre,telefono\nPepe,600000000\n"),
                   fichero("pedidos.csv", CABECERA_PEDIDOS + "PO-2026-0700,P001,B46102331,10.00,ABIERTO,2026-09-01\n"))

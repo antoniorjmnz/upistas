@@ -49,8 +49,14 @@ def proveedor_de_fila(fila: Fila) -> Proveedor:
     )
 
 
+def valor_importe(fila: Fila):
+    """La celda del importe tal cual viene: `importe` si la fila la trae, si no `importe_total`.
+    Es la misma celda que lee `importe_de_fila`, para que lo que se decide y lo que se enseña coincidan."""
+    return fila.get("importe") if "importe" in fila else fila.get("importetotal")
+
+
 def importe_de_fila(fila: Fila) -> Decimal | None:
-    return decimal(fila.get("importe") if "importe" in fila else fila.get("importetotal"))
+    return decimal(valor_importe(fila))
 
 
 def pedido_de_fila(fila: Fila, importe: Decimal, estado_por_defecto: str) -> Pedido:
