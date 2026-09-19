@@ -36,53 +36,62 @@ def con_copia():
     return sincronizar_erp(Cliente(LOTE), AlmacenERPDjango())
 
 
-def test_inicio_lleva_a_la_conexion(client):
-    r = client.get("/")
-    assert r.status_code == 302 and r.url == reverse("panel:conexion")
-
-
-def test_conexion_sin_copia_lo_explica(client):
+def test_sin_sesion_se_va_a_entrar(client):
     r = client.get(reverse("panel:conexion"))
+    assert r.status_code == 302 and r.url.startswith(reverse("panel:entrar"))
+
+
+def test_entrar_y_salir(client, django_user_model):
+    django_user_model.objects.create_user("alberto", password="alberto")
+    r = client.post(reverse("panel:entrar"), {"username": "alberto", "password": "alberto"})
+    assert r.status_code == 302 and r.url == "/"
+    assert client.get("/").status_code == 200
+    assert client.post(reverse("panel:salir")).status_code == 302
+    assert client.get("/").status_code == 302
+
+
+def test_conexion_sin_copia_lo_explica(alberto):
+    r = alberto.get(reverse("panel:conexion"))
     assert r.status_code == 200
     assert "Aún no hay copia del ERP" in r.content.decode()
 
 
-def test_conexion_con_copia_muestra_cifras_e_historial(client, con_copia):
-    html = client.get(reverse("panel:conexion")).content.decode()
+def test_conexion_con_copia_muestra_cifras_e_historial(alberto, con_copia):
+    html = alberto.get(reverse("panel:conexion")).content.decode()
     assert con_copia.version in html
     assert "Correcta" in html and "Primera copia" in html
     assert ">1</b><span>ya pagados" in html.replace("\n", "").replace("  ", "")
 
 
-def test_fallo_del_erp_se_avisa_y_se_sigue_con_la_copia(client, con_copia):
+def test_fallo_del_erp_se_avisa_y_se_sigue_con_la_copia(alberto, con_copia):
     sincronizar_erp(Cliente(ErrorERP("El ERP no responde")), AlmacenERPDjango())
-    html = client.get(reverse("panel:conexion")).content.decode()
+    html = alberto.get(reverse("panel:conexion")).content.decode()
     assert "El ERP no respondió" in html and "Seguimos trabajando con la copia" in html
 
 
-def test_boton_sincronizar_devuelve_el_estado_nuevo(client, con_copia, monkeypatch):
+def test_boton_sincronizar_devuelve_el_estado_nuevo(alberto, con_copia, monkeypatch):
     from upistas.infra import contenedor
 
     cambiado = (LOTE[0], LOTE[1], replace(LOTE[2], estado="PAGADA"))
     monkeypatch.setattr(contenedor, "cliente_erp", lambda: Cliente(cambiado))
-    r = client.post(reverse("panel:sincronizar"), HTTP_HX_REQUEST="true")
+    r = alberto.post(reverse("panel:sincronizar"), HTTP_HX_REQUEST="true")
     html = r.content.decode()
     assert r.status_code == 200 and "<html" not in html  # solo el fragmento para htmx
     assert "1 modificados" in html
     assert reverse("panel:cambios", args=[con_copia.version, AlmacenERPDjango().ultima().version]) in html
 
 
-def test_asientos_busca_por_pedido_y_filtra_por_estado(client, con_copia):
+def test_asientos_busca_por_pedido_y_filtra_por_estado(alberto, con_copia):
     url = reverse("panel:asientos")
-    assert "PO-2026-0546" in client.get(url, {"q": "0546"}).content.decode()
-    html = client.get(url, {"estado": "PAGADA"}, HTTP_HX_REQUEST="true").content.decode()
+    assert "PO-2026-0546" in alberto.get(url, {"q": "0546"}).content.decode()
+    html = alberto.get(url, {"estado": "PAGADA"}, HTTP_HX_REQUEST="true").content.decode()
     assert "PO-2026-0474" in html and "PO-2026-0084" not in html
-    assert "sin NIF" in client.get(url).content.decode()
+    assert "sin NIF" in alberto.get(url).content.decode()
 
 
-def test_cambios_entre_versiones(client, con_copia):
+def test_cambios_entre_versiones(alberto, con_copia):
     b = sincronizar_erp(Cliente((LOTE[0], replace(LOTE[1], importe=Decimal("1.00")))), AlmacenERPDjango())
-    html = client.get(reverse("panel:cambios", args=[con_copia.version, b.version])).content.decode()
+    html = alberto.get(reverse("panel:cambios", args=[con_copia.version, b.version])).content.decode()
     assert "AS-00474" in html and "importe" in html  # modificado
     assert "AS-00507" in html  # eliminado
     compacto = "".join(html.split())

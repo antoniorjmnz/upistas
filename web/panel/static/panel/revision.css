@@ -1,0 +1,11 @@
+/* La cola de revisión: cada factura con su motivo y, debajo, lo que Alberto decide. */
+.cola { display: flex; flex-direction: column; gap: 16px; }
+.nota-pago { margin: 0; max-width: 75ch; }
+
+.factura { padding: 14px 0; border-bottom: 1px solid var(--linea-2); }
+.factura:last-child { padding-bottom: 0; border-bottom: 0; }
+.factura .titulo { display: flex; gap: 6px 16px; flex-wrap: wrap; align-items: baseline; margin: 0; }
+.factura .titulo > a:first-child { font-weight: 600; overflow-wrap: anywhere; }
+.factura .importe { font-variant-numeric: tabular-nums; }
+.factura .ver-pdf { margin-left: auto; white-space: nowrap; }
+.factura .porque { margin: 4px 0 10px; max-width: 90ch; }
