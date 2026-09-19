@@ -50,8 +50,8 @@ def carpeta(tmp_path):
 
 
 def test_reprocesar_el_mismo_lote_no_duplica(dbos_lanzado):
-    a = pipeline.encolar_lecturas("test", [Path("x/factura_2.txt")])[0]
-    b = pipeline.encolar_lecturas("test", [Path("x/factura_2.txt")])[0]
+    a = pipeline.encolar_lecturas("test", [Path("x/factura_2.txt")])[0][0]
+    b = pipeline.encolar_lecturas("test", [Path("x/factura_2.txt")])[0][0]
     assert a.get_workflow_id() == b.get_workflow_id()
     assert a.get_result() == b.get_result()
 
