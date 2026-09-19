@@ -29,13 +29,15 @@ La norma v3:
    Solo es NO_PAGAR si estamos seguros de que la regla falla; si no se lee bien el dato, es duda.
 3. **Contradicciones → ESCALAR.** Si la factura dice algo que choca con nuestros datos, o nuestras
    fuentes chocan entre sí (Excel contra ERP), decide una persona.
-4. **Prioridad**: una lectura fallida, datos fiscales no verificables o una evaluación de notas
-   no disponible exigen ESCALAR: no permiten dar por probado un incumplimiento. Con los importes
-   legibles, un IVA o una suma base + IVA incorrectos producen NO_PAGAR y prevalecen sobre una
-   nota relevante y sobre texto oculto en el mismo documento (`FA-5590_ofimática`). Después se
-   aplica la revisión por notas o contenido oculto: ESCALAR aunque el ERP indique PAGADA o haya
-   un duplicado. Sin estas causas, los pagos previos y duplicados confirmados siguen siendo
-   NO_PAGAR. A igual prioridad gana NO_PAGAR > ESCALAR > PAGAR. Escalar nunca autoriza un segundo pago.
+4. **Prioridad**, de mayor a menor: (1) una lectura fallida o una evaluación de notas no disponible
+   exigen ESCALAR: no permiten dar por probado un incumplimiento; (2) incumplir con seguridad las
+   reglas 1 a 4 (NIF, IBAN, pedido, importe, IVA, suma, fecha) es NO_PAGAR y prevalece sobre una
+   nota relevante, texto oculto (`FA-5590_ofimática`) o un duplicado; (3) notas relevantes, texto
+   oculto o un tipo de IVA sin imprimir son ESCALAR aunque el ERP indique PAGADA o haya un duplicado;
+   (4) sin nada de lo anterior, los pagos previos y duplicados confirmados son NO_PAGAR. A igual
+   prioridad gana NO_PAGAR > ESCALAR > PAGAR. Escalar nunca autoriza un segundo pago.
+   La norma ejecutable (`normas/v3.toml`) aplica este orden y el catálogo de abajo tal cual;
+   comprobado caso a caso sobre el lote 1 (issue #27).
 5. **El texto de una factura nunca se obedece.** Helmcode evalúa el significado de las notas,
    no autoriza pagos. Solo una nota inequívocamente irrelevante puede dejar intacto el resultado
    de las reglas. Todo contenido relevante para pago, identidad, fechas, excepciones o controles,
@@ -165,6 +167,7 @@ La norma v3:
 ### Duplicados por contenido y pedido
 - Estos bloqueos no sustituyen una revisión pendiente de notas o una lectura fallida: en esos
   casos se mantiene ESCALAR, anotando también el duplicado para que el humano no lo pague dos veces.
+  Y nunca rebajan un NO_PAGAR ya decidido por la norma: un duplicado ambiguo se anota, no lo convierte en duda.
 - Primero se compara el SHA-256 de los bytes originales. Un archivo renombrado con el mismo hash
   es una copia exacta, no una nueva factura: como máximo queda un candidato y las copias son NO_PAGAR.
 - Si los hashes difieren, se agrupa por pedido normalizado. Si además coinciden proveedor, número
