@@ -122,3 +122,16 @@ def color_avatar(nombre: str | None) -> str:
     if not nombre:
         return "f"
     return "abcdef"[sum(ord(c) for c in str(nombre)) % 6]
+
+
+@register.simple_tag
+def estatico(ruta: str) -> str:
+    """Como {% static %}, pero con la fecha del fichero detrás para que el navegador no use una copia vieja."""
+    import os
+
+    from django.contrib.staticfiles import finders
+    from django.templatetags.static import static
+
+    fichero = finders.find(ruta)
+    version = int(os.path.getmtime(fichero)) if fichero else 0
+    return f"{static(ruta)}?v={version}"

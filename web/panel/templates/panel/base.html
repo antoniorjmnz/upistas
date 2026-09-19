@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Pagos de Alberto{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
+  <link rel="stylesheet" href="{% estatico 'panel/panel.css' %}">
   {% block css %}{% endblock %}
-  <script src="{% static 'panel/htmx.min.js' %}" defer></script>
-  <script src="{% static 'panel/panel.js' %}" defer></script>
+  <script src="{% estatico 'panel/htmx.min.js' %}" defer></script>
+  <script src="{% estatico 'panel/panel.js' %}" defer></script>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% with pagina_actual=request.resolver_match.url_name %}
