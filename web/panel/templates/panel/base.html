@@ -1,0 +1,27 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Pagos de Alberto{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
+  <script src="{% static 'panel/htmx.min.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  {% with pagina_actual=request.resolver_match.url_name %}
+  <header class="cab">
+    <a class="marca" href="{% url 'panel:inicio' %}">Pagos de Alberto</a>
+    <nav aria-label="Secciones">
+      <span class="pronto" title="Próximamente">Resumen <small>(pronto)</small></span>
+      <span class="pronto" title="Próximamente">Facturas <small>(pronto)</small></span>
+      <span class="pronto" title="Próximamente">Para revisar <small>(pronto)</small></span>
+      <a href="{% url 'panel:asientos' %}" class="{% if pagina_actual == 'asientos' %}activa{% endif %}">Asientos del ERP</a>
+      <a href="{% url 'panel:conexion' %}" class="{% if pagina_actual == 'conexion' or pagina_actual == 'cambios' %}activa{% endif %}">Conexión con el ERP</a>
+    </nav>
+  </header>
+  {% endwith %}
+  <main>
+    {% block contenido %}{% endblock %}
+  </main>
+</body>
+</html>

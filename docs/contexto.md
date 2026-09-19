@@ -64,7 +64,7 @@ Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X"
 | Leer un tipo de documento nuevo o mejorar la lectura | `src/upistas/adaptadores/lectores/` |
 | Conectar Excel, ERP u otra fuente | `src/upistas/adaptadores/fuentes/` |
 | Cambiar qué pieza se usa | `src/upistas/infra/contenedor.py` |
-| Hacer pantallas para Alberto | `web/` |
+| Hacer pantallas para Alberto | `web/panel/` (vistas, plantillas y `static/panel/panel.css`) |
 | Cambiar el formato de los datos entre módulos | `contracts/` (PR aparte, avisando) |
 
 ## Estado actual
@@ -95,5 +95,6 @@ uv run pytest               # tiene que salir todo en verde
 python ../caja/alberto_erp.py
 
 uv run upistas erp sync     # copia local del ERP (516 asientos, ~4 s)
+uv run python manage.py runserver   # la web: http://127.0.0.1:8000
 uv run upistas run --limit 20
 ```

@@ -9,10 +9,10 @@ para que no nos pisemos. **Si eres un agente: léelas y cúmplelas antes de toca
 2. **Una vez tras clonar**: `sh scripts/setup.sh` (plantilla de commit + hooks).
 3. **Rama propia desde `main` actualizado**: `git switch main && git pull && git switch -c <N>-<slug>`
    (ej. `2-replica-erp`). Nunca trabajes en `main`. Nunca hagas `push --force` a ramas ajenas.
-4. **Commits** de una sola línea: `tipo(área): descripción (#N)`. Sin cuerpo ni firmas. El hook lo valida.
+4. **Commits** de una sola línea: `tipo(área): descripción (#N)`. Sin cuerpo ni firmas. El hook avisa si no cuadra, pero no bloquea.
 5. **Antes de abrir PR**: `git pull --rebase origin main` y pasar `python scripts/check.py` en local.
 6. **PR** corta (qué y por qué en 2-3 frases, y si cambia algún resultado), título con el formato de commit pero sin número (`feat(fuentes): réplica del ERP`), que será el commit final en `main` (GitHub le añade el nº de PR), y `Closes #N` en el cuerpo. Tarjeta → 👀 Revisión.
-7. **Merge**: solo con la CI en verde (un solo trabajo, ~1 min con caché). Squash merge. Borrar la rama después.
+7. **Merge**: solo hace falta `check` en verde (capas + tests unitarios, <1 min). El trabajo `completo` es informativo. Squash merge. Borrar la rama después.
 
 ## Límites de cada cambio
 - **Toca solo tu área** (ver `CODEOWNERS` y la etiqueta `área:` de la issue). Si necesitas cambiar
