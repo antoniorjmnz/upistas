@@ -50,7 +50,7 @@ def test_las_referencias_traen_todo_lo_que_pueden_mirar_las_reglas():
 
 def test_decidir_lote_da_un_outcome_por_documento_y_el_ilegible_escala(tmp_path):
     maestro, erp = MaestroEnMemoria([PROV], []), ErpEnMemoria([])
-    lecturas = [registro("a.pdf", extraida()), registro("z.pdf"), registro("f.pdf", extraida("f.pdf", fecha="2027-01-01"))]
+    lecturas = [registro("a.pdf", extraida()), registro("z.pdf"), registro("f.pdf", extraida("f.pdf", pedido="PO-2026-0097", fecha="2027-01-01"))]
     refs = construir_referencias(maestro, erp, lecturas, date(2026, 9, 18), "erp1")
     decisiones = decidir_lote(lecturas, refs, norma_v(tmp_path))
     por = {d.file_id: d for d in decisiones}
