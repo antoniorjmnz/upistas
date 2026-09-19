@@ -158,7 +158,7 @@ def _la_factura(extraida: dict | None) -> list[dict]:
             tipo = (campos.get("iva_pct") or {}).get("valor")
             if tipo not in (None, ""):
                 escrito = f"{tipo} % · {escrito}"
-        filas.append({"etiqueta": etiqueta, "valor": escrito, "poco_fiable": _poco_fiable(c.get("confianza"))})
+        filas.append({"nombre": nombre, "etiqueta": etiqueta, "valor": escrito, "poco_fiable": _poco_fiable(c.get("confianza"))})
     return filas
 
 
@@ -195,6 +195,7 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     )
     documento = decision.documento
     lectura = consultas.lecturas_por_sha([documento.sha256]).get(documento.sha256)
+    leido = consultas.campos(lectura)
     extraida = lectura.extraida if lectura else None
     reglas = (decision.outcome or {}).get("reglas") or []
     revision = consultas.revisiones_por_documento(lote).get(documento.id)
@@ -204,7 +205,8 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
         "documento": documento,
         "lectura": lectura,
         "ejecucion": ejecucion,
-        "proveedor": consultas.campos(lectura).get("proveedor_nombre"),
+        "proveedor": leido.get("proveedor_nombre"),
+        "total": leido.get("total"),
         "motivo_corto": consultas.motivo_corto(decision),
         "reglas": reglas,
         "fallan": [r for r in reglas if not r.get("ok")],

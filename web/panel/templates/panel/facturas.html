@@ -27,19 +27,19 @@
     <a class="chip {% if not resultado %}activa{% endif %}"
        href="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}"
        hx-get="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}"
-       hx-target="#tabla" hx-push-url="true">Todas ({{ total }})</a>
+       hx-target="#tabla" hx-push-url="true">Todas <span class="cuenta">{{ total }}</span></a>
     <a class="chip {% if resultado == 'PAGAR' %}activa{% endif %}"
        href="{% url 'panel:facturas' %}{% querystring resultado='PAGAR' pagina=None %}"
        hx-get="{% url 'panel:facturas' %}{% querystring resultado='PAGAR' pagina=None %}"
-       hx-target="#tabla" hx-push-url="true"><span class="punto pagar"></span>Se pagan ({{ cuenta.PAGAR|default:"0" }})</a>
+       hx-target="#tabla" hx-push-url="true"><span class="punto pagar"></span>Se pagan <span class="cuenta">{{ cuenta.PAGAR|default:"0" }}</span></a>
     <a class="chip {% if resultado == 'NO_PAGAR' %}activa{% endif %}"
        href="{% url 'panel:facturas' %}{% querystring resultado='NO_PAGAR' pagina=None %}"
        hx-get="{% url 'panel:facturas' %}{% querystring resultado='NO_PAGAR' pagina=None %}"
-       hx-target="#tabla" hx-push-url="true"><span class="punto nopagar"></span>No se pagan ({{ cuenta.NO_PAGAR|default:"0" }})</a>
+       hx-target="#tabla" hx-push-url="true"><span class="punto nopagar"></span>No se pagan <span class="cuenta">{{ cuenta.NO_PAGAR|default:"0" }}</span></a>
     <a class="chip {% if resultado == 'ESCALAR' %}activa{% endif %}"
        href="{% url 'panel:facturas' %}{% querystring resultado='ESCALAR' pagina=None %}"
        hx-get="{% url 'panel:facturas' %}{% querystring resultado='ESCALAR' pagina=None %}"
-       hx-target="#tabla" hx-push-url="true"><span class="punto revisar"></span>Para revisar ({{ cuenta.ESCALAR|default:"0" }})</a>
+       hx-target="#tabla" hx-push-url="true"><span class="punto revisar"></span>Para revisar <span class="cuenta">{{ cuenta.ESCALAR|default:"0" }}</span></a>
   </div>
   {% if lotes|length > 1 %}
     <label class="elegir-lote"><span class="suave">Lote</span>

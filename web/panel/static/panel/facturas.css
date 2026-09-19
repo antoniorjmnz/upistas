@@ -1,17 +1,13 @@
 /* Lo poco que las facturas necesitan y no está en panel.css. Sin dependencias externas. */
 
-/* Lista: manda el proveedor; el nombre del fichero va debajo, pequeño y sin ruido. */
-td .quien { font-weight: 700; color: var(--tinta); text-decoration: none; }
-td .quien:hover { text-decoration: underline; }
-td .fichero { display: block; font-size: 13px; }
+/* Lista: el porqué no se estira sin fin, y con varios lotes se elige cuál se mira. */
 td.porque { max-width: 42ch; }
-
-/* Con varios lotes, elegir cuál se mira. */
 .elegir-lote { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 
-/* Detalle: el resultado y su porqué, en la misma línea. */
+/* Detalle: el avatar junto al nombre, y el resultado con su porqué en la misma línea. */
+.quien-factura { display: flex; align-items: center; gap: 14px; }
+.quien-factura .lead { font-size: 14px; color: var(--suave); }
 .resultado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* El texto que intenta influir: se lee, no se obedece. */
-.aviso p { margin: 0; }
 .aviso p + p { margin-top: 6px; }

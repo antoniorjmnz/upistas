@@ -6,7 +6,13 @@
 
 <section class="hero">
   <a class="volver" href="{% url 'panel:facturas' %}?lote={{ documento.lote|urlencode }}">Volver a las facturas</a>
-  <h1>{{ proveedor|default:documento.file_id }}</h1>
+  <div class="quien-factura">
+    <span class="av grande {{ proveedor|color_avatar }}">{{ proveedor|iniciales }}</span>
+    <div>
+      <h1>{{ proveedor|default:documento.file_id }}</h1>
+      {% if proveedor %}<p class="lead">{{ documento.file_id }}{% if decision.pedido %} · pedido {{ decision.pedido }}{% endif %}{% if total %} · {{ total|euros }}{% endif %}</p>{% endif %}
+    </div>
+  </div>
   <p class="lead resultado">
     <span class="pildora grande {{ decision.resultado|pildora }}">{% if decision.resultado == "PAGAR" %}{% icono "check" 16 %}{% elif decision.resultado == "NO_PAGAR" %}{% icono "x" 16 %}{% else %}{% icono "ojo" 16 %}{% endif %}{{ decision.resultado|etiqueta }}</span>
     <span>{{ motivo_corto }}.</span>
@@ -49,14 +55,25 @@
 {% endif %}
 
 <section class="tarjeta">
-  <h2>La factura</h2>
-  <dl class="datos">
+  <div class="cabecera-tarjeta">
+    <h2>La factura</h2>
+    <span class="acciones">
+      {% include "panel/_previsualizar.html" with documento=documento grande=True %}
+      <a class="boton suave" href="{% url 'panel:factura_pdf' documento.lote documento.file_id %}" target="_blank" rel="noopener">{% icono "externo" 16 %}Abrir en otra pestaña</a>
+    </span>
+  </div>
+  <div class="datos">
     {% for c in datos %}
-      <dt>{{ c.etiqueta }}</dt>
-      <dd>{% if c.valor %}{{ c.valor }}{% if c.poco_fiable %} <span class="pildora ojo">poco fiable</span>{% endif %}{% else %}<span class="suave">no aparece</span>{% endif %}</dd>
+      <div class="dato">
+        <span class="eti">{{ c.etiqueta }}</span>
+        {% if not c.valor %}<span class="suave">no aparece</span>
+        {% elif c.nombre == "iban" %}<span class="mono">{{ c.valor }}</span>
+        {% elif c.nombre == "total" %}<b>{{ c.valor }}</b>
+        {% else %}{{ c.valor }}{% endif %}
+        {% if c.valor and c.poco_fiable %} <span class="pildora ojo">poco fiable</span>{% endif %}
+      </div>
     {% endfor %}
-  </dl>
-  <p style="margin: 22px 0 0;"><a class="boton suave" href="{% url 'panel:factura_pdf' documento.lote documento.file_id %}" target="_blank" rel="noopener">{% icono "doc" 18 %}Ver la factura original</a></p>
+  </div>
 
   <details class="mas">
     <summary>Ver todas las comprobaciones y los detalles técnicos{% icono "chevron" 16 %}</summary>
