@@ -1,0 +1,51 @@
+{% extends "panel/base.html" %}
+{% block titulo %}Qué cambió en el ERP · Pagos de Alberto{% endblock %}
+{% block contenido %}
+<div>
+  <p><a href="{% url 'panel:conexion' %}">← Conexión con el ERP</a></p>
+  <h1>Qué cambió en el ERP</h1>
+  <p class="intro">Entre la copia del {{ antes.creada|date:"d/m H:i" }} (<span class="mono">{{ antes.version }}</span>)
+    y la del {{ despues.creada|date:"d/m H:i" }} (<span class="mono">{{ despues.version }}</span>).
+    Las facturas de estos pedidos se vuelven a decidir; el resto no cambia.</p>
+</div>
+
+<div class="cifras">
+  <div class="cifra"><b>{{ d.nuevos|length }}</b><span>asientos nuevos</span></div>
+  <div class="cifra"><b>{{ d.modificados|length }}</b><span>datos modificados</span></div>
+  <div class="cifra"><b>{{ d.eliminados|length }}</b><span>asientos eliminados</span></div>
+  <div class="cifra"><b>{{ pedidos|length }}</b><span>pedidos afectados</span></div>
+</div>
+
+{% if d.modificados %}
+<section class="tarjeta">
+  <h2>Datos modificados</h2>
+  <div class="tabla-caja"><table>
+    <thead><tr><th>Asiento</th><th>Dato</th><th>Antes</th><th>Ahora</th></tr></thead>
+    <tbody>{% for c in d.modificados %}
+      <tr><td class="mono">{{ c.asiento }}</td><td>{{ c.campo }}</td><td class="mono">{{ c.antes }}</td><td class="mono"><b>{{ c.despues }}</b></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+
+{% if nuevos %}
+<section class="tarjeta">
+  <h2>Asientos nuevos</h2>
+  <div class="tabla-caja"><table>
+    <thead><tr><th>Asiento</th><th>Pedido</th><th>Proveedor</th><th class="num">Importe</th><th>Estado</th></tr></thead>
+    <tbody>{% for a in nuevos %}
+      <tr><td class="mono">{{ a.asiento_id }}</td><td class="mono">{{ a.pedido }}</td><td>{{ a.proveedor_id }}</td><td class="num">{{ a.importe|floatformat:"2g" }} €</td><td>{{ a.estado }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+
+{% if eliminados %}
+<section class="tarjeta">
+  <h2>Asientos que ya no están</h2>
+  <ul>{% for a in eliminados %}<li class="mono">{{ a.asiento_id }} · {{ a.pedido }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if d.vacias %}<div class="aviso bien">Las dos copias son iguales.</div>{% endif %}
+{% endblock %}
