@@ -21,7 +21,6 @@ import openpyxl
 from upistas.adaptadores.fuentes.filas import (
     CABECERAS_PEDIDO,
     CABECERAS_PROVEEDOR,
-    PATRON_NIF,  # noqa: F401  (lo usa el formulario de proveedores de la web)
     PATRON_PEDIDO,
     cabecera,
     es_cabecera,
