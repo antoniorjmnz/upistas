@@ -19,7 +19,7 @@ FACTURA = Factura("a.pdf", PROVEEDOR.nif, PROVEEDOR.iban, PEDIDO.id, HOY, Decima
 NORMA = Path(__file__).resolve().parents[2] / "normas" / "v3.toml"
 
 
-@pytest.mark.parametrize("regla", ["R1_nif_iban", "R2_pedido_importe", "R3_iva_total", "R3_datos_fiscales", "R5_erp_pendiente", "R5_no_pagada",
+@pytest.mark.parametrize("regla", ["R1_nif_iban", "R2_pedido_importe", "R2_divisa", "R3_iva_total", "R3_datos_fiscales", "R5_erp_pendiente", "R5_no_pagada",
                                   "R0_lectura", "R5_hash_previo", "R6_notas", "R6_evaluacion_disponible", "R6_revision_interna", "R6_proveedor_referencias",
                                   "R6_maestro_verificable", "R6_contenido_oculto"])
 def test_regla_cumple(regla):
@@ -469,6 +469,92 @@ def test_lectura_fallida_no_bloquea_por_pedido_a_la_que_si_se_leyo():
     assert any(not c.ok and c.regla == "R0_lectura" for c in por_id["b.pdf"].comprobaciones)
     assert not any(c.regla == "R5_duplicado" for c in por_id["b.pdf"].comprobaciones)
     assert any(PEDIDO.id in a and "a.pdf" in a for a in por_id["b.pdf"].alertas)
+
+
+# --- Facturas en otra moneda: el importe no se compara en bruto con el pedido (en euros) y la divisa sola nunca es NO_PAGAR ---
+
+EN_USD = replace(FACTURA, base=Decimal("2450"), iva_pct=Decimal("0"), iva=Decimal("0"), total=Decimal("2450"), divisa="USD")
+REFS_2254 = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, importe=Decimal("2254"))},
+                    asientos={PEDIDO.id: (replace(ASIENTO, importe=Decimal("2254")),)})
+
+
+def test_en_euros_la_regla_de_divisa_no_dice_nada():
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, REFS)
+    assert decision.resultado == Resultado.PAGAR
+    assert all(c.ok and "No se compara" not in c.detalle for c in decision.comprobaciones)
+
+
+def test_en_dolares_que_cuadran_al_cambio_se_escala_con_el_importe_en_euros():
+    decision = Norma.desde_toml(NORMA).evaluar(EN_USD, REFS_2254)
+    assert decision.resultado == Resultado.ESCALAR
+    assert decision.motivo == ("Factura en USD (2.450,00 USD); el pedido es de 2.254,00 €: al tipo de referencia (1 € = 1,0870 USD) "
+                               "son 2.253,91 €, cuadra con el pedido. El pago en divisa lo autoriza usted. "
+                               "Aviso: proveedor español facturando en USD.")
+    por_regla = {c.regla: c for c in decision.comprobaciones}
+    assert por_regla["R2_pedido_importe"].ok and por_regla["R2_pedido_importe"].detalle == "No se compara: factura en USD"
+    assert por_regla["R3_iva_total"].ok and por_regla["R3_datos_fiscales"].ok
+    assert all(c.ok for c in decision.comprobaciones if c.regla != "R2_divisa")
+
+
+def test_en_dolares_que_no_cuadran_al_cambio_se_escala_no_se_bloquea():
+    refs = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, importe=Decimal("2100"))},
+                   asientos={PEDIDO.id: (replace(ASIENTO, importe=Decimal("2100")),)})
+    decision = Norma.desde_toml(NORMA).evaluar(EN_USD, refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert "son 2.253,91 €, no cuadra con el pedido (2.100,00 €)." in decision.motivo
+    assert next(c for c in decision.comprobaciones if c.regla == "R2_pedido_importe").ok
+
+
+def test_libras_con_iban_distinto_del_maestro_no_se_paga_y_la_divisa_es_la_segunda_causa():
+    factura = replace(EN_USD, divisa="GBP", iban="GB29NWBK60161331926819")
+    decision = Norma.desde_toml(NORMA).evaluar(factura, REFS_2254)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert decision.motivo.startswith("IBAN ausente o distinto del maestro; Factura en GBP (2.450,00 GBP); el pedido es de 2.254,00 €")
+
+
+def test_pedido_de_otro_proveedor_en_divisa_sigue_sin_pagarse():
+    otro = Proveedor("P002", "Otro", "B87654321", "ES9121000418450200051332")
+    refs = replace(REFS_2254, proveedores={PROVEEDOR.nif: PROVEEDOR, otro.nif: otro},
+                   proveedores_por_id={PROVEEDOR.id: PROVEEDOR, otro.id: otro},
+                   pedidos={PEDIDO.id: replace(PEDIDO, proveedor_id="P002", nif=otro.nif, importe=Decimal("2254"))},
+                   asientos={PEDIDO.id: (replace(ASIENTO, proveedor_id="P002", nif=otro.nif, importe=Decimal("2254")),)})
+    decision = Norma.desde_toml(NORMA).evaluar(EN_USD, refs)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert "no pertenece al proveedor" in decision.motivo and "Factura en USD" in decision.motivo
+
+
+def test_divisa_sin_tipo_de_referencia_se_escala_diciendolo():
+    decision = Norma.desde_toml(NORMA).evaluar(replace(EN_USD, divisa="CAD"), REFS_2254)
+    assert decision.resultado == Resultado.ESCALAR
+    assert "Factura en CAD (2.450,00 CAD); el pedido es de 2.254,00 €: no hay tipo de cambio de referencia para CAD." in decision.motivo
+    sin_tabla = obtener("R2_divisa")(EN_USD, REFS_2254, {})
+    assert not sin_tabla.ok and "no hay tipo de cambio de referencia para USD" in sin_tabla.detalle
+
+
+def test_proveedor_extranjero_en_divisa_no_lleva_el_aviso_de_proveedor_espanol():
+    aleman = Proveedor("P002", "Demo GmbH", "DE812345678", "DE89370400440532013000")
+    pedido = Pedido("PO-2026-0002", "P002", aleman.nif, Decimal("2254"))
+    asiento = Asiento("AS-002", pedido.id, "P002", aleman.nif, Decimal("2254"), HOY, "PENDIENTE")
+    refs = Referencias({aleman.nif: aleman}, {pedido.id: pedido}, {pedido.id: (asiento,)}, HOY)
+    decision = Norma.desde_toml(NORMA).evaluar(replace(EN_USD, nif=aleman.nif, iban=aleman.iban, pedido=pedido.id), refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert "cuadra con el pedido" in decision.motivo and "proveedor español" not in decision.motivo
+
+
+def test_en_divisa_el_total_sin_leer_sigue_siendo_duda_de_lectura():
+    factura = replace(EN_USD, total=None, no_leidos=frozenset({"total"}))
+    decision = Norma.desde_toml(NORMA).evaluar(factura, REFS_2254)
+    assert decision.resultado == Resultado.ESCALAR
+    assert not next(c for c in decision.comprobaciones if c.regla == "R0_lectura").ok
+    assert "Factura en USD: el total no se pudo leer" in decision.motivo
+
+
+def test_pedido_ya_pagado_en_divisa_escala_y_avisa_del_pago_previo():
+    # Como con las notas (ADR-002, punto 4): la revisión va por delante del pago previo, y el motivo lo dice.
+    refs = replace(REFS_2254, asientos={PEDIDO.id: (replace(ASIENTO, importe=Decimal("2254"), estado="PAGADA"),)})
+    decision = Norma.desde_toml(NORMA).evaluar(EN_USD, refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert "Pedido ya pagado en el ERP" in decision.motivo and "Factura en USD" in decision.motivo
 
 
 def test_lectura_fallida_no_participa_pero_la_copia_por_hash_si_bloquea():

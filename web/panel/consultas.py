@@ -161,6 +161,7 @@ def cifras(ejecucion: Ejecucion) -> dict:
 MOTIVO_CORTO = {
     "R1_nif_iban": "El proveedor o su cuenta no coinciden con el maestro",
     "R2_pedido_importe": "El pedido o el importe no cuadran con el ERP",
+    "R2_divisa": "Viene en otra moneda: el pago en divisa lo autoriza usted",
     "R3_iva_total": "El IVA o el total no cuadran",
     "R4_fecha": "La fecha no es válida",
     "R5_erp_pendiente": "El ERP dice que ya está pagada",

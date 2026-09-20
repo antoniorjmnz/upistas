@@ -1,8 +1,9 @@
 # Norma de pagos v3 (hoja Norma_Pagos_v3 del Excel de Alberto).
 # Cada regla: qué resultado provoca si falla. Si fallan varias gana la de mayor prioridad, y a
 # igual prioridad la más restrictiva (NO_PAGAR > ESCALAR > PAGAR).
-# Escalones: 400 no se puede verificar · 350 incumplimiento probado · 300 revisión por el
-# contenido del documento · 100 pago previo · 50 avisos. Reglas en src/upistas/dominio/reglas/. El criterio está en docs/adr/002-criterio.md.
+# Escalones: 400 no se puede verificar · 350 incumplimiento probado · 340 factura en otra moneda ·
+# 300 revisión por el contenido del documento · 100 pago previo · 50 avisos. Reglas en src/upistas/dominio/reglas/.
+# El criterio está en docs/adr/002-criterio.md; los tipos de cambio de referencia, en divisas.toml (misma carpeta).
 version = "v3"
 
 [reglas.R1_nif_iban]
@@ -14,6 +15,10 @@ si_falla = "NO_PAGAR"
 prioridad = 350
 [reglas.R2_pedido_importe.params]
 tolerancia = "0.01"
+
+[reglas.R2_divisa]
+si_falla = "ESCALAR"
+prioridad = 340
 
 [reglas.R3_iva_total]
 si_falla = "NO_PAGAR"
@@ -73,8 +78,11 @@ prioridad = 350
 # R6_evaluacion_disponible → ESCALAR: hay notas y no se pudo evaluar su significado.
 # R1_nif_iban → NO_PAGAR: NIF fuera del maestro o IBAN distinto; incumple la regla 1 con seguridad.
 # R2_pedido_importe → NO_PAGAR: pedido inexistente o importe distinto; incumple la regla 2 con seguridad.
+#   En otra moneda el importe no se compara (tampoco el IVA en R3): eso lo dice R2_divisa.
 # R3_iva_total → NO_PAGAR: total ≠ base + IVA, o cuota distinta del tipo impreso; incumple la regla 3.
 # R4_fecha → NO_PAGAR: fecha imposible (31/02) o futura; incumple la regla 4.
+# R2_divisa → ESCALAR: factura en otra moneda; se dice cuánto sale al tipo de referencia y si cuadra, y paga Alberto.
+#   Por debajo de R1 y R2: una prueba independiente de la divisa (IBAN, pedido de otro o inexistente, ya pagado) sigue siendo NO_PAGAR.
 # R3_datos_fiscales → ESCALAR: importes negativos o sin tipo de IVA impreso para contrastar la cuota; no tapa una suma mal hecha.
 # R6_notas → ESCALAR: nota relevante o instrucción en el documento; la mira una persona aunque el ERP diga PAGADA.
 # R6_contenido_oculto → ESCALAR: texto oculto o caracteres invisibles; la mira una persona.

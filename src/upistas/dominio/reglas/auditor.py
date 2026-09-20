@@ -1,11 +1,18 @@
 from decimal import Decimal, ROUND_HALF_UP
 
+from upistas.dominio.divisas import TiposDeCambio, al_cambio, cuadra_al_cambio, importe_es, tipo_es
+from upistas.dominio.importes import pais_del_nif
 from upistas.dominio.modelos import Comprobacion
 from upistas.dominio.reglas import regla
 
 
 def tolerancia(params):
     return Decimal(str(params.get("tolerancia", "0.01")))
+
+
+def en_otra_divisa(factura, nombre):
+    """Con importes en otra moneda no se comparan con el pedido (en euros) ni se contrasta el IVA: lo dice R2_divisa."""
+    return Comprobacion(nombre, True, f"No se compara: factura en {factura.divisa}") if factura.divisa != "EUR" else None
 
 
 @regla("R1_nif_iban")
@@ -37,15 +44,49 @@ def pedido_importe(factura, refs, params):
         return Comprobacion("R2_pedido_importe", True, "Importe negativo: lo revisa R3_datos_fiscales")
     if proveedor is None or pedido.proveedor_id != proveedor.id or (pedido.nif and pedido.nif != factura.nif):
         return Comprobacion("R2_pedido_importe", False, "El pedido no pertenece al proveedor de la factura")
+    if otra := en_otra_divisa(factura, "R2_pedido_importe"):
+        return otra
     if factura.total is None or abs(factura.total - pedido.importe) > tolerancia(params):
         return Comprobacion("R2_pedido_importe", False, f"Total {factura.total} distinto del pedido {pedido.importe}")
     return Comprobacion("R2_pedido_importe", True)
+
+
+@regla("R2_divisa")
+def divisa(factura, refs, params):
+    """En otra moneda el total nunca se compara en bruto con el pedido (que va en euros) y la divisa por sí
+    sola nunca es NO_PAGAR: se escala diciendo cuánto sale al tipo de referencia de normas/divisas.toml
+    (que llega en params["divisas"]) y si cuadra. El pago en divisa lo autoriza Alberto."""
+    nombre = "R2_divisa"
+    if factura.divisa == "EUR":
+        return Comprobacion(nombre, True)
+    cambio = params.get("divisas") or TiposDeCambio()
+    pedido = refs.asiento(factura.pedido) or refs.pedidos.get(factura.pedido)
+    if factura.total is None:
+        detalle = f"Factura en {factura.divisa}: el total no se pudo leer y no se compara con el pedido."
+    elif pedido is None:
+        detalle = f"Factura en {factura.divisa} ({importe_es(factura.total, factura.divisa)}): no hay pedido con el que comparar."
+    else:
+        detalle = f"Factura en {factura.divisa} ({importe_es(factura.total, factura.divisa)}); el pedido es de {importe_es(pedido.importe)}: "
+        en_euros = al_cambio(factura.total, factura.divisa, cambio.tipos)
+        if en_euros is None:
+            detalle += f"no hay tipo de cambio de referencia para {factura.divisa}."
+        else:
+            detalle += f"al tipo de referencia (1 € = {tipo_es(cambio.tipos[factura.divisa])} {factura.divisa}) son {importe_es(en_euros)}, "
+            if cuadra_al_cambio(en_euros, pedido.importe, cambio.tolerancia_pct):
+                detalle += "cuadra con el pedido. El pago en divisa lo autoriza usted."
+            else:
+                detalle += f"no cuadra con el pedido ({importe_es(pedido.importe)})."
+    if pais_del_nif(factura.nif) == "ES":
+        detalle += f" Aviso: proveedor español facturando en {factura.divisa}."
+    return Comprobacion(nombre, False, detalle)
 
 
 @regla("R3_datos_fiscales")
 def datos_fiscales(factura, refs, params):
     """Duda, no incumplimiento: sin importes legibles no se comprueba nada, y sin el tipo de IVA impreso
     no se contrasta la cuota. La suma base + IVA = total no necesita el tipo: la prueba R3_iva_total."""
+    if otra := en_otra_divisa(factura, "R3_datos_fiscales"):
+        return otra
     importes = (factura.base, factura.iva, factura.total)
     if any(v is None for v in importes):
         return Comprobacion("R3_datos_fiscales", False, "Faltan importes legibles para verificar el IVA y el total")
@@ -60,6 +101,8 @@ def datos_fiscales(factura, refs, params):
 def iva_total(factura, refs, params):
     """Incumplimiento seguro con importes legibles: la cuota se contrasta solo con el tipo impreso;
     la suma se comprueba siempre, con o sin tipo."""
+    if otra := en_otra_divisa(factura, "R3_iva_total"):
+        return otra
     base, iva, total = factura.base, factura.iva, factura.total
     if None in (base, iva, total) or min(base, iva, total) < 0:
         return Comprobacion("R3_iva_total", True)

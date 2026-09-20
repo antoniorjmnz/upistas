@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from upistas.dominio import reglas
+from upistas.dominio.divisas import TiposDeCambio
 from upistas.dominio.modelos import GRAVEDAD, Decision, Factura, Referencias, Resultado
 
 
@@ -22,6 +23,7 @@ class ReglaActiva:
 class Norma:
     version: str
     reglas: tuple[ReglaActiva, ...]
+    divisas: TiposDeCambio = field(default_factory=TiposDeCambio)  # normas/divisas.toml, junto a la norma
 
     @classmethod
     def desde_toml(cls, ruta: Path) -> Norma:
@@ -32,11 +34,14 @@ class Norma:
         )
         for r in activas:
             reglas.obtener(r.nombre)  # falla al cargar si la norma pide una regla inexistente
-        return cls(datos["version"], activas)
+        tabla = ruta.with_name("divisas.toml")
+        divisas = TiposDeCambio.desde_datos(tomllib.loads(tabla.read_text(encoding="utf-8"))) if tabla.exists() else TiposDeCambio()
+        return cls(datos["version"], activas, divisas)
 
     def evaluar(self, factura: Factura, refs: Referencias) -> Decision:
+        # Los tipos de cambio llegan a las reglas como un parámetro más de la norma.
         comprobaciones = tuple(
-            reglas.obtener(r.nombre)(factura, refs, r.params) for r in self.reglas
+            reglas.obtener(r.nombre)(factura, refs, {**r.params, "divisas": self.divisas}) for r in self.reglas
         )
         resultado = Resultado.PAGAR
         prioridad = (-1, 0)

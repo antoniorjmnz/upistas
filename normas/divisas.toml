@@ -1,0 +1,12 @@
+# Tipos de referencia acordados con Alberto para 2026; se cambian aquí, no en el código.
+# Unidades de divisa por 1 €. Una factura en una divisa que no esté aquí se escala sin importe al cambio.
+# «Cuadra al cambio»: la diferencia con el pedido no pasa de tolerancia_pct % del pedido (el redondeo del tipo).
+tolerancia_pct = 0.5
+
+[tipos]
+USD = 1.0870
+GBP = 0.8547
+CHF = 0.9524
+JPY = 162.07
+BRL = 6.20
+MXN = 21.31
