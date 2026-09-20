@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from upistas.contracts.decision import Decision as DecisionContrato
 from upistas.contracts.factura_extraida import FacturaExtraida
-from upistas.dominio.importes import normaliza_iban, parse_fecha
+from upistas.dominio.importes import normaliza_iban, pais_del_nif, parse_fecha
 from upistas.dominio.modelos import Decision, Factura, Nota
 
 # Por debajo de esta confianza un campo se trata como no leído (y las reglas lo verán como duda).
@@ -32,6 +32,14 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         else:
             valores[nombre] = campo.valor
 
+    # Leído por OCR o visión, un dato puede venir con un carácter cambiado (B→8, O→0): un NIF sin forma de NIF
+    # no se da por leído, y la factura queda marcada `por_ocr` para que un dato que no cuadre no la rechace.
+    metodo = str(getattr(extraida.metodo, "value", extraida.metodo) or "")
+    por_ocr = metodo.startswith(("ocr", "vision"))
+    if por_ocr and valores.get("nif") and pais_del_nif(str(valores["nif"])) == "??":
+        no_leidos.add("nif")
+        valores["nif"] = None
+
     def dec(nombre: str) -> Decimal | None:
         v = valores[nombre]
         return Decimal(str(v)) if v is not None else None
@@ -55,6 +63,7 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         iva=dec("iva"),
         total=dec("total"),
         divisa=divisa,
+        por_ocr=por_ocr,
         lineas=tuple(Decimal(str(linea.importe)) for linea in (extraida.lineas or [])),
         numero=valores["numero_factura"],
         proveedor_nombre=valores["proveedor_nombre"],
