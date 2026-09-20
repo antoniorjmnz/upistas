@@ -135,6 +135,7 @@ class Factura:
     iva_pct: Decimal | None = None
     iva: Decimal | None = None
     total: Decimal | None = None
+    divisa: str = "EUR"  # moneda de base, iva y total (código ISO); sin marca en el documento, euros
     lineas: tuple[Decimal, ...] = ()
     numero: str | None = None
     proveedor_nombre: str | None = None

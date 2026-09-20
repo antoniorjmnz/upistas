@@ -522,22 +522,40 @@ def test_fechas_en_letra_en_cualquier_idioma(fecha, esperada):
     assert factura.campos.fecha.valor == esperada
 
 
-def test_divisa_distinta_de_eur_se_anota_y_no_se_compara():
+def test_en_euros_la_divisa_es_eur_con_o_sin_marca():
+    assert extraer(EN).campos.divisa.valor == "EUR"
+    sin_marca = EN.replace("€ ", "").replace(" EUR", "")
+    factura = extraer(sin_marca)
+    assert factura.campos.divisa.valor == "EUR" and factura.campos.divisa.fuente is None
+    assert factura.campos.total.valor == 943.8
+
+
+def test_divisa_distinta_de_eur_se_lee_el_importe_y_la_divisa_es_un_campo():
     dolares = EN.replace("Subtotal: € 780.00", "Billing currency: USD ($)\nSubtotal: $ 2,450.00") \
         .replace("VAT (21%): € 163.80", "VAT (21%): $ 0.00").replace("TOTAL: € 943.80 EUR", "TOTAL: $ 2,450.00 USD")
     factura = extraer(dolares)
-    assert factura.campos.total.valor is None  # 2450 USD no es comparable con el pedido en EUR
-    assert factura.campos.base.valor is None
-    assert "Divisa distinta de EUR: USD" in factura.errores
+    assert factura.campos.total.valor == 2450  # se lee tal cual; compararlo con el pedido en euros es cosa de las reglas
+    assert factura.campos.base.valor == 2450 and factura.campos.iva.valor == 0
+    assert factura.campos.divisa.valor == "USD" and factura.campos.divisa.fuente == "Subtotal: $ 2,450.00"
+    assert factura.errores == []
     assert factura.campos.fecha.valor == "2026-02-03"  # el resto se sigue leyendo
 
 
-def test_divisa_declarada_sin_simbolos_en_importes():
+def test_divisa_declarada_y_yenes_sin_decimales():
     yenes = EN.replace("Issue date: 03 Feb 2026", "Fecha de emisión: 12/04/2026") \
         .replace("Subtotal: € 780.00", "Divisa de facturación: JPY (¥)\nBase imponible: ¥ 773,000") \
         .replace("VAT (21%): € 163.80", "IVA (21%): ¥ 77,000").replace("TOTAL: € 943.80 EUR", "TOTAL: ¥ 850,000 JPY")
     factura = extraer(yenes)
-    assert "Divisa distinta de EUR: JPY" in factura.errores
+    assert factura.campos.divisa.valor == "JPY"
+    assert factura.campos.base.valor == 773000 and factura.campos.iva.valor == 77000 and factura.campos.total.valor == 850000
+    assert factura.errores == []
+
+
+def test_dos_divisas_distintas_del_euro_en_la_misma_factura_es_un_error_de_lectura():
+    mezcla = EN.replace("Subtotal: € 780.00", "Subtotal: $ 780.00").replace("TOTAL: € 943.80 EUR", "TOTAL: £ 943.80")
+    factura = extraer(mezcla)
+    assert "Importes en dos divisas: GBP y USD" in factura.errores
+    assert factura.campos.divisa.valor is None and factura.campos.divisa.confianza == 0
 
 
 def test_nif_e_iban_extranjeros_se_leen_etiquetados():

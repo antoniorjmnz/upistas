@@ -35,6 +35,9 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         v = valores[nombre]
         return Decimal(str(v)) if v is not None else None
 
+    # Lecturas anteriores al campo `divisa` no lo traen: sin dato, euros, como siempre.
+    divisa = c.divisa.valor if c.divisa is not None and c.divisa.valor and c.divisa.confianza >= CONFIANZA_MINIMA else "EUR"
+
     return Factura(
         file_id=extraida.file_id,
         nif=valores["nif"],
@@ -45,6 +48,7 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         iva_pct=dec("iva_pct"),
         iva=dec("iva"),
         total=dec("total"),
+        divisa=divisa,
         lineas=tuple(Decimal(str(linea.importe)) for linea in (extraida.lineas or [])),
         numero=valores["numero_factura"],
         proveedor_nombre=valores["proveedor_nombre"],

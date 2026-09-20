@@ -14,7 +14,8 @@
     "base": { "valor": 2489.99, "confianza": 1 },
     "iva_pct": { "valor": 21, "confianza": 1 },
     "iva": { "valor": 522.9, "confianza": 1 },
-    "total": { "valor": 3012.89, "confianza": 1 }
+    "total": { "valor": 3012.89, "confianza": 1 },
+    "divisa": { "valor": "EUR", "confianza": 1, "fuente": "TOTAL 3.012,89 €" }
   },
   "lineas": [{ "concepto": "Servicio mensual", "importe": 2489.99 }],
   "notas": [],
