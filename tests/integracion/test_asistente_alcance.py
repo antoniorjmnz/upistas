@@ -173,7 +173,7 @@ def test_explicar_regla_por_palabra_numero_o_id():
     [r1] = consultas.explicar_regla("iban")["reglas"]
     assert r1["id"] == "R1_nif_iban" and r1["si_falla"] == "no se paga" and "cuenta" in r1["por_que"]
     assert r1["nombre"] == consultas.NOMBRE_REGLA["R1_nif_iban"] and r1["en_una_frase"] == consultas.MOTIVO_CORTO["R1_nif_iban"]
-    assert [r["id"] for r in consultas.explicar_regla("regla 2")["reglas"]] == ["R2_pedido_importe"]
+    assert [r["id"] for r in consultas.explicar_regla("regla 2")["reglas"]] == ["R2_pedido_importe", "R2_divisa"]
     cinco = [r["id"] for r in consultas.explicar_regla("R5")["reglas"]]
     assert "R5_no_pagada" in cinco and "R5_erp_pendiente" in cinco
     assert consultas.explicar_regla("R6_notas")["regla"]["si_falla"] == "se manda a revisar"

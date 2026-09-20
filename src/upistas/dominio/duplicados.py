@@ -24,7 +24,8 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
     # Si no nos creemos sus campos, tampoco su pedido: no puede bloquear a una factura que sí se leyó.
     no_fiables = {d.file_id for d in decisiones if any(not c.ok and c.regla == LECTURA_FALLIDA for c in d.comprobaciones)}
 
-    def bloquear(file_id, regla, detalle, resultado):
+    def bloquear(file_id, regla, detalle, resultado, frase=""):
+        """`frase` es cómo se cuenta en el motivo de una factura que cumplía la norma y escala por esto."""
         actual = salida[file_id]
         fallidas = {c.regla for c in actual.comprobaciones if not c.ok}
         # Un duplicado nunca rebaja lo ya decidido: gana el resultado más restrictivo.
@@ -33,7 +34,10 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
         # Y tampoco convierte una duda en un incumplimiento probado.
         if fallidas & DUDA_REAL or (actual.resultado == Resultado.ESCALAR and fallidas & REVISION_PENDIENTE):
             resultado = Resultado.ESCALAR
-        motivo = detalle if actual.resultado == Resultado.PAGAR else f"{actual.motivo}; {detalle}"
+        if actual.resultado != Resultado.PAGAR:
+            motivo = f"{actual.motivo}; {detalle}"
+        else:
+            motivo = f"Cumple la norma; se escala porque {frase}" if frase else detalle
         salida[file_id] = replace(actual, resultado=resultado, motivo=motivo,
                                  comprobaciones=actual.comprobaciones + (Comprobacion(regla, False, detalle),))
 
@@ -81,7 +85,9 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
                 if fid != primera:
                     bloquear(fid, "R5_reenvio", f"Reenvío de {primera}, pedido {pedido}", Resultado.NO_PAGAR)
         else:
-            detalle = f"Pedido duplicado {pedido} sin original inequívoca: " + ", ".join(sorted(candidatos))
+            cuantas, lista = "dos" if len(candidatos) == 2 else "varias", ", ".join(sorted(candidatos))
+            detalle = f"Pedido {pedido} en {cuantas} facturas sin original inequívoca: {lista}"
+            frase = f"el pedido {pedido} está en {cuantas} facturas y no está claro cuál es la original: {lista}"
             for fid in candidatos:
-                bloquear(fid, "R5_duplicado", detalle, Resultado.ESCALAR)
+                bloquear(fid, "R5_duplicado", detalle, Resultado.ESCALAR, frase)
     return [salida[d.file_id] for d in decisiones]

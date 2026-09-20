@@ -220,14 +220,14 @@ def test_r3_rodea_base_iva_y_total():
 
 
 def test_r4_rodea_la_fecha_y_dice_si_es_imposible_o_futura():
-    assert _busquedas("R4_fecha", "Fecha inválida o ausente en el documento") == [("Fecha imposible", textos_de_campo(CAMPOS["fecha"]))]
-    assert [e for e, _ in _busquedas("R4_fecha", "Fecha futura: 2027-01-01")] == ["Fecha futura"]
+    assert _busquedas("R4_fecha", "Fecha imposible: 30/06/2026") == [("Fecha imposible", textos_de_campo(CAMPOS["fecha"]))]
+    assert [e for e, _ in _busquedas("R4_fecha", "Fecha futura: 01/01/2027")] == ["Fecha futura"]
     assert [e for e, _ in _busquedas("R4_fecha", "Fecha ilegible o inválida")] == ["Fecha que no se lee bien"]
 
 
 def test_r5_rodea_el_pedido_ya_pagado_o_la_factura_repetida():
-    assert _busquedas("R5_erp_pendiente", "Estado del ERP: PAGADA") == [("Pedido ya pagado en el ERP", textos_de_campo(CAMPOS["pedido"]))]
-    assert [e for e, _ in _busquedas("R5_no_pagada", "Pedido ya aprobado en otro lote")] == ["Pedido ya aprobado en otra factura"]
+    assert _busquedas("R5_erp_pendiente", "Pedido ya pagado en el ERP (asiento AS-001, 19/09/2026)") == [("Pedido ya pagado en el ERP", textos_de_campo(CAMPOS["pedido"]))]
+    assert [e for e, _ in _busquedas("R5_no_pagada", "Pedido ya aprobado para pago en otro lote")] == ["Pedido ya aprobado en otra factura"]
     assert [e for e, _ in _busquedas("R5_erp_pendiente", "No hay asiento del ERP para comprobar el estado del pedido")] == [
         "Pedido que el ERP no da como pendiente",
     ]
@@ -243,7 +243,7 @@ def test_r6_notas_rodea_cada_nota_y_r7_el_pedido_apuntado_por_alberto():
         ("Texto que intenta influir en la decisión", textos_de_nota(notas[1])),
     ]
     assert [e for e, _ in _busquedas("R6_evaluacion_disponible", notas=notas)] == ["Nota que no se ha podido evaluar"] * 2
-    assert _busquedas("R6_revision_interna", "Pedido marcado en pendiente_revisar del Excel") == [
+    assert _busquedas("R6_revision_interna", "El pedido está apuntado para revisar (marca pendiente_revisar del maestro)") == [
         ("Pedido con una nota que pide revisión", textos_de_campo(CAMPOS["pedido"])),  # como la frase de la cola
     ]
     assert [e for e, _ in _busquedas("R7_marcado_por_alberto")] == ["Pedido que usted apuntó para revisar"]
@@ -295,14 +295,14 @@ def test_dos_reglas_sobre_el_mismo_dato_dan_una_marca_con_las_dos_etiquetas_y_la
 
 
 def test_la_misma_etiqueta_sobre_el_mismo_sitio_no_se_repite():
-    reglas = (("R5_erp_pendiente", "Estado del ERP: PAGADA"), ("R5_no_pagada", "El pedido ya está pagado según el ERP"))
+    reglas = (("R5_erp_pendiente", "Pedido ya pagado en el ERP (asiento AS-001, 19/09/2026)"), ("R5_no_pagada", "Pedido ya pagado en el ERP (asiento AS-001, 19/09/2026)"))
     marcas, _ = senalar(busquedas_de(_alarmas(*reglas)), {"PO-2026-1204": (_hallazgo(),)})
     assert marcas == [Marca(1, (50.0, 100.0, 200.0, 112.0), "Pedido ya pagado en el ERP")]
 
 
 def test_dos_reglas_que_se_explican_con_la_misma_frase_van_en_una_sola_linea_de_la_pagina_final():
     frase_erp = "El ERP dice que ya está pagada"
-    reglas = tuple(ReglaFallida(i, d, frase_erp) for i, d in (("R5_erp_pendiente", "Estado del ERP: PAGADA"), ("R5_no_pagada", "Pedido ya aprobado en otro lote")))
+    reglas = tuple(ReglaFallida(i, d, frase_erp) for i, d in (("R5_erp_pendiente", "Pedido ya pagado en el ERP (asiento AS-001, 19/09/2026)"), ("R5_no_pagada", "Pedido ya aprobado para pago en otro lote")))
     alarmas = Alarmas("No pagar", frase_erp, reglas, CAMPOS)
     marcado = marcar_pdf(RUTA, MarcadorDeMentira(hallado={"PO-2026-1204": (_hallazgo(),)}), alarmas)
     lineas = [f for f in marcado.frases if f.startswith(frase_erp + ":")]
@@ -342,14 +342,14 @@ def test_marcar_pdf_con_alarmas_busca_rodea_y_escribe_el_resultado_las_alarmas_y
 
 
 def test_lo_que_no_se_encuentra_no_se_rodea_pero_se_lista_con_lo_que_se_busco():
-    alarmas = _alarmas(("R4_fecha", "Fecha inválida o ausente en el documento"))
+    alarmas = _alarmas(("R4_fecha", "Fecha imposible: 30/06/2026"))
     marcado = marcar_pdf(RUTA, MarcadorDeMentira(), alarmas)
     assert marcado.marcas == ()
     assert "En llano R4_fecha: no lo hemos encontrado escrito en la factura (buscábamos «Fecha: 30/06/2026»)." in marcado.frases
 
 
 def test_una_regla_sin_dato_que_rodear_lo_dice_y_una_cuyo_dato_no_se_leyo_tambien():
-    alarmas = _alarmas(("R6_maestro_verificable", "El maestro no permite verificar el NIF"), ("R4_fecha", "Fecha ilegible"), campos={})
+    alarmas = _alarmas(("R6_maestro_verificable", "El maestro no permite verificar el NIF"), ("R4_fecha", "La factura no trae fecha"), campos={})
     marcado = marcar_pdf(RUTA, MarcadorDeMentira(), alarmas)
     assert "En llano R6_maestro_verificable: no hay ningún dato que rodear en la factura." in marcado.frases
     assert "En llano R4_fecha: ese dato no aparece en la factura, así que no se puede rodear." in marcado.frases

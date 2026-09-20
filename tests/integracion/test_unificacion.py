@@ -63,7 +63,8 @@ def test_dos_facturas_del_mismo_pedido_no_se_aprueban(entorno):
     assert all(r["result"] == "PAGAR" for r in resultados)
     consolidados = consolidar_lote(resultados)
     assert all(r["result"] == "ESCALAR" for r in consolidados)
-    assert all("duplicado" in r["motivo"].lower() for r in consolidados)
+    assert all(r["motivo"].startswith("Cumple la norma; se escala porque el pedido ") and "no está claro cuál es la original" in r["motivo"]
+               for r in consolidados)
     assert consolidar_lote(list(reversed(resultados))) == list(reversed(consolidados))
 
 

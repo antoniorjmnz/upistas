@@ -68,6 +68,17 @@ def test_migracion_escala_aunque_erp_diga_pagada():
     assert json.loads(enviados[1]["content"])["contexto"]["erp"]["estado"] == "PAGADA"
 
 
+def test_el_evaluador_no_compara_plazos_de_pago():
+    """El ADR-002 no pide comparar plazos: ni ejemplo de «Pago a 30 días» en el prompt ni días de pago del maestro en el contexto."""
+    cliente = cliente_falso()
+    refs = replace(REFS, proveedores={PROV.nif: replace(PROV, condiciones_dias=60)})
+    EvaluadorNotasHelmcode("", URL, "modelo", cliente=cliente).evaluar(replace(FACTURA, notas=(Nota("Condiciones de pago: 30 dias"),)), refs)
+    mensajes = cliente.chat.completions.create.call_args.kwargs["messages"]
+    assert "Pago a 30" not in mensajes[0]["content"]
+    maestro = json.loads(mensajes[1]["content"])["contexto"]["proveedor_maestro"]
+    assert maestro["nif"] == PROV.nif and "condiciones_dias" not in maestro
+
+
 @pytest.mark.parametrize("contenido", ["", "no es json", '{"clasificacion":"PAGAR"}',
     '{"clasificacion":"IRRELEVANTE","motivo":"ok","evidencia":"texto inventado"}'])
 def test_respuesta_invalida_o_sin_evidencia_escala(contenido):

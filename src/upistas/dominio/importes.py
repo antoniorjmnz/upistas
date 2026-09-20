@@ -198,3 +198,23 @@ def parse_fecha(texto: str) -> date | None:
 
 def normaliza_iban(texto: str | None) -> str | None:
     return re.sub(r"[\s.\-\u200b\ufeff]", "", texto).upper() if texto else None
+
+
+# Prefijos de pa\u00eds que se reconocen en un NIF-IVA (\u00abDE812345678\u00bb, \u00abFR40303265045\u00bb, \u00abGB123456789\u00bb).
+PAISES_NIF = frozenset((
+    "AT", "BE", "BG", "BR", "CA", "CH", "CY", "CZ", "DE", "DK", "EE", "EL", "ES", "FI", "FR", "GB", "HR", "HU", "IE",
+    "IT", "JP", "LT", "LU", "LV", "MT", "MX", "NL", "NO", "PL", "PT", "RO", "SE", "SI", "SK", "US",
+))
+
+
+def pais_del_nif(nif: str | None) -> str:
+    """\u00abES\u00bb para un NIF espa\u00f1ol (B12345678, 12345678Z, ESB12345678), las dos letras del pa\u00eds si son un
+    prefijo conocido (DE812345678 \u2192 \u00abDE\u00bb), \u00ab??\u00bb si no se sabe (12.345.678/0001-95, 5010401075570)."""
+    limpio = re.sub(r"[\s.\-/\u200b\ufeff]", "", nif or "").upper()
+    if limpio.startswith("ES"):
+        limpio = limpio[2:]
+    if re.fullmatch(r"[A-Z]\d{7}[A-Z0-9]|\d{8}[A-Z]", limpio):
+        return "ES"
+    if limpio[:2] in PAISES_NIF and limpio[2:].isalnum():
+        return limpio[:2]
+    return "??"

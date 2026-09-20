@@ -39,7 +39,8 @@
         "base": { "$ref": "#/$defs/campo_num" },
         "iva_pct": { "$ref": "#/$defs/campo_num" },
         "iva": { "$ref": "#/$defs/campo_num" },
-        "total": { "$ref": "#/$defs/campo_num" }
+        "total": { "$ref": "#/$defs/campo_num" },
+        "divisa": { "$ref": "#/$defs/campo_str", "description": "Moneda de los importes (código ISO: EUR, USD...). Sin marca en el documento, EUR" }
       }
     },
     "lineas": {

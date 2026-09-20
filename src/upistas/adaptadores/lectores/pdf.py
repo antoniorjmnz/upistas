@@ -18,6 +18,11 @@ from upistas.puertos import DocumentoInspeccionado
 MAX_PAGINAS = 50
 MAX_BYTES = 25 * 1024 * 1024
 MIN_TEXTO = 30  # menos caracteres que esto = no hay capa de texto
+# Texto dibujado letra a letra (una anotación superpuesta o manuscrita): el extractor lo saca en líneas de
+# uno o dos caracteres. En las 500 del lote 1 ninguna página tiene una sola línea así; e16, e17 y e18 del
+# lote 2 tienen 9 de 24, 140 de 155 y 25 de 39.
+MIN_LINEAS_SUELTAS = 5
+PROPORCION_LINEAS_SUELTAS = 0.3
 INVISIBLES = re.compile(r"[\u200b-\u200f\u2060\ufeff\u00ad]")
 ACTIVO = re.compile(rb"/(JavaScript|JS|Launch|OpenAction|AA|EmbeddedFile|RichMedia)\b")
 
@@ -73,9 +78,11 @@ class InspectorPdf:
             imagenes = 0
             for pagina in pdf:
                 try:
-                    paginas.append(pagina.get_text())
+                    texto_pagina = pagina.get_text()
+                    paginas.append(texto_pagina)
                     imagenes += len(pagina.get_images(full=False))
                     alertas.extend(_visibilidad_texto(pagina))
+                    alertas.extend(_texto_letra_a_letra(pagina.number + 1, texto_pagina))
                 except Exception as exc:
                     alertas.append(f"página {pagina.number + 1} ilegible: {type(exc).__name__}")
                     paginas.append("")
@@ -111,6 +118,22 @@ def _controles_fuera_de_campos(texto: str) -> list[str]:
         codigos = ", ".join(sorted(f"U+{ord(c):04X}" for c in controles))
         return [f"texto potencialmente oculto: controles Unicode fuera de campos numéricos ({codigos}); muestra={ascii(linea[:120])}"]
     return []
+
+
+def _texto_letra_a_letra(numero: int, texto: str) -> list[str]:
+    """Una página con muchas líneas de uno o dos caracteres no es texto compuesto: alguien lo dibujó encima.
+
+    Es lo que deja una anotación superpuesta o manuscrita («18.150,00 corregido A.» sobre el importe impreso).
+    Por sí solo no dice qué pone ni si es fraude: es una señal para que lo mire una persona.
+    """
+    lineas = [linea.strip() for linea in texto.splitlines() if linea.strip()]
+    sueltas = [linea for linea in lineas if len(linea) <= 2]
+    por_cantidad = len(sueltas) >= MIN_LINEAS_SUELTAS
+    por_proporcion = len(sueltas) >= 3 and len(sueltas) / len(lineas) >= PROPORCION_LINEAS_SUELTAS
+    if not (por_cantidad or por_proporcion):
+        return []
+    return [f"texto dibujado letra a letra (posible anotación superpuesta o manuscrita): página {numero}; "
+            f"{len(sueltas)} de {len(lineas)} líneas de uno o dos caracteres; muestra={ascii(''.join(sueltas)[:120])}"]
 
 
 def ocultos_de_pagina(pagina) -> tuple[list[dict], str | None]:

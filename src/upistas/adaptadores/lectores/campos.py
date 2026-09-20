@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from upistas.contracts.factura_extraida import FacturaExtraida
 from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_fecha_letras, parse_importe
+from upistas.dominio.modelos import NOMBRE_CAMPO, enumerar
 from upistas.dominio.notas import clasificar, normalizar
 
 INVISIBLE = r"[\u200b\ufeff]*"
@@ -17,9 +18,11 @@ FECHA = (r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}"
 CAMPOS = ("numero_factura", "nif", "iban", "pedido", "fecha", "base", "iva_pct", "iva", "total")
 SEPARADOR = r"[\s.:=#·…]*"
 
-# Divisa: se captura para saber si el importe es comparable con el pedido (que va en EUR).
+# Divisa: los importes se leen en la moneda que sea y la divisa se guarda como campo propio; sin marca, euros.
 MONEDA = r"(EUR|€|EUROS?|USD|JPY|GBP|CHF|BRL|MXN|CAD|AUD|US\$|MX\$|R\$|\$|¥|£|FR\.?)"
-MONEDA_OPC = rf"(?:{MONEDA}[ \t]*)?"
+# Con la moneda delante también vale un importe sin decimales con miles («¥ 850,000»: el yen no los tiene).
+ENTERO_MILES = rf"(?:{DIGITO}){{1,3}}(?:[.,]{INVISIBLE}(?:{DIGITO}){{3}})+(?![.,]?\d)"
+IMPORTE = rf"(?:{MONEDA}[ \t]*({NUMERO}|{ENTERO_MILES})|({NUMERO}))"
 CODIGO_TRAS = r"(?:[ \t]+(EUR|USD|JPY|GBP|CHF|BRL|MXN|CAD|AUD)\b)?"
 SIMBOLO_A_CODIGO = {"€": "EUR", "EURO": "EUR", "EUROS": "EUR", "$": "USD", "¥": "JPY", "£": "GBP",
                     "FR": "CHF", "FR.": "CHF", "R$": "BRL", "MX$": "MXN", "US$": "USD"}
@@ -63,6 +66,26 @@ def coste_de(paginas: list[dict]) -> dict | None:
     }
 
 FECHA_INVALIDA = "fecha inválida"  # marca interna: el texto es una fecha en cifras que no existe en el calendario
+
+
+def _legible(valor) -> str:
+    """Un valor leído, como se escribe en un aviso: 943.8 → «943,80», '2026-04-01' → «01/04/2026»."""
+    if valor is None:
+        return "uno que no se entiende"
+    if valor == FECHA_INVALIDA:
+        return "una fecha que no existe"
+    if isinstance(valor, float):
+        entero, decimales = f"{valor:,.2f}".split(".")
+        return f"{entero.replace(',', '.')},{decimales}"
+    fecha = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", str(valor))
+    return f"{fecha[3]}/{fecha[2]}/{fecha[1]}" if fecha else str(valor)
+
+
+def contradiccion(nombre: str, valores: list) -> str:
+    """«El NIF aparece con dos valores: A41220987 y A58231074»."""
+    campo = NOMBRE_CAMPO[nombre]
+    textos = list(dict.fromkeys(_legible(v) for v in valores))
+    return f"{campo[0].upper()}{campo[1:]} aparece con {'dos' if len(textos) == 2 else 'varios'} valores: {enumerar(textos)}"
 
 
 def etiqueta(palabra: str) -> str:
@@ -110,7 +133,7 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
     candidatos = defaultdict(list)
     errores = []
     notas = []
-    divisas = set()  # divisas distintas de EUR vistas en los importes o en la línea de «Divisa de facturación»
+    divisas = {}  # código → texto donde se vio: junto a un importe o en la línea de «Divisa de facturación»
 
     def guardar(campo, valor, original):
         candidatos[campo].append((valor, original))
@@ -179,40 +202,43 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
                 guardar("fecha", fecha.isoformat(), m[0])
 
         patrones = {
-            "base": rf"(?:{ETIQUETA_BASE}){SEPARADOR}{MONEDA_OPC}({NUMERO}){CODIGO_TRAS}",
-            "iva": rf"{ETIQUETA_IVA}{SEPARADOR}(?:\(?\s*\d{{1,2}}(?:[.,]\d+)?\s*%\s*\)?{SEPARADOR})?{MONEDA_OPC}({NUMERO})(?!\s*%){CODIGO_TRAS}",
-            "total": rf"{ETIQUETA_TOTAL}(?:\s+(?:FACTURA|A\s+PAGAR))?{SEPARADOR}{MONEDA_OPC}({NUMERO}){CODIGO_TRAS}",
+            "base": rf"(?:{ETIQUETA_BASE}){SEPARADOR}{IMPORTE}{CODIGO_TRAS}",
+            "iva": rf"{ETIQUETA_IVA}{SEPARADOR}(?:\(?\s*\d{{1,2}}(?:[.,]\d+)?\s*%\s*\)?{SEPARADOR})?{IMPORTE}(?!\s*%){CODIGO_TRAS}",
+            "total": rf"{ETIQUETA_TOTAL}(?:\s+(?:FACTURA|A\s+PAGAR))?{SEPARADOR}{IMPORTE}{CODIGO_TRAS}",
         }
         for m in re.finditer(rf"{ETIQUETA_IVA}{SEPARADOR}\(?\s*(\d{{1,2}}(?:[.,]\d+)?)\s*%", texto, re.I):
             guardar("iva_pct", m[1].replace(",", "."), m[0])
         for campo, patron in patrones.items():
             for m in re.finditer(patron, texto, re.I):
-                divisa = _codigo_divisa(m[1] or "") or _codigo_divisa(m[3] or "")
-                if divisa not in ("", "EUR"):
-                    divisas.add(divisa)
-                    continue
-                valor = parse_importe(m[2])
+                divisa = _codigo_divisa(m[1] or "") or _codigo_divisa(m[4] or "")
+                if divisa:
+                    divisas.setdefault(divisa, m[0])
+                valor = parse_importe(m[2] or m[3])
                 guardar(campo, float(valor) if valor is not None else None, m[0])
         for m in re.finditer(ETIQUETA_DIVISA, texto, re.I):
-            if m[1].upper() != "EUR":
-                divisas.add(m[1].upper())
+            divisas.setdefault(m[1].upper(), m[0])
 
-    # En otra divisa el importe no se puede comparar con el pedido (que va en EUR): se dice y escala.
-    for divisa in sorted(divisas):
-        errores.append(f"Divisa distinta de EUR: {divisa}")
-
-    campos = {}
+    # La divisa es un dato más: sin marca o con €/EUR, euros. Dos monedas distintas del euro en la misma
+    # factura no se pueden interpretar; se avisa y la factura acaba en revisión.
+    otras = sorted(d for d in divisas if d != "EUR")
+    if len(otras) > 1:
+        errores.append(f"Importes en {'dos' if len(otras) == 2 else 'varias'} divisas: {', '.join(otras[:-1])} y {otras[-1]}")
+    campos = {"divisa": {
+        "valor": otras[0] if len(otras) == 1 else "EUR" if not otras else None,
+        "confianza": 0.0 if len(otras) > 1 else 1.0,
+        "fuente": "\n".join(dict.fromkeys(divisas.values())) or None,
+    }}
     for nombre in CAMPOS:
         encontrados = candidatos[nombre]
-        valores = {v for v, _ in encontrados}
+        valores = list(dict.fromkeys(v for v, _ in encontrados))  # distintos, en el orden en que aparecen
         # Una fecha inválida leída con seguridad va sin valor pero con confianza plena: no es un fallo de
         # lectura (el campo queda en `ausentes`, no en `no_leidos`) y la juzga la regla de la fecha.
-        invalida = valores == {FECHA_INVALIDA}
-        valor = next(iter(valores)) if len(valores) == 1 and None not in valores and not invalida else None
+        invalida = valores == [FECHA_INVALIDA]
+        valor = valores[0] if len(valores) == 1 and None not in valores and not invalida else None
         if len(valores) > 1:
-            errores.append(f"Valores contradictorios para {nombre}")
+            errores.append(contradiccion(nombre, valores))
         elif encontrados and valor is None and not invalida:
-            errores.append(f"Valor inválido para {nombre}")
+            errores.append(f"Valor inválido para {NOMBRE_CAMPO[nombre]}")
         campos[nombre] = {
             "valor": valor,
             "confianza": 1.0 if valor is not None or invalida else 0.0,

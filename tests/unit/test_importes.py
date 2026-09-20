@@ -3,7 +3,16 @@ from decimal import Decimal
 
 import pytest
 
-from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_importe
+from upistas.dominio.importes import normaliza_iban, pais_del_nif, parse_fecha, parse_importe
+
+
+@pytest.mark.parametrize("nif,pais", [
+    ("B12345678", "ES"), ("12345678Z", "ES"), ("X1234567L", "ES"), ("ESB12345678", "ES"), ("b-12.345.678", "ES"),
+    ("DE812345678", "DE"), ("FR40303265045", "FR"), ("GB123456789", "GB"), ("PT501234567", "PT"), ("CHE123456789", "CH"),
+    ("12.345.678/0001-95", "??"), ("5010401075570", "??"), ("DE", "??"), ("", "??"), (None, "??"),
+])
+def test_pais_del_nif(nif, pais):
+    assert pais_del_nif(nif) == pais
 
 
 @pytest.mark.parametrize(

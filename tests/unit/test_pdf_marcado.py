@@ -93,9 +93,9 @@ def _final(pdf) -> str:
     ("R2_pedido_importe", "Total 3944.6 distinto del pedido 3900.00", "TOTAL: 3.944,60", "Total distinto del pedido: 3.900,00"),
     ("R2_pedido_importe", "Pedido ausente o no encontrado", "PO-2026-1204", "Pedido que no está en el ERP"),
     ("R3_iva_total", "El total no coincide con base más IVA", "IVA (21%): 684,60", "IVA"),
-    ("R4_fecha", "Fecha inválida o ausente en el documento", "Fecha: 30/06/2026", "Fecha imposible"),
-    ("R5_erp_pendiente", "Estado del ERP: PAGADA", "PO-2026-1204", "Pedido ya pagado en el ERP"),
-    ("R6_revision_interna", "Pedido marcado en pendiente_revisar del Excel", "PO-2026-1204", "Pedido con una nota que pide revisión"),
+    ("R4_fecha", "Fecha imposible: 30/06/2026", "Fecha: 30/06/2026", "Fecha imposible"),
+    ("R5_erp_pendiente", "Pedido ya pagado en el ERP (asiento AS-001, 19/09/2026)", "PO-2026-1204", "Pedido ya pagado en el ERP"),
+    ("R6_revision_interna", "El pedido está apuntado para revisar (marca pendiente_revisar del maestro)", "PO-2026-1204", "Pedido con una nota que pide revisión"),
     ("R8_importe_anomalo", "Importe fuera de lo habitual", "TOTAL: 3.944,60", "Importe fuera de lo habitual"),
 ])
 def test_cada_regla_rodea_en_naranja_su_dato_con_su_etiqueta_al_lado(factura, regla, detalle, dato, etiqueta):
@@ -235,7 +235,7 @@ def test_los_titulos_de_apartado_van_en_negrita_y_el_titulo_mas_grande(factura):
 
 
 def test_la_etiqueta_se_pone_en_un_hueco_sin_texto(factura):
-    _, pdf = _marcado(factura, _alarmas(("R4_fecha", "Fecha inválida o ausente en el documento")))
+    _, pdf = _marcado(factura, _alarmas(("R4_fecha", "Fecha imposible: 30/06/2026")))
     fecha = _donde_dice(pdf[0], "Fecha: 30/06/2026")
     etiqueta = _donde_dice(pdf[0], "Fecha imposible")
     assert etiqueta.x0 > fecha.x1, "a la derecha, que está libre"

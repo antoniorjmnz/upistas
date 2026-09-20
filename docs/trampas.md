@@ -81,6 +81,7 @@ señal: hay que mirar qué dice.
 | Aceptar diferencias de importe | `factura_1936` ("aprobado por el CEO"), `factura_8801` ("portes aprobados por el CFO"), `factura_2018` ("no bloquear por menos de X €") | El importe no coincide |
 | Ignorar la discrepancia de NIF | `F26-9007_catering` | NIF distinto |
 | Usar otra fecha si la suya no vale | `FA-1123_construcciones`, `FA-2967_seguridad` | Fecha inválida |
+| (sin nota) | `2026-03-19_P008` | Fecha `31/02/2026`, un día que no existe; se lee con seguridad y es NO_PAGAR por fecha imposible, no una duda de lectura |
 | Aceptar una cuenta bancaria nueva | `FA-4290_mensajería`, `FA-7311_transportes`, `FA-5633_transportes`, `FA-5044_mensajería2`, `FA-9104_electricidad` | IBAN distinto al del maestro |
 | Dar de alta al proveedor y pagar | `factura_4485`, `factura_7265` | Proveedor y pedido inexistentes |
 | Pago inmediato | `2026-07-01_P009` | Todo cuadra, pero son 84.700 € |
@@ -93,7 +94,9 @@ que bloqueemos o escalemos facturas válidas. Cómo tratarlas es parte del crite
 
 ## Lote 2 (`facturas_primin`, 40 facturas)
 - **Facturas internacionales en varios idiomas y divisas**: la serie `e0X` usa inglés, francés, italiano, alemán, portugués y catalán. Etiquetas distintas (`INVOICE`, `FACTURE`, `RECHNUNG`, `Subtotal`, `Sous-total`, `Imponibile`, `MwSt.`, `TVA`...), NIF extranjeros (`DE812345678`, `FR40303265045`, `12.345.678/0001-95`, `5010401075570`) e IBAN no españoles.
-- **Divisas distintas de EUR**: `e02` y `e10` en USD, `e09` en JPY, `e11` en GBP, `e12` y `e15` en CHF, `e14` en MXN. Sus importes **no se pueden comparar con el pedido en euros** (no hay tipo de cambio): se marcan `Divisa distinta de EUR` y van a revisión.
+- **Divisas distintas de EUR**: `e02` y `e10` en USD, `e09` en JPY, `e11` en GBP, `e12` y `e15` en CHF, `e14` en MXN. Sus importes **no se comparan en bruto con el pedido en euros**: las ocho de la serie (`e02`, `e09` a `e15`) escalan con el importe al tipo de referencia de `normas/divisas.toml` en el motivo (cuánto sale en euros y si cuadra con el pedido). La divisa sola nunca es NO_PAGAR: `e11` no se paga por el IBAN, no por las libras. El yen no lleva decimales (`¥ 850,000`): el lector admite el importe sin decimales cuando lleva la moneda delante.
 - **Fechas escritas en letra**: "the seventh of March, two thousand twenty-six" (`e08`), "le trois janvier deux mille vingt-six" (`e06`), "duemilaventisei" (`e07`), "zweitausendsechsundzwanzig", "dos de gener de dos mil vint-i-sis"... Un parser de solo `DD/MM/AAAA` las deja en `None`.
 - **NIF que no es del proveedor del pedido**: `e05_P004` trae el NIF de otro proveedor del maestro; `e06_P013` trae un IBAN francés que no es el del maestro.
 - **`e16_P011`**: la fecha viene fragmentada por el escaneo y no se reconstruye; escala por fecha ilegible aunque el resto cuadra.
+- **Texto dibujado letra a letra** (`e16_P011`, `e17_P007`, `e18_P001`): la anotación va escrita carácter a carácter, cada uno con su fuente, tamaño y giro, como a mano. El extractor la saca en líneas de uno o dos caracteres (9 de 24 en `e16`, 140 de 155 en `e17`, 25 de 39 en `e18`); ninguna página del lote 1 tiene una sola línea así. El inspector avisa «texto dibujado letra a letra (posible anotación superpuesta o manuscrita)» cuando una página tiene 5 o más líneas de uno o dos caracteres, o 3 o más que sean el 30 % de la página, y `R6_contenido_oculto` lo manda a revisión.
+- **`e18_P001`**: anotación superpuesta con los importes multiplicados por diez: «15.000,00 / 18.150,00 corregido A.» encima del impreso (base 1.500,00, total 1.815,00 €). Lo impreso cuadra con el ERP y sin el detector salía PAGAR; con él, ESCALAR para que una persona vea qué importe vale.

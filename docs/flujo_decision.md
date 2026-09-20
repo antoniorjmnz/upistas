@@ -15,13 +15,19 @@ con seguridad) y ESCALAR (lo mira Alberto, siempre con el motivo delante).
 ## El flujo, paso a paso
 
 1. **Leer todo.** NIF, IBAN, número de pedido, importe, base, IVA, total, fecha, notas y texto oculto.
-   Además la divisa y el país del NIF (ver «Lo que falta» abajo).
+   Además la divisa (sin marca o con «€»/«EUR», euros) y el país del NIF por su formato.
 2. **¿Se ha leído lo necesario con seguridad?** Si no (escaneado ilegible, campo que no aparece, dos
-   valores contradictorios), ESCALAR con el motivo «no se pudo leer». Un dato que no se pudo leer nunca
-   prueba un incumplimiento.
-3. **¿Está en euros?** Si no, ESCALAR: el pedido del maestro está en euros y no hay tipo de cambio
-   pactado, así que el importe no se puede comparar. No es sospecha: la paga Alberto a mano si es
-   legítima.
+   valores contradictorios, importes en dos monedas), ESCALAR con el motivo «no se pudo leer». Un dato
+   que no se pudo leer nunca prueba un incumplimiento.
+3. **¿Está en euros?** Si sí, todo sigue igual. Si no, el importe nunca se compara en bruto con el
+   pedido (que va en euros) ni se contrasta el IVA, y la divisa por sí sola nunca es NO PAGAR: se ESCALA
+   siempre con un motivo que dice la divisa, el importe leído, el pedido en euros y, si hay tipo de
+   referencia en `normas/divisas.toml`, cuánto sale al cambio y si cuadra (diferencia de como mucho el
+   0,5 % del pedido): «Factura en USD (2.450,00 USD); el pedido es de 2.254,00 €: al tipo de referencia
+   (1 € = 1,0870 USD) son 2.253,91 €, cuadra con el pedido. El pago en divisa lo autoriza usted.» Sin
+   tipo, «no hay tipo de cambio de referencia para XXX». Un proveedor español facturando en divisa se
+   escala igual, con ese aviso. NO PAGAR solo con una prueba independiente de la divisa: IBAN distinto
+   del maestro, pedido ya pagado, de otro proveedor o inexistente ([ADR-005](adr/005-divisas.md)).
 4. **Regla 1.** El NIF está en el maestro y el IBAN es igual al del maestro. Si no, NO PAGAR, aunque una
    nota diga que el proveedor ha cambiado de cuenta. Si el maestro no permite contrastarlo (ficha sin
    NIF o sin IBAN), ESCALAR.
@@ -31,7 +37,8 @@ con seguridad) y ESCALAR (lo mira Alberto, siempre con el motivo delante).
    PAGAR; una fecha que no se pudo leer es ESCALAR (paso 2).
 7. **Regla 3.** El IVA está bien calculado y el total es base más IVA (tolerancia 0,01 €). Si la suma no
    cuadra o la cuota no corresponde al tipo impreso, NO PAGAR. Si hay duda fiscal (sin tipo impreso,
-   importes negativos, un tipo que no encaja con el país del NIF), ESCALAR.
+   importes negativos), ESCALAR. Un tipo que no encaja con el país del NIF lo mira la regla fiscal
+   aparte (en curso).
 8. **Regla 6.** Si trae notas relevantes, texto oculto, o Alberto la apuntó para revisar, ESCALAR. El
    texto de una factura nunca decide: ni autoriza ni bloquea un pago.
 9. **Regla 5.** El pedido está PENDIENTE en el ERP y no se ha pagado ni aprobado antes. Si ya está
@@ -52,6 +59,14 @@ Manda este orden, que es el de las prioridades de `normas/v3.toml`:
 A igual nivel gana la más restrictiva: NO PAGAR antes que ESCALAR, ESCALAR antes que PAGAR. Escalar
 nunca autoriza un segundo pago.
 
+El motivo de cada factura empieza por la causa que fija el resultado; siguen las demás por prioridad,
+los avisos al final, y como mucho tres (el resto se cuenta, «y N comprobaciones más»; todas están en
+`reglas[]` del outcome). Si cumple los datos y solo escala por revisión (notas, texto oculto, pedido
+apuntado, duplicado dudoso) empieza por «Cumple la norma; se escala porque…». Si el ERP ya la da por
+pagada pero una nota la escala, el pago previo va primero: «Pedido ya pagado en el ERP (asiento…);
+además lo revisa una persona: …». Lo que no se pudo leer se dice en español («No se pudo leer: la fecha
+y el total») y las reglas que dependen de ese dato no lo repiten.
+
 ## Facturas extranjeras
 
 Ser extranjera no es motivo de nada. Lo que cambia el tratamiento es el país del NIF y la divisa, no el
@@ -63,18 +78,18 @@ y e06_P013 es una francesa que cobra IVA español).
   UE o de fuera, 0 % por inversión del sujeto pasivo o exención. IRPF, exenta o sujeto pasivo bien
   aplicados se pagan (ya está en el ADR-002).
 - Proveedor extranjero cobrando IVA español: ESCALAR (duda fiscal), no NO PAGAR. Un contable pediría
-  factura rectificada.
-- En dólares o libras: ESCALAR (paso 3).
+  factura rectificada. Es la regla fiscal aparte (en curso).
+- En dólares, libras, yenes o cualquier otra moneda: ESCALAR con el importe al tipo de referencia
+  (paso 3). En el lote 2 son ocho (`e02`, `e09` a `e15`).
 - NO PAGAR solo por lo probado: IBAN distinto, pedido inexistente o de otro proveedor, importe
-  distinto, ya pagada.
+  distinto (en euros), ya pagada.
 
 ## Lo que falta por hacer
 
-- Leer la divisa como campo propio (hoy solo se reconoce el símbolo pegado al importe) y el país del
-  NIF por su formato (español, de la UE, de fuera). Sin esos dos campos, los pasos 3 y 7 no se pueden
-  aplicar tal cual.
-- Cerrar la regla del IVA extranjero cuando tengamos la norma v4 delante: es muy probable que diga algo
-  sobre proveedores extranjeros y divisas, y no queremos contradecirla.
+- La regla fiscal aparte (en curso): IVA 0 % sin justificación, IVA español cobrado por un proveedor
+  de fuera, incoherencias entre país del NIF y del IBAN. Usa `pais_del_nif` del dominio. Cerrarla con la
+  norma v4 delante: es muy probable que diga algo sobre proveedores extranjeros y divisas, y no queremos
+  contradecirla.
 - Repasar el flujo factura a factura (ver abajo) y corregir donde no cuadre.
 
 ## Cómo lo repasamos, factura a factura

@@ -12,10 +12,10 @@ from upistas.puertos import DecisionGuardada, RegistroLectura
 PROV = Proveedor("P001", "Suministros Levante S.L.", "B46102331", "ES2100491500051234567890")
 
 
-def extraida(file_id="a.pdf", pedido="PO-2026-0096", fecha="2026-01-08", total=3012.89):
+def extraida(file_id="a.pdf", pedido="PO-2026-0096", fecha="2026-01-08", total=3012.89, metodo="texto_determinista"):
     campo = lambda v: {"valor": v, "confianza": 1.0}  # noqa: E731
     return FacturaExtraida.model_validate({
-        "file_id": file_id, "metodo": "texto_determinista", "lector": "pdf_texto",
+        "file_id": file_id, "metodo": metodo, "lector": "pdf_texto",
         "documento": {"sha256": "x" * 64, "tipo": "texto", "paginas": 1, "alertas": []},
         "campos": {"nif": campo("B46102331"), "iban": campo("ES2100491500051234567890"), "pedido": campo(pedido), "fecha": campo(fecha),
                    "base": campo(2489.99), "iva_pct": campo(21), "iva": campo(522.9), "total": campo(total),
@@ -70,6 +70,16 @@ def test_decidir_lote_da_un_outcome_por_documento_y_el_ilegible_escala(tmp_path)
     assert por["f.pdf"].resultado == "NO_PAGAR" and "futura" in por["f.pdf"].motivo
     r = resumen(decisiones, lecturas)
     assert (r["PAGAR"], r["NO_PAGAR"], r["ESCALAR"], r["leidos"]) == (1, 1, 1, 2)
+
+
+def test_el_outcome_lleva_el_metodo_de_lectura_real(tmp_path):
+    """Un escaneo leído por OCR sale como ocr_determinista en la decisión y en la línea de outcomes, no como texto."""
+    lecturas = [registro("scan_001.pdf", extraida("scan_001.pdf", metodo="ocr_determinista"), tipo="escaneado"), registro("a.pdf", extraida())]
+    refs = construir_referencias(MaestroEnMemoria([PROV], []), ErpEnMemoria([]), lecturas, date(2026, 9, 18), "erp1")
+    por = {d.file_id: d for d in decidir_lote(lecturas, refs, norma_v(tmp_path))}
+    assert por["scan_001.pdf"].metodo == "ocr_determinista" and por["scan_001.pdf"].outcome["metodo"] == "ocr_determinista"
+    assert por["a.pdf"].metodo == "texto_determinista" and por["a.pdf"].outcome["metodo"] == "texto_determinista"
+    assert resumen(list(por.values()), lecturas)["por_metodo"] == {"ocr_determinista": 1, "texto_determinista": 1}
 
 
 def test_comparar_dice_que_cambia_y_por_que():

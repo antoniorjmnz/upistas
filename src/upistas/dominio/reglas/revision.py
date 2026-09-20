@@ -1,9 +1,12 @@
 import re
 
 from upistas.dominio.importes import normaliza_iban
-from upistas.dominio.modelos import Comprobacion
-from upistas.dominio.notas import clasificar, controles_invisibles, normalizar
+from upistas.dominio.modelos import NOMBRE_CAMPO, Comprobacion, enumerar
+from upistas.dominio.notas import clasificar, controles_invisibles, normalizar, solo_plazo_de_pago
 from upistas.dominio.reglas import regla
+
+# Un REVISAR del evaluador que solo habla del plazo («difiere de los 60 días del maestro»): el ADR-002 no pide comparar plazos.
+_MOTIVO_SOBRE_EL_PLAZO = re.compile(r"plazo|condiciones|vencimiento|\bdias\b|\bdays\b|maestro|difier|distint|payment terms")
 
 
 def _id(valor):
@@ -15,9 +18,9 @@ def lectura_suficiente(factura, refs, params):
     if factura.errores_lectura:
         return Comprobacion("R0_lectura", False, "; ".join(factura.errores_lectura))
     # Un campo que el lector da por ausente con seguridad no es una duda de lectura: lo juzga su propia regla.
-    faltan = [c for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total")
+    faltan = [NOMBRE_CAMPO[c] for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total")
               if getattr(factura, c) is None and c not in factura.ausentes]
-    return Comprobacion("R0_lectura", not faltan, "Campos no verificables: " + ", ".join(faltan) if faltan else "")
+    return Comprobacion("R0_lectura", not faltan, "No se pudo leer: " + enumerar(faltan) if faltan else "")
 
 
 def _identidad_del_pedido(factura, refs):
@@ -64,13 +67,17 @@ def proveedor_coherente(factura, refs, params):
     for origen, registro in (("Excel", pedido), ("ERP", asiento)):
         if registro.nif and _id(registro.nif) != _id(proveedor.nif):
             return Comprobacion(nombre, False, f"NIF del pedido en {origen} distinto del maestro")
-    return Comprobacion(nombre, True, "Identidad contrastada por ID y maestro; el NIF ausente en el pedido no se inventa")
+    sin_nif = [origen for origen, registro in (("Excel", pedido), ("ERP", asiento)) if not registro.nif]
+    if sin_nif:
+        return Comprobacion(nombre, True, f"Identidad contrastada con el maestro por ID; el NIF ausente en el pedido ({' y '.join(sin_nif)}) no se inventa")
+    return Comprobacion(nombre, True, "Identidad contrastada con el maestro por ID y NIF")
 
 
 @regla("R6_revision_interna")
 def revision_interna(factura, refs, params):
     revisar = factura.pedido in refs.marcados_por_alberto
-    return Comprobacion("R6_revision_interna", not revisar, "Pedido marcado en pendiente_revisar del Excel" if revisar else "")
+    detalle = "El pedido está apuntado para revisar (marca pendiente_revisar del maestro)" if revisar else ""
+    return Comprobacion("R6_revision_interna", not revisar, detalle)
 
 
 @regla("R6_notas")
@@ -82,11 +89,18 @@ def notas_requieren_revision(factura, refs, params):
     evaluacion = factura.evaluacion_notas
     if evaluacion is None:
         return Comprobacion(nombre, False, "Notas sin evaluación: requieren revisión humana")
-    if evaluacion.error or evaluacion.requiere_revision:
+    # Una nota que solo es un plazo de pago es un dato, no una instrucción: no escala por sí sola, ni porque el
+    # evaluador compare el plazo con el maestro. Sí escala si el evaluador ve otra cosa o si la nota pide algo más.
+    solo_plazos = all(solo_plazo_de_pago(n.texto) for n in notas)
+    revisar_por_el_plazo = solo_plazos and bool(_MOTIVO_SOBRE_EL_PLAZO.search(normalizar(evaluacion.motivo)))
+    if evaluacion.error or (evaluacion.requiere_revision and not revisar_por_el_plazo):
+        # El modelo y la versión del prompt quedan en la traza (reglas[]); el motivo va en llano.
         detalle = f"Evaluación de notas [{evaluacion.modelo or 'no disponible'}; {evaluacion.version_prompt}]: {evaluacion.motivo}"
+        motivo = evaluacion.motivo.strip()
         if evaluacion.evidencia:
             detalle += f" | Evidencia: {evaluacion.evidencia}"
-        return Comprobacion(nombre, False, detalle)
+            motivo = f"{motivo.rstrip('.')}. Evidencia: «{' '.join(evaluacion.evidencia.split())}»"
+        return Comprobacion(nombre, False, detalle, motivo)
     asiento = refs.asiento(factura.pedido)
     proveedor = refs.proveedores.get(factura.nif)
     for nota in notas:
@@ -109,7 +123,7 @@ def notas_requieren_revision(factura, refs, params):
             r"\biban\b.{0,50}\bno coincide\b", texto
         ):
             motivo = "La nota afirma que el IBAN no coincide, pero coincide con el maestro"
-        if not motivo and (clasificar(nota.texto) != ("otra",) or re.search(
+        if not motivo and not solo_plazo_de_pago(nota.texto) and (clasificar(nota.texto) != ("otra",) or re.search(
             r"\b(?:pagos?|vencimientos?|importe|iva|iban|nif|erp|anulacion|cancelacion|aprobacion)\b", texto
         )):
             motivo = "La nota contiene información operativa o instrucciones; no es inequívocamente irrelevante"
@@ -129,11 +143,14 @@ def evaluacion_disponible(factura, refs, params):
 
 @regla("R6_contenido_oculto")
 def contenido_oculto(factura, refs, params):
-    avisos = [a for a in factura.alertas if a.startswith(("texto potencialmente oculto:", "visibilidad del texto no verificable:"))]
+    avisos = [a for a in factura.alertas if a.startswith((
+        "texto potencialmente oculto:", "visibilidad del texto no verificable:", "texto dibujado letra a letra",
+    ))]
     codigos = sorted({c for n in factura.notas for c in controles_invisibles(n.texto)})
     if codigos:
-        avisos.append("Caracteres de control o invisibles en notas: " + ", ".join(codigos))
-    return Comprobacion("R6_contenido_oculto", not avisos, "; ".join(avisos))
+        avisos.append("caracteres de control o invisibles en notas: " + ", ".join(codigos))
+    detalle = "; ".join(avisos)
+    return Comprobacion("R6_contenido_oculto", not avisos, detalle, f"El fichero trae {detalle}" if avisos else "")
 
 
 @regla("R5_hash_previo")

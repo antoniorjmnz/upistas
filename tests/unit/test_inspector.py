@@ -80,6 +80,33 @@ def test_texto_blanco_sobre_fondo_negro_es_visible(tmp_path):
     assert not any("oculto" in a or "no verificable" in a for a in InspectorPdf().inspeccionar(ruta).alertas)
 
 
+def test_detecta_texto_dibujado_letra_a_letra(tmp_path):
+    """e18_P001 del lote 2: «15.000,00 / 18.150,00 corregido A.» dibujado encima del importe, letra a letra."""
+    ruta = tmp_path / "anotacion.pdf"
+    with pymupdf.open() as doc:
+        pagina = doc.new_page()
+        pagina.insert_text((40, 40), "FACTURA de prueba con texto visible suficiente")
+        pagina.insert_text((40, 60), "TOTAL 1.815,00 EUR")
+        for i, letra in enumerate("18.150,00 corregido A."):
+            punto = pymupdf.Point(200 + i * 9, 100)
+            giro = pymupdf.Matrix(1, 0, 0, 1, 0, 0).prerotate(4 if i % 2 else -4)  # cada letra con su propio giro, como a mano
+            pagina.insert_text(punto, letra, fontsize=13 + i % 3, morph=(punto, giro))
+        doc.save(ruta)
+    inspeccion = InspectorPdf().inspeccionar(ruta)
+    alerta = next(a for a in inspeccion.alertas if a.startswith("texto dibujado letra a letra"))
+    assert "posible anotación superpuesta o manuscrita" in alerta and "página 1" in alerta and "corregido" in alerta
+
+
+def test_una_factura_normal_no_es_texto_dibujado(tmp_path):
+    # Una línea de "1" o "€" sueltas no bastan: hacen falta 5, o 3 que sean el 30 % de la página.
+    ruta = tmp_path / "normal.pdf"
+    with pymupdf.open() as doc:
+        pagina = doc.new_page()
+        pagina.insert_text((40, 40), "FACTURA 2026/0001\nNIF B12345678\nPedido PO-2026-0001\nBase 100,00\nIVA 21 %\n1\n€\nTOTAL 121,00 EUR")
+        doc.save(ruta)
+    assert not any(a.startswith("texto dibujado letra a letra") for a in InspectorPdf().inspeccionar(ruta).alertas)
+
+
 def test_unicode_de_formato_no_equivale_a_nota_oculta():
     from upistas.adaptadores.lectores.pdf import _controles_fuera_de_campos
 

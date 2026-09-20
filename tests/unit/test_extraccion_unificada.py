@@ -156,14 +156,14 @@ def test_mes_que_no_se_reconoce_es_fallo_de_lectura():
     factura = extraer(TEXTO.replace("15 de enero de 2026", "15 de encro de 2026"))
     assert factura.campos.fecha.valor is None
     assert factura.campos.fecha.confianza == 0.0
-    assert "Valor inválido para fecha" in factura.errores
+    assert "Valor inválido para la fecha" in factura.errores
 
 
 def test_fecha_invalida_y_otra_valida_es_contradiccion():
     factura = extraer(TEXTO.replace("15 de enero de 2026", "31/02/2026") + "Fecha factura 01/04/2026")
     assert factura.campos.fecha.valor is None
     assert factura.campos.fecha.confianza == 0.0
-    assert "Valores contradictorios para fecha" in factura.errores
+    assert "La fecha aparece con dos valores: una fecha que no existe y 01/04/2026" in factura.errores
 
 
 def test_pagina_ocr_fallida_no_desaparece():
@@ -225,7 +225,16 @@ def test_sin_ocr_no_se_inventan_campos(tmp_path):
     crear_pdf(ruta, None)
     factura = LectorPdfUnificado().leer(ruta)
     assert factura.campos.total.valor is None
-    assert factura.errores
+    assert factura.errores == ["Página 1: Escaneado: no hay lector de imagen disponible"]
+
+
+def test_dos_valores_distintos_se_dicen_con_los_valores():
+    factura = extraer(TEXTO.replace("NIF B12345678", "NIF B12345678\nNIF A41220987"))
+    assert factura.campos.nif.valor is None
+    assert "El NIF aparece con dos valores: B12345678 y A41220987" in factura.errores
+    factura = extraer(TEXTO + "TOTAL 1.043,80 EUR\n")
+    assert factura.campos.total.valor is None
+    assert "El total aparece con dos valores: 121,00 y 1.043,80" in factura.errores
 
 
 def test_respuesta_ocr_invalida_se_escala(tmp_path):
@@ -522,22 +531,40 @@ def test_fechas_en_letra_en_cualquier_idioma(fecha, esperada):
     assert factura.campos.fecha.valor == esperada
 
 
-def test_divisa_distinta_de_eur_se_anota_y_no_se_compara():
+def test_en_euros_la_divisa_es_eur_con_o_sin_marca():
+    assert extraer(EN).campos.divisa.valor == "EUR"
+    sin_marca = EN.replace("€ ", "").replace(" EUR", "")
+    factura = extraer(sin_marca)
+    assert factura.campos.divisa.valor == "EUR" and factura.campos.divisa.fuente is None
+    assert factura.campos.total.valor == 943.8
+
+
+def test_divisa_distinta_de_eur_se_lee_el_importe_y_la_divisa_es_un_campo():
     dolares = EN.replace("Subtotal: € 780.00", "Billing currency: USD ($)\nSubtotal: $ 2,450.00") \
         .replace("VAT (21%): € 163.80", "VAT (21%): $ 0.00").replace("TOTAL: € 943.80 EUR", "TOTAL: $ 2,450.00 USD")
     factura = extraer(dolares)
-    assert factura.campos.total.valor is None  # 2450 USD no es comparable con el pedido en EUR
-    assert factura.campos.base.valor is None
-    assert "Divisa distinta de EUR: USD" in factura.errores
+    assert factura.campos.total.valor == 2450  # se lee tal cual; compararlo con el pedido en euros es cosa de las reglas
+    assert factura.campos.base.valor == 2450 and factura.campos.iva.valor == 0
+    assert factura.campos.divisa.valor == "USD" and factura.campos.divisa.fuente == "Subtotal: $ 2,450.00"
+    assert factura.errores == []
     assert factura.campos.fecha.valor == "2026-02-03"  # el resto se sigue leyendo
 
 
-def test_divisa_declarada_sin_simbolos_en_importes():
+def test_divisa_declarada_y_yenes_sin_decimales():
     yenes = EN.replace("Issue date: 03 Feb 2026", "Fecha de emisión: 12/04/2026") \
         .replace("Subtotal: € 780.00", "Divisa de facturación: JPY (¥)\nBase imponible: ¥ 773,000") \
         .replace("VAT (21%): € 163.80", "IVA (21%): ¥ 77,000").replace("TOTAL: € 943.80 EUR", "TOTAL: ¥ 850,000 JPY")
     factura = extraer(yenes)
-    assert "Divisa distinta de EUR: JPY" in factura.errores
+    assert factura.campos.divisa.valor == "JPY"
+    assert factura.campos.base.valor == 773000 and factura.campos.iva.valor == 77000 and factura.campos.total.valor == 850000
+    assert factura.errores == []
+
+
+def test_dos_divisas_distintas_del_euro_en_la_misma_factura_es_un_error_de_lectura():
+    mezcla = EN.replace("Subtotal: € 780.00", "Subtotal: $ 780.00").replace("TOTAL: € 943.80 EUR", "TOTAL: £ 943.80")
+    factura = extraer(mezcla)
+    assert "Importes en dos divisas: GBP y USD" in factura.errores
+    assert factura.campos.divisa.valor is None and factura.campos.divisa.confianza == 0
 
 
 def test_nif_e_iban_extranjeros_se_leen_etiquetados():

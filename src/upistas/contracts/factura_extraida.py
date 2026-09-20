@@ -118,6 +118,12 @@ class Campos(BaseModel):
     iva_pct: CampoNum
     iva: CampoNum
     total: CampoNum
+    divisa: Annotated[
+        CampoStr | None,
+        Field(
+            description='Moneda de los importes (código ISO: EUR, USD...). Sin marca en el documento, EUR'
+        ),
+    ] = None
 
 
 class FacturaExtraida(BaseModel):

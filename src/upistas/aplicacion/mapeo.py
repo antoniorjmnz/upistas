@@ -1,6 +1,7 @@
 """Traducción entre contratos (JSON en los bordes) y modelos de dominio."""
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 
 from upistas.contracts.decision import Decision as DecisionContrato
@@ -35,6 +36,14 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         v = valores[nombre]
         return Decimal(str(v)) if v is not None else None
 
+    # Lecturas anteriores al campo `divisa` no lo traen: sin dato, euros, como siempre.
+    divisa = c.divisa.valor if c.divisa is not None and c.divisa.valor and c.divisa.confianza >= CONFIANZA_MINIMA else "EUR"
+    # Una fecha leída con seguridad que no existe (31/02/2026): lo que pone, para decirlo en el motivo.
+    fecha_texto = None
+    if "fecha" in ausentes and getattr(c, "fecha", None) is not None and c.fecha.fuente:
+        escrita = re.search(r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}", c.fecha.fuente)
+        fecha_texto = escrita[0] if escrita else None
+
     return Factura(
         file_id=extraida.file_id,
         nif=valores["nif"],
@@ -45,6 +54,7 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         iva_pct=dec("iva_pct"),
         iva=dec("iva"),
         total=dec("total"),
+        divisa=divisa,
         lineas=tuple(Decimal(str(linea.importe)) for linea in (extraida.lineas or [])),
         numero=valores["numero_factura"],
         proveedor_nombre=valores["proveedor_nombre"],
@@ -57,6 +67,7 @@ def a_factura(extraida: FacturaExtraida) -> Factura:
         no_leidos=frozenset(no_leidos),
         sha256=extraida.documento.sha256,
         errores_lectura=tuple(extraida.errores or []),
+        fecha_texto=fecha_texto,
     )
 
 

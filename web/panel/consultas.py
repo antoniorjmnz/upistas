@@ -79,6 +79,7 @@ NOMBRE_REGLA = {
     "R0_lectura": "Se ha podido leer todo lo que hace falta",
     "R1_nif_iban": "Proveedor conocido y su cuenta bancaria",
     "R2_pedido_importe": "El pedido existe y el importe coincide",
+    "R2_divisa": "En euros, o en otra moneda con el cambio a la vista",
     "R3_iva_total": "IVA bien calculado y total correcto",
     "R3_datos_fiscales": "Importes y tipo de IVA legibles",
     "R4_fecha": "Fecha válida y no futura",
@@ -161,6 +162,7 @@ def cifras(ejecucion: Ejecucion) -> dict:
 MOTIVO_CORTO = {
     "R1_nif_iban": "El proveedor o su cuenta no coinciden con el maestro",
     "R2_pedido_importe": "El pedido o el importe no cuadran con el ERP",
+    "R2_divisa": "Viene en otra moneda: el pago en divisa lo autoriza usted",
     "R3_iva_total": "El IVA o el total no cuadran",
     "R4_fecha": "La fecha no es válida",
     "R5_erp_pendiente": "El ERP dice que ya está pagada",
@@ -828,6 +830,10 @@ EXPLICACION_REGLA = {
     "R2_pedido_importe": (
         "Que el pedido existe, es de ese mismo proveedor y el importe de la factura es igual al del pedido (con un margen de un céntimo).",
         "No se paga. Es la regla 2: sin pedido, con el pedido de otro proveedor o con un importe distinto, la factura no cuadra con lo que se encargó.",
+    ),
+    "R2_divisa": (
+        "Que la factura viene en euros. Si viene en otra moneda (dólares, libras, yenes...), el importe no se compara tal cual con el pedido, que está en euros.",
+        "Se manda a revisar, con la cuenta hecha: cuánto sale en euros al tipo de referencia acordado y si cuadra con el pedido. Venir en otra moneda no es un fallo; el pago en divisa lo autoriza usted.",
     ),
     "R3_iva_total": (
         "Que el IVA está bien calculado (base por el tipo impreso) y que el total es la base más el IVA, con margen de un céntimo.",
