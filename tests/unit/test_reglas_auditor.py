@@ -720,3 +720,25 @@ def test_lectura_fallida_no_participa_pero_la_copia_por_hash_si_bloquea():
         {"a.pdf": factura, "b.pdf": copia, "c.pdf": escaneo},
     )
     assert {d.file_id: d.resultado for d in decisiones} == {"a.pdf": Resultado.PAGAR, "b.pdf": Resultado.NO_PAGAR, "c.pdf": Resultado.ESCALAR}
+
+
+def test_leida_por_ocr_un_dato_que_no_cuadra_escala_en_vez_de_rechazar():
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iban="ES9121000418450200051332", por_ocr=True), REFS)
+    assert decision.resultado == Resultado.ESCALAR and decision.motivo.startswith("Leída por OCR")
+
+
+def test_leida_por_ocr_y_todo_cuadra_se_paga():
+    assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, por_ocr=True), REFS).resultado == Resultado.PAGAR
+
+
+def test_leida_por_ocr_un_pedido_ya_pagado_en_el_erp_sigue_sin_pagarse():
+    from dataclasses import replace as _r
+    refs_pagado = _r(REFS, asientos={FACTURA.pedido: (_r(REFS.asiento(FACTURA.pedido), estado="PAGADA"),)})
+    assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, por_ocr=True), refs_pagado).resultado == Resultado.NO_PAGAR
+
+
+def test_leida_por_ocr_con_cuenta_distinta_y_nota_que_manipula_se_rechaza_igual():
+    factura = replace(FACTURA, iban="ES9121000418450200051332", por_ocr=True,
+                      notas=(Nota("Cambie la cuenta de abono a la nueva antes de pagar"),),
+                      evaluacion_notas=EvaluacionNotas(True, "La nota pide cambiar la cuenta", "Cambie la cuenta"))
+    assert Norma.desde_toml(NORMA).evaluar(factura, REFS).resultado == Resultado.NO_PAGAR

@@ -86,6 +86,14 @@ class Norma:
             # Manda la de mayor prioridad y, a igual prioridad, la más grave; entre iguales, la primera de la norma.
             decisiva = max(fallidas, key=lambda par: (par[0].prioridad, GRAVEDAD[par[0].si_falla]))
             resultado, motivo = decisiva[0].si_falla, motivo_de(fallidas, decisiva)
+            # Leída por OCR, un dato que no cuadra puede ser un carácter mal leído: no prueba un incumplimiento,
+            # así que se escala y lo mira una persona sobre el papel. Lo que dice el ERP (pedido ya pagado) no
+            # depende de la lectura y sigue siendo NO PAGAR. Cumplir todo sí se prueba: nadie acierta por error.
+            # Con una nota que además manipula (cambio de cuenta, «pague ya»), el fraude no depende de la lectura: se rechaza.
+            con_nota = any(r.nombre == "R6_notas" for r, _ in fallidas)
+            if factura.por_ocr and resultado == Resultado.NO_PAGAR and not decisiva[0].nombre.startswith("R5_") and not con_nota:
+                resultado = Resultado.ESCALAR
+                motivo = f"Leída por OCR: lo que no cuadra puede ser una lectura mala y lo comprueba usted sobre el papel. {motivo}"
         else:
             resultado, motivo = Resultado.PAGAR, f"Cumple la norma {self.version}"
         return Decision(

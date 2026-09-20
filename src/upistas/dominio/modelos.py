@@ -136,6 +136,7 @@ class Factura:
     iva: Decimal | None = None
     total: Decimal | None = None
     divisa: str = "EUR"  # moneda de base, iva y total (código ISO); sin marca en el documento, euros
+    por_ocr: bool = False  # leída por OCR o visión: un dato que no cuadra no prueba un incumplimiento (ver Norma.evaluar)
     lineas: tuple[Decimal, ...] = ()
     numero: str | None = None
     proveedor_nombre: str | None = None

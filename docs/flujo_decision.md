@@ -84,6 +84,17 @@ y e06_P013 es una francesa que cobra IVA español).
 - NO PAGAR solo por lo probado: IBAN distinto, pedido inexistente o de otro proveedor, importe
   distinto (en euros), ya pagada.
 
+## Escaneados leídos por OCR
+
+Un dato leído por OCR puede traer un carácter cambiado (una B leída como 8, un 5 como 6). Por eso:
+
+- Un NIF que no tiene forma de NIF se trata como no leído (escala diciendo que no se pudo leer el NIF).
+- Un dato que no cuadra (cuenta distinta, pedido ajeno, importe distinto, IVA mal) no prueba nada: la
+  factura escala y una persona lo comprueba sobre el papel. Salvo si además la nota manipula (cambio de
+  cuenta, «pague ya»): entonces el fraude no depende de la lectura y se rechaza.
+- Lo que dice el ERP (pedido ya pagado) no depende de la lectura: sigue siendo NO PAGAR.
+- Cumplir todo sí se prueba: nadie cuadra NIF, cuenta, pedido e importes por error. Se paga.
+
 ## Lo que falta por hacer
 
 - La regla fiscal aparte (en curso): IVA 0 % sin justificación, IVA español cobrado por un proveedor

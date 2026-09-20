@@ -29,7 +29,7 @@ class FirecrawlOCR:
     modelo = "firecrawl/parse"
 
     def __init__(self, api_key: str, base_url: str = "https://api.firecrawl.dev",
-                 timeout: float = 60, cliente=None, intentos: int = 3, espera_base: float = 2.0,
+                 timeout: float = 120, cliente=None, intentos: int = 3, espera_base: float = 2.0,
                  dormir=None, cerrojo: Path | None = None):
         self.base_url = base_url.rstrip("/")
         self.intentos = intentos
@@ -151,9 +151,15 @@ def _markdown_a_texto(texto: str) -> str:
 
 
 def _imagen_a_pdf(imagen: bytes) -> bytes:
-    """El PNG de la página, dentro de un PDF de una página del mismo tamaño."""
+    """La página, dentro de un PDF de una página del mismo tamaño.
+
+    Va como JPEG: con el PNG, pymupdf lo incrusta sin comprimir (11 MB por página a 200 ppp) y Firecrawl
+    corta la conexión; en JPEG son unos 60 KB y contesta en cinco segundos."""
     pix = pymupdf.Pixmap(imagen)
+    if pix.alpha:
+        pix = pymupdf.Pixmap(pix, 0)
+    jpeg = pix.tobytes("jpeg", jpg_quality=80)
     with pymupdf.open() as doc:
         pagina = doc.new_page(width=pix.width, height=pix.height)
-        pagina.insert_image(pagina.rect, stream=imagen)
+        pagina.insert_image(pagina.rect, stream=jpeg)
         return doc.tobytes()
