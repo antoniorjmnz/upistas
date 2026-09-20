@@ -226,10 +226,17 @@ details.cambiar[open] summary { margin-bottom: 10px; }
 /* ---- Previsualizar una factura: el PDF encima de la página ---- */
 dialog.visor { width: min(1100px, 96vw); height: 92vh; padding: 0; border: 0; border-radius: 14px; box-shadow: 0 30px 80px rgba(17, 24, 39, .35); background: var(--panel); color: var(--tinta); }
 dialog.visor::backdrop { background: rgba(17, 24, 39, .55); }
-.visor-cab { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--linea); }
+dialog.visor[open] { display: flex; flex-direction: column; } /* la cabecera mide lo suyo y el PDF se queda con el resto, tenga una línea o dos */
+.visor-cab { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--linea); flex: 0 0 auto; }
 .visor-cab b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .visor-cab a { font-size: 14px; }
-dialog.visor iframe { display: block; width: 100%; height: calc(92vh - 57px); border: 0; background: #525659; }
+dialog.visor iframe { display: block; width: 100%; flex: 1 1 auto; min-height: 0; border: 0; background: #525659; }
+/* En móvil el nombre del fichero va en su propia línea; debajo, el icono, el enlace y Cerrar. Antes el nombre quedaba en «202…» */
+@media (max-width: 640px) {
+  .visor-cab { flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; }
+  .visor-cab b { flex: 1 1 100%; order: -1; }
+  .visor-cab a { margin-left: auto; }
+}
 
 /* Preguntar: el chat de Alberto */
 .tarjeta.preguntar { display: flex; flex-direction: column; gap: 16px; }
