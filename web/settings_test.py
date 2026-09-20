@@ -18,3 +18,6 @@ from web.settings import *  # noqa: E402, F401, F403
 # Los workers de DBOS escriben desde varios hilos: la base de datos de tests tiene que ser un
 # fichero (WAL), no la de memoria compartida que usa Django por defecto, que se bloquea por tabla.
 DATABASES["default"]["TEST"] = {"NAME": str(_tmp / "test_django.sqlite")}  # noqa: F405
+
+# Los tests nunca pasan por la puerta de la clave, tenga lo que tenga el .env de quien los ejecuta.
+WEB_CLAVE = ""
