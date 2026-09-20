@@ -466,7 +466,8 @@ def test_el_pdf_marcado_de_una_factura_sin_trampa_no_lleva_marcas_pero_si_la_pag
 
     _, marcado = _marcado(alberto)
     assert marcado.page_count == 2
-    assert not list(marcado[0].annots()) and not marcado[0].get_drawings()
+    # La alarma no se localiza en la hoja: va como etiqueta arriba de la primera página (un recuadro y su fondo)
+    assert not list(marcado[0].annots()) and marcado[0].get_drawings()
     final = _pagina_final(marcado)
     assert final.startswith("Revisar: Trae texto que intenta influir en la decisión")
     assert TITULO_FINAL not in final
