@@ -5,17 +5,46 @@ import re
 from collections import defaultdict
 
 from upistas.contracts.factura_extraida import FacturaExtraida
-from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_importe
+from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_fecha_letras, parse_importe
 from upistas.dominio.notas import clasificar, normalizar
 
 INVISIBLE = r"[\u200b\ufeff]*"
 DIGITO = rf"\d{INVISIBLE}"
 NUMERO = rf"[+-]?{INVISIBLE}(?:{DIGITO})+(?:(?:[.,]|[ \u00a0]){INVISIBLE}(?:{DIGITO}){{3}})*[.,]{INVISIBLE}(?:{DIGITO}){{2}}(?!\d)"
-MONEDA = r"(?:(?:EUR|€)[ \t]*)?"
-FECHA = r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{1,2} de [a-z]+ de \d{4}"
+LETRA = r"[^\W\d_]"
+FECHA = (r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}"
+         rf"|\d{{1,2}}\s+de\s+{LETRA}+\s+de\s+\d{{4}}")
 CAMPOS = ("numero_factura", "nif", "iban", "pedido", "fecha", "base", "iva_pct", "iva", "total")
 SEPARADOR = r"[\s.:=#·…]*"
-ETIQUETA_IVA = r"(?<!\w)I[ \t.]*V[ \t.]*A\.?(?!\w)"
+
+# Divisa: se captura para saber si el importe es comparable con el pedido (que va en EUR).
+MONEDA = r"(EUR|€|EUROS?|USD|JPY|GBP|CHF|BRL|MXN|CAD|AUD|US\$|MX\$|R\$|\$|¥|£|FR\.?)"
+MONEDA_OPC = rf"(?:{MONEDA}[ \t]*)?"
+CODIGO_TRAS = r"(?:[ \t]+(EUR|USD|JPY|GBP|CHF|BRL|MXN|CAD|AUD)\b)?"
+SIMBOLO_A_CODIGO = {"€": "EUR", "EURO": "EUR", "EUROS": "EUR", "$": "USD", "¥": "JPY", "£": "GBP",
+                    "FR": "CHF", "FR.": "CHF", "R$": "BRL", "MX$": "MXN", "US$": "USD"}
+ETIQUETA_DIVISA = (r"(?:DIVISA\s+DE\s+FACTURACI[ÓO]N|BILLING\s+CURRENCY|RECHNUNGSW[ÄA]HRUNG|"
+                   r"MOEDA\s+DE\s+FATURA[ÇC][ÃA]O|MONEDA\s+DE\s+FACTURACI[ÓO]N)\s*[:.]?\s*\(?\s*([A-Z]{3})\b")
+
+ETIQUETA_IVA = (r"(?<!\w)(?:I[ \t.]*V[ \t.]*A\.?|V[ \t.]*A[ \t.]*T\.?|T[ \t.]*V[ \t.]*A\.?|"
+                r"M[ \t.]*W[ \t.]*S[ \t.]*T\.?)(?!\w)")
+ETIQUETA_BASE = (r"(?:{base}(?:\s+IMPONIBLE|\s+IMPOSABLE)?|{subtotal}|{sous}\s*-\s*{total}|{sous}\s+{total}|"
+                 r"{zwischen}|{imponibile}|{valor}\s+{base2}|{base3}\s+{imposable})").format(
+    base=r"(?<!\w)B[ \t]*A[ \t]*S[ \t]*E(?!\w)", subtotal=r"(?<!\w)S[ \t]*U[ \t]*B[ \t]*T[ \t]*O[ \t]*T[ \t]*A[ \t]*L(?!\w)",
+    sous=r"(?<!\w)S[ \t]*O[ \t]*U[ \t]*S", total=r"T[ \t]*O[ \t]*T[ \t]*A[ \t]*L(?!\w)",
+    zwischen=r"(?<!\w)Z[ \t]*W[ \t]*I[ \t]*S[ \t]*C[ \t]*H[ \t]*E[ \t]*N[ \t]*S[ \t]*U[ \t]*M[ \t]*M[ \t]*E(?!\w)",
+    imponibile=r"(?<!\w)I[ \t]*M[ \t]*P[ \t]*O[ \t]*N[ \t]*I[ \t]*B[ \t]*I[ \t]*L[ \t]*E(?!\w)",
+    valor=r"(?<!\w)V[ \t]*A[ \t]*L[ \t]*O[ \t]*R", base2=r"B[ \t]*A[ \t]*S[ \t]*E(?!\w)",
+    base3=r"(?<!\w)B[ \t]*A[ \t]*S[ \t]*E", imposable=r"I[ \t]*M[ \t]*P[ \t]*O[ \t]*S[ \t]*A[ \t]*B[ \t]*L[ \t]*E(?!\w)")
+# TOTAL/TOTALE/GESAMT: con guion delante no vale, para que «Sous-total» no cuente como total.
+ETIQUETA_TOTAL = (r"(?:(?<![\w-])T[ \t]*O[ \t]*T[ \t]*A[ \t]*L(?:E[ \t]*)?(?!\w)"
+                  r"|(?<!\w)G[ \t]*E[ \t]*S[ \t]*A[ \t]*M[ \t]*T(?!\w))")
+ETIQUETA_FECHA = (r"(?:F[ \t]*E[ \t]*C[ \t]*H[ \t]*A(?:\s+(?:DE\s+)?EMISI[ÓO]N)?|ISSUE\s+DATE|INVOICE\s+DATE|"
+                  r"DATE\s+D['’][ÉE]MISSION|DATA\s+D['’]EMISSI[ÓO]|DATA\s+DE\s+EMISS[ÃA]O|"
+                  r"DATA\s+DI\s+EMISSIONE|AUSSTELLUNGSDATUM|RECHNUNGSDATUM)")
+ETIQUETA_NIF = (r"(?:NIF|CIF|TAX\s+ID|UST-?ID(?:NUMMER)?|N[°ºo]?\s*TVA|P\.?\s*IVA|"
+                r"VAT\s*(?:ID|NUMBER|N[°ºo.]?)|CNPJ)\b")
+ETIQUETA_IBAN = r"(?:IBAN|CONTA|KONTO|COMPTE|CONTO)\b"
 def coste_de(paginas: list[dict]) -> dict | None:
     """Lo que costó leer: cada página escaneada pasa por el OCR y, si hizo falta, por la visión (que suma tokens)."""
     modelos = []
@@ -46,8 +75,15 @@ def separar_notas(texto: str) -> tuple[str, list[str]]:
     for linea in texto.splitlines():
         normal = normalizar(linea)
         categorias = clasificar(linea)
-        dato = bool(re.match(r"^(?:nif|cif|iban|cuenta|factura|invoice|fecha|pedido|ref|po|base|subtotal|iva|total|importe|cuota|cliente|bill to|proveedor)\b", normal))
-        inicio = bool(re.match(r"^(?:notas?|observaci(?:on|ones)|aviso|comentario|instrucciones?|condiciones de pago)\b", normal))
+        dato = bool(re.match(r"^(?:nif|cif|iban|cuenta|factura|invoice|facture|fattura|fatura|rechnung|"
+                             r"fecha|data|date|ausstellungsdatum|pedido|ref|po|purchase order|bon de commande|"
+                             r"bestellung|ordine|encomenda|comanda|base|subtotal|sous-total|zwischensumme|"
+                             r"imponibile|valor base|iva|vat|tva|mwst|total|totale|gesamt|importe|cuota|"
+                             r"cliente|client|bill to|factur|faturar|rechnungsempf|tax id|ust|proveedor|"
+                             r"divisa|moeda|billing currency|rechnungsw)\b", normal))
+        inicio = bool(re.match(r"^(?:notas?|observaci(?:on|ones)|aviso|comentario|instrucciones?|condiciones de pago|"
+                               r"payment terms|conditions de paiement|condicoes de pagamento|condicions de pagament|"
+                               r"termini di pagamento|zahlungsbedingungen|zahlungsziel)\b", normal))
         afirmacion = bool(re.search(r"\b(?:pedido|proveedor)\b.{0,50}(?:anulad|cancelad|en revision)|\b(?:iban|cuenta de abono|cuenta bancaria)\b.{0,50}\b(?:no coincid|no coincident|distint)", normal))
         inicio = inicio or any(c in categorias for c in ("pide_saltar_regla", "dirigida_al_sistema")) or afirmacion or (categorias != ("otra",) and not dato)
         if final or inicio or (actual and not dato):
@@ -64,10 +100,17 @@ def separar_notas(texto: str) -> tuple[str, list[str]]:
     return "\n".join(datos), [n for n in notas if n]
 
 
+def _codigo_divisa(marca: str) -> str:
+    """'€'/'EUR' → 'EUR', '$' → 'USD', 'Fr' → 'CHF'… Cadena vacía si no hay marca."""
+    marca = marca.strip().upper()
+    return SIMBOLO_A_CODIGO.get(marca, marca)
+
+
 def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = None) -> FacturaExtraida:
     candidatos = defaultdict(list)
     errores = []
     notas = []
+    divisas = set()  # divisas distintas de EUR vistas en los importes o en la línea de «Divisa de facturación»
 
     def guardar(campo, valor, original):
         candidatos[campo].append((valor, original))
@@ -87,22 +130,35 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
         texto = texto.replace("\u2013", "-").replace("\u2014", "-")
         cliente = False
         for linea in texto.splitlines():
-            if re.search(r"\b(?:CLIENTE|DESTINATARIO|FACTURAR\s+A|BILL\s+TO)\b", linea, re.I):
+            if re.search(r"\b(?:CLIENTE|CLIENT|DESTINATARIO|FACTURAR\s+A|FACTUR[ÉE]?\s+[ÀA]|"
+                         r"FATURAR\s+A|FATURADO\s+A|BILL\s+TO|RECHNUNGSEMPF[ÄA]NGER|FATTURATO\s+A)\b", linea, re.I):
                 cliente = True
-            if re.search(r"\b(?:PROVEEDOR|EMISOR)\b", linea, re.I):
+            if re.search(r"\b(?:PROVEEDOR|EMISOR|FORNECEDOR|FOURNISSEUR|LIEFERANT|FORNITORE|EMITTENT)\b", linea, re.I):
                 cliente = False
             if not cliente:
                 for m in re.finditer(r"\b(?:[A-Z]\s*\d{7}[A-Z0-9]|\d{8}[A-Z])\b", linea, re.I):
                     guardar("nif", re.sub(r"\s", "", m[0]).upper(), linea)
+                # NIF extranjero o con formato raro, pero etiquetado: «USt-ID: DE812345678», «N° TVA: FR40…»,
+                # «NIF: 12.345.678/0001-95»… Se lee para que el motivo diga «no está en el maestro» y no «no leído».
+                for m in re.finditer(ETIQUETA_NIF + SEPARADOR + r"([A-Z0-9][A-Z0-9.\-/]{4,20})", linea, re.I):
+                    nif = re.sub(r"[\s\u200b\ufeff]", "", m[1]).upper()
+                    if not re.fullmatch(r"[A-Z]\d{7}[A-Z0-9]|\d{8}[A-Z]", nif):
+                        guardar("nif", nif, linea)
 
         for m in re.finditer(r"\bE[\s\u200b\ufeff]*S(?:[\s.\-\u200b\ufeff]*\d){22}(?!\d)", texto, re.I):
             guardar("iban", normaliza_iban(m[0]), m[0])
+        # IBAN de fuera de España (DE89…, FR76…, GB29…, JP01…): etiquetado y dentro de la misma línea.
+        for m in re.finditer(ETIQUETA_IBAN + SEPARADOR + r"([A-Z]{2}[ \t.\-]*\d{2}(?:[ \t.\-]*[A-Z0-9]){10,30})", texto):
+            iban = normaliza_iban(m[1])
+            if iban and not iban.startswith("ES"):
+                guardar("iban", iban, m[0])
         for m in re.finditer(r"\bP\s*O\s*-?\s*(\d{4})\s*-\s*(\d{3,5})\b", texto, re.I):
             guardar("pedido", f"PO-{m[1]}-{m[2]}", m[0])
         for m in re.finditer(
             r"^[ \t]*(?:(?:N[º°o.]?|N[ÚU]MERO|REF(?:ERENCIA)?)[ \t]*(?:DE[ \t]+)?)?"
-            + rf"(?:{etiqueta('FACTURA')}|{etiqueta('INVOICE')})"
-            + r"[ \t]*(?:N[º°o.]?[ \t]*)?[:#]?[ \t]*([A-Z0-9][A-Z0-9/\-]*\d[A-Z0-9/\-]*)(?=\s|$)",
+            + rf"(?:{etiqueta('FACTURA')}|{etiqueta('INVOICE')}|{etiqueta('FACTURE')}"
+            + rf"|{etiqueta('FATTURA')}|{etiqueta('FATURA')}|{etiqueta('RECHNUNG')})"
+            + r"[ \t]*(?:N[\wº°.]*[ \t]*)?[:#]?[ \t]*([A-Z0-9][A-Z0-9/\-]*\d[A-Z0-9/\-]*)(?=\s|$)",
             texto, re.I | re.M,
         ):
             guardar("numero_factura", m[1].upper(), m[0])
@@ -114,17 +170,36 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
             # Una fecha en cifras que no existe (31/02/2026) se leyó bien; un mes escrito que no se reconoce, no.
             invalida = fecha is None and not re.search(r"[a-z]", m[1], re.I)
             guardar("fecha", FECHA_INVALIDA if invalida else fecha.isoformat() if fecha else None, m[0])
+        # Fechas con etiqueta en otro idioma o escritas en letra («dos de enero de dos mil veintiséis»):
+        # solo se guarda lo que se entiende; lo demás queda como no leído, como hasta ahora.
+        for m in re.finditer(ETIQUETA_FECHA + SEPARADOR + r"([^\n]{3,90})", texto, re.I):
+            resto = m[1].strip().rstrip(".")
+            fecha = parse_fecha(resto) or parse_fecha_letras(resto)
+            if fecha:
+                guardar("fecha", fecha.isoformat(), m[0])
 
         patrones = {
-            "base": rf"(?:{etiqueta('BASE')}(?:\s+IMPONIBLE)?|{etiqueta('SUBTOTAL')}){SEPARADOR}{MONEDA}({NUMERO})",
-            "iva_pct": rf"{ETIQUETA_IVA}{SEPARADOR}\(?\s*(\d{{1,2}}(?:[.,]\d+)?)\s*%",
-            "iva": rf"{ETIQUETA_IVA}{SEPARADOR}(?:\(?\s*\d{{1,2}}(?:[.,]\d+)?\s*%\s*\)?{SEPARADOR})?{MONEDA}({NUMERO})(?!\s*%)",
-            "total": rf"{etiqueta('TOTAL')}(?:\s+(?:FACTURA|A\s+PAGAR))?{SEPARADOR}{MONEDA}({NUMERO})",
+            "base": rf"(?:{ETIQUETA_BASE}){SEPARADOR}{MONEDA_OPC}({NUMERO}){CODIGO_TRAS}",
+            "iva": rf"{ETIQUETA_IVA}{SEPARADOR}(?:\(?\s*\d{{1,2}}(?:[.,]\d+)?\s*%\s*\)?{SEPARADOR})?{MONEDA_OPC}({NUMERO})(?!\s*%){CODIGO_TRAS}",
+            "total": rf"{ETIQUETA_TOTAL}(?:\s+(?:FACTURA|A\s+PAGAR))?{SEPARADOR}{MONEDA_OPC}({NUMERO}){CODIGO_TRAS}",
         }
+        for m in re.finditer(rf"{ETIQUETA_IVA}{SEPARADOR}\(?\s*(\d{{1,2}}(?:[.,]\d+)?)\s*%", texto, re.I):
+            guardar("iva_pct", m[1].replace(",", "."), m[0])
         for campo, patron in patrones.items():
             for m in re.finditer(patron, texto, re.I):
-                valor = parse_importe(m[1]) if campo != "iva_pct" else m[1].replace(",", ".")
+                divisa = _codigo_divisa(m[1] or "") or _codigo_divisa(m[3] or "")
+                if divisa not in ("", "EUR"):
+                    divisas.add(divisa)
+                    continue
+                valor = parse_importe(m[2])
                 guardar(campo, float(valor) if valor is not None else None, m[0])
+        for m in re.finditer(ETIQUETA_DIVISA, texto, re.I):
+            if m[1].upper() != "EUR":
+                divisas.add(m[1].upper())
+
+    # En otra divisa el importe no se puede comparar con el pedido (que va en EUR): se dice y escala.
+    for divisa in sorted(divisas):
+        errores.append(f"Divisa distinta de EUR: {divisa}")
 
     campos = {}
     for nombre in CAMPOS:
