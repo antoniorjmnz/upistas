@@ -48,3 +48,6 @@ almacen/
 docs/albertitos_plan.pdf
 docs/albertitos_plan.html
 docs/albertitos_plan.docx
+
+# Ficheros estaticos reunidos por collectstatic (WhiteNoise los sirve desde ahi)
+staticfiles/

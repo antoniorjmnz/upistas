@@ -1,0 +1,23 @@
+{% load panel_extras %}<!doctype html>
+{# Página propia sin la barra lateral ni la base de datos: si algo ha fallado, puede ser justo eso. #}
+<html lang="es">
+<head>
+  <title>Algo ha fallado · Pagos de Alberto</title>
+  <meta name="description" content="Pagos de Alberto: algo ha fallado al abrir la página; no se ha perdido nada.">
+  {% include "panel/_cabeza.html" %}
+</head>
+<body class="sola">
+  <main>
+    <a class="marca" href="{% url 'panel:inicio' %}"><span class="logo">{% icono "check" 20 %}</span><span>Pagos de Alberto<small>Banco Miralmar</small></span></a>
+    <section class="tarjeta">
+      <div class="vacio">
+        <div class="icono">{% icono "alerta" 28 %}</div>
+        <p class="grande">Algo ha fallado</p>
+        <p class="suave">No se ha perdido nada: las facturas y lo que usted decidió siguen guardados. Pruebe otra vez dentro de un momento.</p>
+        <p class="acciones" style="margin-top: 18px; justify-content: center;"><a class="boton" href="{% url 'panel:inicio' %}">{% icono "casa" 18 %}Ir a Hoy</a></p>
+      </div>
+    </section>
+  </main>
+  <footer class="pie">Pagos de Alberto · Banco Miralmar</footer>
+</body>
+</html>

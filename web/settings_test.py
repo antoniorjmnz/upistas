@@ -10,6 +10,8 @@ from pathlib import Path
 _tmp = Path(tempfile.mkdtemp(prefix="upistas-test-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{(_tmp / 'test.sqlite').as_posix()}"
 os.environ["HOY"] = "2026-09-18"
+# La web arranca sin DEBUG y exige su clave; en los tests vale una fija, si el .env no trae otra.
+os.environ.setdefault("DJANGO_SECRET_KEY", "clave-solo-para-los-tests")
 
 from web.settings import *  # noqa: E402, F401, F403
 
