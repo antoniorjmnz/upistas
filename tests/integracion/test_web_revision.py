@@ -60,12 +60,18 @@ def test_solo_la_ficha_con_algo_que_rodear_lleva_el_boton_pequeno_de_ver_en_el_p
     assert reverse("panel:factura_pdf_marcado", args=["lote1", ESCANEADA]) not in html  # abriría un PDF sin marcas
 
 
-def test_una_factura_que_solo_falla_por_lectura_no_lleva_el_boton_pero_con_avisos_del_fichero_si(alberto, lote_de_prueba):
+def test_una_factura_que_solo_falla_por_lectura_tambien_lleva_el_boton_y_sin_nada_que_marcar_no(alberto, lote_de_prueba):
     d = lote_de_prueba["decisiones"][ESCANEADA]
     boton = reverse("panel:factura_pdf_marcado", args=["lote1", ESCANEADA])
-    d.outcome = {**d.outcome, "reglas": [{"id": "R0_lectura", "ok": False, "detalle": "ningún lector acepta un escaneado"}]}
+    d.outcome = {**d.outcome, "reglas": [{"id": "R0_lectura", "ok": True, "detalle": ""}]}
+    d.alertas = []
     d.save()
     assert boton not in cola(alberto)
+    # Lo que no se pudo leer se enseña como etiqueta arriba de la primera página: el botón sí sale
+    d.outcome = {**d.outcome, "reglas": [{"id": "R0_lectura", "ok": False, "detalle": "ningún lector acepta un escaneado"}]}
+    d.save()
+    assert boton in cola(alberto)
+    d.outcome = {**d.outcome, "reglas": [{"id": "R0_lectura", "ok": True, "detalle": ""}]}
     d.alertas = ["ficheros incrustados"]
     d.save()
     assert boton in cola(alberto)

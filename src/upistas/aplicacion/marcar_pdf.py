@@ -229,6 +229,10 @@ def _que_senalar(r: ReglaFallida, a: Alarmas) -> list[tuple[tuple[str, ...], str
         return [(campo("total"), "Importe fuera de lo habitual")]
     if r.id == "R9_destinatario":
         return [(campo("cliente_cif"), "Va dirigida a otro cliente")]
+    if r.id == "R6_contenido_oculto" and "letra a letra" in d:  # no hay texto que localizar: va como etiqueta arriba
+        return [((), "Texto dibujado letra a letra (posible anotación superpuesta o manuscrita)")]
+    if r.id == "R0_lectura":  # lo que no se pudo leer no se puede rodear: se dice arriba, con el detalle llano
+        return [((), (d or r.texto or "No se ha podido leer bien la factura")[:160])]
     return []
 
 
@@ -324,7 +328,21 @@ def senalar(busquedas: Sequence[Busqueda], hallado: Mapping[str, tuple[Hallazgo,
             marca = marcas[en_sitio[sitio]]
             if b.etiqueta not in marca.etiqueta.split("\n"):
                 marcas[en_sitio[sitio]] = Marca(marca.pagina, marca.caja, f"{marca.etiqueta}\n{b.etiqueta}")
+    # Un escaneado o un texto dibujado letra a letra no tiene texto que buscar: lo que no cuadra no se puede
+    # rodear en su sitio, así que va como etiqueta arriba de la primera página, con el valor leído al lado.
+    sin_sitio = [b for b in busquedas if not any(hallado.get(t) for t in b.textos)]
+    if sin_sitio and not any(hallado.values()):
+        lineas = list(dict.fromkeys(_linea_arriba(b) for b in sin_sitio))
+        marcas.append(Marca(1, CAJA_ARRIBA, "\n".join(["No se puede rodear el dato en una imagen; lo que hace saltar la alarma:", *lineas])))
     return marcas, donde
+
+
+CAJA_ARRIBA = (36.0, 14.0, 46.0, 24.0)  # un recuadro pequeño arriba a la izquierda de la primera página; la etiqueta va a su lado
+
+
+def _linea_arriba(b: Busqueda) -> str:
+    leido = " ".join(b.textos[0].split())[:60] if b.textos and b.textos[0].strip() else ""
+    return f"{b.etiqueta} (leído: {leido})" if leido else b.etiqueta
 
 
 def _paginas(numeros: Sequence[int]) -> str:

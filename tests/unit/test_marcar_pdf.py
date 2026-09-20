@@ -270,8 +270,10 @@ def test_el_resto_de_reglas_rodean_su_dato_o_nada():
     assert [e for e, _ in _busquedas("R6_proveedor_referencias", "El NIF de la factura no corresponde al proveedor del ERP")] == [
         "NIF que no es el del proveedor del pedido",
     ]
-    for regla in ("R6_proveedor_referencias", "R6_contenido_oculto", "R6_maestro_verificable", "R0_lectura", "R10_fichero_sospechoso", "R99_nueva"):
+    for regla in ("R6_proveedor_referencias", "R6_contenido_oculto", "R6_maestro_verificable", "R10_fichero_sospechoso", "R99_nueva"):
         assert _busquedas(regla, "Proveedor contradictorio: Excel P1, ERP P2") == [], regla
+    # Lo que no se pudo leer no se rodea en su sitio: va como etiqueta arriba, con el detalle llano
+    assert _busquedas("R0_lectura", "No se pudo leer: la fecha") == [("No se pudo leer: la fecha", ())]
 
 
 # --- Dónde cae cada cosa --------------------------------------------------------------------------------
@@ -358,7 +360,8 @@ def test_marcar_pdf_con_alarmas_busca_rodea_y_escribe_el_resultado_las_alarmas_y
 def test_lo_que_no_se_encuentra_no_se_rodea_pero_se_lista_con_lo_que_se_busco():
     alarmas = _alarmas(("R4_fecha", "Fecha imposible: 30/06/2026"))
     marcado = marcar_pdf(RUTA, MarcadorDeMentira(), alarmas)
-    assert marcado.marcas == ()
+    # Sin nada localizado, la alarma va como etiqueta arriba de la primera página y se lista al final con lo que se buscó.
+    assert len(marcado.marcas) == 1 and marcado.marcas[0].pagina == 1 and "Fecha imposible" in marcado.marcas[0].etiqueta
     assert "En llano R4_fecha: no lo hemos encontrado escrito en la factura (buscábamos «Fecha: 30/06/2026»)." in marcado.frases
 
 
@@ -394,3 +397,24 @@ def test_una_factura_limpia_lleva_una_pagina_final_que_lo_dice():
     marcado = marcar_pdf(RUTA, MarcadorDeMentira(), Alarmas("Pagar", "Cumple la norma"))
     assert marcado.frases == ("Pagar: Cumple la norma", SIN_ALARMAS)
     assert marcado.marcas == ()
+
+
+def test_sin_texto_que_buscar_las_alarmas_van_como_etiqueta_arriba_de_la_primera_pagina():
+    # Un escaneado: ningún texto se localiza. Las alarmas se listan arriba, con el valor leído, en vez de perderse.
+    from upistas.aplicacion.marcar_pdf import CAJA_ARRIBA
+
+    busquedas = busquedas_de(_alarmas(("R1_nif_iban", "IBAN ausente o distinto del maestro"), ("R2_pedido_importe", "Total 12874.4 distinto del pedido 12847.40")))
+    marcas, _ = senalar(busquedas, {})
+    assert len(marcas) == 1 and marcas[0].pagina == 1 and marcas[0].caja == CAJA_ARRIBA
+    lineas = marcas[0].etiqueta.split("\n")
+    assert lineas[0].startswith("No se puede rodear")
+    assert "Cuenta distinta de la del maestro (leído: ES02 2100 8877 3346 0021 4488)" in lineas
+    assert any(linea.startswith("Total distinto del pedido") for linea in lineas)
+
+
+def test_con_algun_texto_localizado_lo_no_encontrado_no_va_arriba():
+    from upistas.aplicacion.marcar_pdf import CAJA_ARRIBA
+
+    busquedas = busquedas_de(_alarmas(("R1_nif_iban", "IBAN ausente o distinto del maestro"), ("R2_pedido_importe", "Pedido ausente o no encontrado")))
+    marcas, _ = senalar(busquedas, {"PO-2026-1204": (_hallazgo(),)})
+    assert len(marcas) == 1 and marcas[0].caja != CAJA_ARRIBA

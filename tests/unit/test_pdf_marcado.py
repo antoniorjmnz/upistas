@@ -198,7 +198,8 @@ def test_un_valor_que_no_esta_escrito_en_la_hoja_no_se_rodea_pero_se_lista(factu
     otro_iban = {**CAMPOS, "iban": CampoLeido("ES9999999999999999999999", "ES99 9999 9999 9999 9999 9999")}
     alarmas = Alarmas("No pagar", "Motivo", (ReglaFallida("R1_nif_iban", "IBAN ausente o distinto del maestro", "La cuenta"),), otro_iban)
     marcado, pdf = _marcado(factura, alarmas)
-    assert marcado.marcas == () and _recuadros(pdf[0], NARANJA) == []
+    # No se rodea en su sitio (no está escrito), pero la alarma va como etiqueta arriba de la primera página.
+    assert len(marcado.marcas) == 1 and marcado.marcas[0].pagina == 1 and len(_recuadros(pdf[0], NARANJA)) == 1
     assert "La cuenta: no lo hemos encontrado escrito en la factura (buscábamos «ES99 9999 9999 9999 9999 9999»)." in _final(pdf)
 
 
