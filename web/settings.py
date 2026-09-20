@@ -8,7 +8,6 @@ Las variables están explicadas en `.env.example` y en docs/web.md («En producc
 import os
 from pathlib import Path
 
-from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,10 +21,23 @@ DEBUG = _si("DJANGO_DEBUG")
 
 # La clave viene del entorno. Solo con DEBUG vale una de desarrollo; sin DEBUG y sin clave la web no arranca.
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "").strip()
+SECRET_KEY_GENERADA = False  # True cuando no vino del entorno: vale en el portátil, no en un servidor
 if not SECRET_KEY:
-    if not DEBUG:
-        raise ImproperlyConfigured("Falta DJANGO_SECRET_KEY en el entorno (o DJANGO_DEBUG=1 para desarrollar en local).")
-    SECRET_KEY = "solo-desarrollo-no-usar-en-produccion"
+    # Sin variable, una clave estable por máquina, guardada fuera de git: así arrancar en el portátil no exige nada.
+    _fichero_clave = BASE_DIR / ".django_secret_key"
+    try:
+        SECRET_KEY = _fichero_clave.read_text(encoding="utf-8").strip()
+    except OSError:
+        SECRET_KEY = ""
+    if len(SECRET_KEY) < 50:
+        import secrets as _secrets
+
+        SECRET_KEY = _secrets.token_urlsafe(60)
+        try:
+            _fichero_clave.write_text(SECRET_KEY, encoding="utf-8")
+        except OSError:
+            pass  # disco de solo lectura: la clave dura lo que dure el proceso
+    SECRET_KEY_GENERADA = True
 
 # Desde dónde se puede abrir la web: los dos locales, o lo que diga el entorno (lista separada por comas).
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]

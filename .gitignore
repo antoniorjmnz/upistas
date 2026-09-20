@@ -51,3 +51,6 @@ docs/albertitos_plan.docx
 
 # Ficheros estaticos reunidos por collectstatic (WhiteNoise los sirve desde ahi)
 staticfiles/
+
+# Clave secreta generada en el portátil
+.django_secret_key
