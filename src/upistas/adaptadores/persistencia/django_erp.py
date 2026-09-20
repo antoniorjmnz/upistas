@@ -8,6 +8,10 @@ from upistas.puertos import EstadisticasDescarga, Sincronizacion
 class AlmacenERPDjango:
     """Los modelos se importan dentro de cada método: Django tiene que estar configurado antes."""
 
+    def __init__(self, automatica: bool = False) -> None:
+        # Las filas de la sincronización constante se marcan para que el historial no se llene de comprobaciones.
+        self.automatica = automatica
+
     def registrar(self, sincronizacion: Sincronizacion, asientos: tuple[Asiento, ...] | None) -> None:
         from django.db import transaction
 
@@ -35,6 +39,7 @@ class AlmacenERPDjango:
                 lote2_cargado=s.lote2_cargado, peticiones=e.peticiones, reintentos_ora=e.reintentos_ora,
                 esperas_429=e.esperas_429, relogins=e.relogins, errores_red=e.errores_red, segundos=e.segundos,
                 error=s.error or "", nuevos=s.nuevos, modificados=s.modificados, eliminados=s.eliminados,
+                automatica=self.automatica,
             )
 
     def asientos(self, version: str | None = None) -> list[Asiento]:

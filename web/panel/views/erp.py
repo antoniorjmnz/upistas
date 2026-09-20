@@ -8,8 +8,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
-from upistas.aplicacion.sincronizar_erp import sincronizar_erp
 from upistas.dominio.versiones import diferencias
+from web.panel import sincronizacion
 from web.panel.models import AsientoERP, SincronizacionERP, VersionERP
 
 
@@ -28,13 +28,17 @@ def _contexto_conexion() -> dict:
     if en_uso and en_uso.version_id:
         filas = AsientoERP.objects.filter(version_id=en_uso.version_id).values("estado").annotate(n=Count("id"))
         estados = {f["estado"]: f["n"] for f in filas}
-    historial = list(SincronizacionERP.objects.select_related("version")[:20])
     # Para enlazar "qué cambió": la versión que había justo antes de cada sincronización correcta.
     anterior_de, previa, primera = {}, None, None
     for s in SincronizacionERP.objects.filter(ok=True).order_by("inicio", "id").only("id", "version_id"):
         primera = primera or s.id
         anterior_de[s.id] = previa if previa != s.version_id else None
         previa = s.version_id
+    # Las comprobaciones automáticas que fueron bien y sin cambios no llenan el historial: se cuentan aparte
+    # (la primera copia sí se lista, aunque la trajera el vigilante).
+    rutinarias = Q(automatica=True, ok=True, nuevos=0, modificados=0, eliminados=0) & ~Q(id=primera)
+    sin_cambios = SincronizacionERP.objects.filter(rutinarias)
+    historial = list(SincronizacionERP.objects.exclude(rutinarias).select_related("version")[:20])
     for s in historial:
         s.version_anterior = anterior_de.get(s.id)
         s.es_primera = s.id == primera
@@ -45,6 +49,11 @@ def _contexto_conexion() -> dict:
         "pendientes": estados.get("PENDIENTE", 0),
         "pagados": estados.get("PAGADA", 0),
         "historial": historial,
+        "constante": sincronizacion.esta_activa(),
+        "cada_s": sincronizacion.CADA_S,
+        "ultima_comprobacion": ultima.inicio if ultima else None,
+        "n_sin_cambios": sin_cambios.count(),
+        "ultima_sin_cambios": sin_cambios.first(),
     }
 
 
@@ -54,9 +63,16 @@ def conexion(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def sincronizar(request: HttpRequest) -> HttpResponse:
-    from upistas.infra import contenedor
+    sincronizacion.sincronizar_una_vez(automatica=False)
+    if request.headers.get("HX-Request"):
+        return render(request, "panel/_conexion_estado.html", _contexto_conexion())
+    return redirect("panel:conexion")
 
-    sincronizar_erp(contenedor.cliente_erp(), AlmacenERPDjango())
+
+@require_POST
+def constante(request: HttpRequest) -> HttpResponse:
+    """El interruptor «Mantener la sincronización constante»: el checkbox solo llega cuando está marcado."""
+    sincronizacion.activar(bool(request.POST.get("activa")))
     if request.headers.get("HX-Request"):
         return render(request, "panel/_conexion_estado.html", _contexto_conexion())
     return redirect("panel:conexion")

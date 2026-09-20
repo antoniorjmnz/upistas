@@ -34,7 +34,7 @@
           <a href="{% url 'panel:asientos' %}" class="{% if pagina_actual == 'asientos' %}activa{% endif %}">{% icono "lista" 18 %}<span>Asientos del ERP</span></a>
         </nav>
         {% if erp_estado %}
-        <div class="estado-erp {{ erp_estado.clase }}" title="{{ erp_estado.detalle }}"><span class="punto"></span><div>{{ erp_estado.texto }}</div></div>
+        <div class="estado-erp {{ erp_estado.clase }}" title="{{ erp_estado.detalle }}"><span class="punto"></span><div>{{ erp_estado.texto }}{% if erp_estado.sub %}<small>{{ erp_estado.sub }}</small>{% endif %}</div></div>
         {% endif %}
         <div class="persona"><span class="av e">AL</span><div><b>Alberto</b><small>Contabilidad</small></div></div>
       </div>

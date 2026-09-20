@@ -161,7 +161,11 @@ Abajo en la barra lateral, las de quien lleva el sistema (mismo cuidado, más da
   entrega, línea a línea tal cual) y, plegado, con qué datos se decidió, cuánto tardó y costó y en qué
   ordenador se hizo.
 - **Conexión con el ERP**: la copia con la que se trabaja, sus cifras, el botón de sincronizar y, plegado,
-  el historial de conexiones con sus reintentos y qué cambió entre copias.
+  el historial de conexiones con sus reintentos y qué cambió entre copias. El interruptor «Mantener la
+  sincronización constante» hace que la web traiga sola el ERP cada minuto mientras esté en marcha
+  (`web/panel/sincronizacion.py`, un hilo como el de los repasos; `ERP_SYNC_CADA_S` en `.env` cambia el
+  ritmo). La barra lateral lo enseña con el punto latiendo, y las comprobaciones que no traen cambios no
+  llenan el historial: se cuentan en una línea.
 - **Asientos del ERP**: los asientos de una copia, con buscador, chips de estado y el selector de copia.
 
 ## Cómo está hecha
