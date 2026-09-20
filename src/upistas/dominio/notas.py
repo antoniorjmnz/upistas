@@ -68,9 +68,18 @@ _COLA_PLAZO = frozenset(
     "da data fatura emissao apos recepcao liquido fim "
     "des dies emissio recepcio final "
     "dalla dal dopo della di fattura emissione ricevimento ricezione netto fine mese "
-    "ab nach rechnungsdatum rechnungseingang rechnung datum erhalt der dem ohne abzug rein".split()
+    "ab nach rechnungsdatum ausstellungsdatum rechnungseingang rechnung datum erhalt der dem ohne abzug rein".split()
 )
-_PIE_INOFENSIVO = re.compile(r"^documento generado (?:automaticamente )?por el sistema de facturacion(?: del proveedor)?$")
+# El pie de las plantillas del lote 2 en sus siete idiomas: dice quién generó el documento y nada más.
+_PIE_INOFENSIVO = re.compile(
+    r"^(?:documento generado (?:automaticamente )?por el sistema de facturacion(?: del proveedor)?"
+    r"|document generated (?:automatically )?by the supplier'?s? (?:billing|invoicing) system"
+    r"|document genere (?:automatiquement )?par le systeme de facturation du fournisseur"
+    r"|documento gerado (?:automaticamente )?pelo sistema de fatura(?:c|)ao do fornecedor"
+    r"|documento generato (?:automaticamente )?dal sistema di fatturazione del fornitore"
+    r"|document generat (?:automaticament )?pel sistema de facturacio del prove(?:i|)dor"
+    r"|vom fakturierungssystem des lieferanten (?:automatisch )?erstelltes dokument)$"
+)
 
 
 def normalizar(texto: str) -> str:
