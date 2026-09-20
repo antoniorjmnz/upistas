@@ -37,11 +37,9 @@
       Sincronizar ahora
     </button>
     <span id="hablando" class="htmx-indicator suave" style="align-items: center; gap: 8px;">
-      <span class="girando" aria-hidden="true"></span> Hablando con el ERP… (unos 4 segundos)
+      <span class="girando" aria-hidden="true"></span> Hablando con el ERP…
     </span>
   </p>
-  <p class="suave" style="margin: 10px 0 0; font-size: 14px;">Cada lote sincroniza solo al empezar. Este botón
-    es para cuando sepa que algo ha cambiado en el ERP.</p>
 
   <details class="mas">
     <summary>Historial de conexiones{% icono "chevron" 16 %}</summary>
@@ -50,9 +48,9 @@
         <thead>
           <tr>
             <th>Cuándo</th><th>Resultado</th><th class="num">Duración</th><th class="num">Peticiones</th>
-            <th class="num" title="ORA-00600: el ERP falla una de cada diez consultas; se reintenta solo">Reintentos</th>
-            <th class="num" title="ERP-429: demasiadas peticiones; se espera lo que pide">Esperas</th>
-            <th class="num" title="SES-401: la sesión caducó; se vuelve a entrar">Reconexiones</th>
+            <th class="num" title="Consultas que el ERP falló y se repitieron">Reintentos</th>
+            <th class="num" title="Veces que el ERP pidió esperar">Esperas</th>
+            <th class="num" title="Veces que hubo que volver a entrar">Reconexiones</th>
             <th>Cambios en el ERP</th>
           </tr>
         </thead>
