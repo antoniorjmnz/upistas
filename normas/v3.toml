@@ -83,7 +83,7 @@ prioridad = 350
 # R4_fecha → NO_PAGAR: fecha imposible (31/02) o futura; incumple la regla 4.
 # R2_divisa → ESCALAR: factura en otra moneda; se dice cuánto sale al tipo de referencia y si cuadra, y paga Alberto.
 #   Por debajo de R1 y R2: una prueba independiente de la divisa (IBAN, pedido de otro o inexistente, ya pagado) sigue siendo NO_PAGAR.
-# R3_datos_fiscales → ESCALAR: importes negativos o sin tipo de IVA impreso para contrastar la cuota; no tapa una suma mal hecha.
+# R3_datos_fiscales → ESCALAR: importes negativos, sin tipo de IVA impreso para contrastar la cuota, o proveedor de fuera de España cobrando IVA español; no tapa una suma mal hecha.
 # R6_notas → ESCALAR: nota relevante o instrucción en el documento; la mira una persona aunque el ERP diga PAGADA.
 # R6_contenido_oculto → ESCALAR: texto oculto o caracteres invisibles; la mira una persona.
 # R5_no_pagada → NO_PAGAR: pedido ya pagado en el ERP o aprobado en otro lote; nunca pagar dos veces.

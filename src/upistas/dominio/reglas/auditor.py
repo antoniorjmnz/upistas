@@ -98,6 +98,12 @@ def datos_fiscales(factura, refs, params):
         return Comprobacion("R3_datos_fiscales", False, "Importes negativos: requieren revisión antes de aplicar la regla de IVA")
     if factura.iva_pct is None:
         return Comprobacion("R3_datos_fiscales", False, "Sin el tipo de IVA impreso no se puede contrastar la cuota")
+    # Un proveedor de fuera de España que cobra IVA español es una duda fiscal (inversión del sujeto pasivo o
+    # exención): la mira una persona. El país sale del formato del NIF; si no se sabe, no se supone nada.
+    pais = pais_del_nif(factura.nif)
+    if pais not in ("ES", "??") and factura.iva_pct in (21, 10, 4) and factura.iva > 0:
+        return Comprobacion("R3_datos_fiscales", False,
+                            f"Proveedor de fuera de España ({pais}) cobra IVA español ({factura.iva_pct:g} %): comprobar inversión del sujeto pasivo")
     return Comprobacion("R3_datos_fiscales", True)
 
 

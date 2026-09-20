@@ -435,6 +435,23 @@ def test_iva_incorrecto_prevalece_sobre_nota_oculta():
     assert Norma.desde_toml(NORMA).evaluar(factura, REFS).resultado == Resultado.NO_PAGAR
 
 
+def test_proveedor_de_fuera_de_espana_cobrando_iva_espanol_es_duda_fiscal():
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, nif="DE812345678"), REFS)
+    fiscal = next(c for c in decision.comprobaciones if c.regla == "R3_datos_fiscales")
+    assert not fiscal.ok and "fuera de España (DE) cobra IVA español (21 %)" in fiscal.detalle
+
+
+def test_proveedor_espanol_o_de_pais_desconocido_con_iva_espanol_no_es_duda_fiscal():
+    for nif in (PROVEEDOR.nif, "12.345.678/0001-95"):
+        decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, nif=nif), REFS)
+        assert next(c for c in decision.comprobaciones if c.regla == "R3_datos_fiscales").ok
+
+
+def test_proveedor_extranjero_sin_iva_no_es_duda_fiscal():
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, nif="DE812345678", iva_pct=Decimal("0"), iva=Decimal("0"), total=Decimal("100")), REFS)
+    assert next(c for c in decision.comprobaciones if c.regla == "R3_datos_fiscales").ok
+
+
 def test_sin_tipo_de_iva_legible_escala():
     assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None), REFS).resultado == Resultado.ESCALAR
 
