@@ -20,7 +20,7 @@ def test_con_clave_la_portada_es_la_puerta_y_no_ensena_nada_de_la_web(alberto):
     r = alberto.get("/")
     html = r.content.decode()
     assert r.status_code == 200 and PUERTA in html and 'name="clave"' in html and 'type="password"' in html
-    assert f"<title>{PUERTA} · Pagos de Alberto</title>" in html and "Pagos de Alberto · Banco Miralmar" in html
+    assert f"<title>{PUERTA} · Control de facturas</title>" in html and "Control de facturas · Pagos a proveedores" in html
     assert 'class="lado"' not in html and "csrfmiddlewaretoken" not in html and AVISO not in html
     assert 'name="siguiente" value="/"' in html
 

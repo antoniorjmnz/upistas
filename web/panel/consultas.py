@@ -96,7 +96,7 @@ NOMBRE_REGLA = {
     "R6_revision_interna": "Sin notas que pidan revisión",
     "R7_marcado_por_alberto": "No apuntada por Alberto para revisar",
     "R8_importe_anomalo": "Importe dentro de lo habitual",
-    "R9_destinatario": "Dirigida a Banco Miralmar",
+    "R9_destinatario": "Dirigida a nuestra empresa",
     "R10_fichero_sospechoso": "Fichero sin contenido raro",
 }
 
@@ -897,7 +897,7 @@ EXPLICACION_REGLA = {
         "Se manda a revisar: un importe muy fuera de lo normal no es un error probado, pero conviene mirarlo.",
     ),
     "R9_destinatario": (
-        "Que la factura va dirigida a la empresa de Alberto (Banco Miralmar) y no a otro cliente.",
+        "Que la factura va dirigida a nuestra empresa y no a otro cliente.",
         "Se manda a revisar: una factura para otro no se paga sin que alguien lo confirme.",
     ),
     "R10_fichero_sospechoso": (

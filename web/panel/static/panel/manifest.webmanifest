@@ -1,7 +1,7 @@
 {
-  "name": "Pagos de Alberto",
-  "short_name": "Pagos de Alberto",
-  "description": "Las facturas de Alberto en Banco Miralmar: cuáles se pagan, cuáles no y cuáles tiene que mirar él.",
+  "name": "Control de facturas",
+  "short_name": "Control de facturas",
+  "description": "Las facturas de proveedores: cuáles se pagan, cuáles no y cuáles hay que revisar.",
   "lang": "es",
   "start_url": "/",
   "scope": "/",

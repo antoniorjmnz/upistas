@@ -2,13 +2,13 @@
 {# Página propia sin la barra lateral ni la base de datos: si algo ha fallado, puede ser justo eso. #}
 <html lang="es">
 <head>
-  <title>Algo ha fallado · Pagos de Alberto</title>
-  <meta name="description" content="Pagos de Alberto: algo ha fallado al abrir la página; no se ha perdido nada.">
+  <title>Algo ha fallado · Control de facturas</title>
+  <meta name="description" content="Control de facturas: algo ha fallado al abrir la página; no se ha perdido nada.">
   {% include "panel/_cabeza.html" %}
 </head>
 <body class="sola">
   <main>
-    <a class="marca" href="{% url 'panel:inicio' %}"><span class="logo">{% icono "check" 20 %}</span><span>Pagos de Alberto<small>Banco Miralmar</small></span></a>
+    <a class="marca" href="{% url 'panel:inicio' %}"><span class="logo">{% icono "check" 20 %}</span><span>Control de facturas<small>Pagos a proveedores</small></span></a>
     <section class="tarjeta">
       <div class="vacio">
         <div class="icono">{% icono "alerta" 28 %}</div>
@@ -18,6 +18,6 @@
       </div>
     </section>
   </main>
-  <footer class="pie">Pagos de Alberto · Banco Miralmar</footer>
+  <footer class="pie">Control de facturas · Pagos a proveedores</footer>
 </body>
 </html>

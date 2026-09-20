@@ -40,7 +40,7 @@ def test_la_404_es_nuestra_y_lleva_a_hoy(alberto):
     html = r.content.decode()
     assert r.status_code == 404
     assert "Esta página no existe" in html and 'href="' + reverse("panel:inicio") + '"' in html
-    assert "<title>Esta página no existe · Pagos de Alberto</title>" in html
+    assert "<title>Esta página no existe · Control de facturas</title>" in html
     assert 'class="lado"' in html  # con la barra lateral: Alberto sigue en la web
     assert "Not Found" not in html and "Traceback" not in html
 
@@ -86,7 +86,7 @@ def test_collectstatic_reune_los_ficheros_vendidos(tmp_path):
 def test_todas_las_pantallas_llevan_el_pie_y_nada_mas(alberto, lote_de_prueba):
     for nombre in ("inicio", "facturas", "proveedores", "cola", "ejecuciones", "conexion", "asientos", "subir"):
         html = alberto.get(reverse("panel:" + nombre)).content.decode()
-        assert '<footer class="pie">Pagos de Alberto · Banco Miralmar</footer>' in html, nombre
+        assert '<footer class="pie">Control de facturas · Pagos a proveedores</footer>' in html, nombre
         for rastro in ("GitHub", "github", "localhost", "en construcción", "en desarrollo"):
             assert rastro not in html, (nombre, rastro)
 
@@ -126,18 +126,18 @@ def test_la_huella_de_la_copia_del_erp_no_sale_arriba(alberto, lote_de_prueba):
 
 def test_identidad_en_la_cabecera(alberto, lote_de_prueba):
     html = alberto.get(reverse("panel:inicio")).content.decode()
-    assert '<html lang="es">' in html and "<title>Hoy · Pagos de Alberto</title>" in html
-    assert '<meta name="description" content="Las facturas de Alberto en Banco Miralmar' in html
+    assert '<html lang="es">' in html and "<title>Hoy · Control de facturas</title>" in html
+    assert '<meta name="description" content="Las facturas de proveedores' in html
     assert 'rel="icon" type="image/svg+xml" href="/static/panel/marca.svg' in html
     assert 'rel="manifest" href="/static/panel/manifest.webmanifest' in html
-    assert '<meta name="application-name" content="Pagos de Alberto">' in html
+    assert '<meta name="application-name" content="Control de facturas">' in html
     manifiesto = json.loads((RAIZ / "web" / "panel" / "static" / "panel" / "manifest.webmanifest").read_text(encoding="utf-8"))
-    assert manifiesto["name"] == "Pagos de Alberto" and manifiesto["lang"] == "es" and manifiesto["icons"][0]["src"] == "marca.svg"
+    assert manifiesto["name"] == "Control de facturas" and manifiesto["lang"] == "es" and manifiesto["icons"][0]["src"] == "marca.svg"
 
 
 def test_cada_pantalla_tiene_su_titulo(alberto, lote_de_prueba):
     for nombre, titulo in (("facturas", "Facturas"), ("proveedores", "Proveedores"), ("cola", "Para revisar"), ("subir", "Subir facturas")):
-        assert f"<title>{titulo} · Pagos de Alberto</title>" in alberto.get(reverse("panel:" + nombre)).content.decode()
+        assert f"<title>{titulo} · Control de facturas</title>" in alberto.get(reverse("panel:" + nombre)).content.decode()
 
 
 # --- 4) Ajustes de producción ---

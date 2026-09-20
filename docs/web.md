@@ -57,10 +57,10 @@ y en las plantillas `404.html`, `500.html` y `403.html`.
 `/salud/` responde `ok` en texto llano (y 503 «sin base de datos» si la base no contesta), para el
 comprobador del despliegue o el balanceador.
 
-Identidad: `<html lang="es">`, un título por pantalla («Hoy · Pagos de Alberto»), `meta description`, la
+Identidad: `<html lang="es">`, un título por pantalla («Hoy · Control de facturas»), `meta description`, la
 marca de la barra lateral como favicon (`static/panel/marca.svg`) y un manifest mínimo
-(`static/panel/manifest.webmanifest`) para que el navegador llame a la web «Pagos de Alberto» y no por su
-dominio. Un pie discreto en todas las pantallas: «Pagos de Alberto · Banco Miralmar», y nada más.
+(`static/panel/manifest.webmanifest`) para que el navegador llame a la web «Control de facturas» y no por su
+dominio. Un pie discreto en todas las pantallas: «Control de facturas · Pagos a proveedores», y nada más.
 
 Los datos los pone el pipeline: `uv run upistas run` deja el lote decidido y la web lo enseña, o los
 sube Alberto desde «Subir facturas». Sin ninguna ejecución, la portada lo explica y dice cómo lanzarla.
