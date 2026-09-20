@@ -67,7 +67,10 @@ def proveedor_coherente(factura, refs, params):
     for origen, registro in (("Excel", pedido), ("ERP", asiento)):
         if registro.nif and _id(registro.nif) != _id(proveedor.nif):
             return Comprobacion(nombre, False, f"NIF del pedido en {origen} distinto del maestro")
-    return Comprobacion(nombre, True, "Identidad contrastada por ID y maestro; el NIF ausente en el pedido no se inventa")
+    sin_nif = [origen for origen, registro in (("Excel", pedido), ("ERP", asiento)) if not registro.nif]
+    if sin_nif:
+        return Comprobacion(nombre, True, f"Identidad contrastada con el maestro por ID; el NIF ausente en el pedido ({' y '.join(sin_nif)}) no se inventa")
+    return Comprobacion(nombre, True, "Identidad contrastada con el maestro por ID y NIF")
 
 
 @regla("R6_revision_interna")

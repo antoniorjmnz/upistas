@@ -258,6 +258,14 @@ def test_proveedor_del_excel_contradice_erp_aunque_factura_coincida_con_erp():
 def test_nif_ausente_en_pedido_y_erp_se_verifica_por_maestro():
     refs = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, nif="")}, asientos={PEDIDO.id: (replace(ASIENTO, nif=""),)})
     assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.PAGAR
+    assert obtener("R6_proveedor_referencias")(FACTURA, refs, {}).detalle == "Identidad contrastada con el maestro por ID; el NIF ausente en el pedido (Excel y ERP) no se inventa"
+    solo_excel = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, nif="")})
+    assert "(Excel)" in obtener("R6_proveedor_referencias")(FACTURA, solo_excel, {}).detalle
+
+
+def test_el_detalle_de_identidad_dice_la_verdad_cuando_el_pedido_trae_nif():
+    """468 facturas del lote 1 decían «el NIF ausente en el pedido no se inventa» con el NIF puesto en el Excel."""
+    assert obtener("R6_proveedor_referencias")(FACTURA, REFS, {}).detalle == "Identidad contrastada con el maestro por ID y NIF"
 
 
 def test_nif_ausente_en_maestro_no_se_inventa():
