@@ -8,6 +8,10 @@ Las variables están explicadas en `.env.example` y en docs/web.md («En producc
 import os
 from pathlib import Path
 
+# Antes que nada: importar upistas.config carga el .env de la raíz. Si esto va más abajo, DEBUG, la clave,
+# los hosts y WEB_CLAVE se leen con el entorno vacío (con runserver se disimula porque el autoreload hereda el entorno).
+from upistas.config import base_de_datos_django, settings as upistas_settings  # noqa: I001
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -109,7 +113,6 @@ CSRF_FAILURE_VIEW = "web.panel.views.errores.csrf_fallo"
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 # La misma base de datos que el pipeline (DATABASE_URL en .env): SQLite en local, Postgres para escalar.
-from upistas.config import base_de_datos_django, settings as upistas_settings  # noqa: E402
 
 DATABASES = {"default": base_de_datos_django(upistas_settings.database_url)}
 

@@ -97,6 +97,7 @@ NOMBRE_REGLA = {
     "R7_marcado_por_alberto": "No apuntada por Alberto para revisar",
     "R8_importe_anomalo": "Importe dentro de lo habitual",
     "R9_destinatario": "Dirigida a nuestra empresa",
+    "D0_sha256": "Huella del documento",
     "R10_fichero_sospechoso": "Fichero sin contenido raro",
 }
 
