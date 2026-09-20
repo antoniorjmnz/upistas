@@ -1,10 +1,9 @@
 {% load static panel_extras %}<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Pagos de Alberto{% endblock %}</title>
-  <link rel="stylesheet" href="{% estatico 'panel/panel.css' %}">
+  <meta name="description" content="{% block descripcion %}Las facturas de Alberto en Banco Miralmar: cuáles se pagan, cuáles no y cuáles tiene que mirar él.{% endblock %}">
+  {% include "panel/_cabeza.html" %}
   {% block css %}{% endblock %}
   <script src="{% estatico 'panel/htmx.min.js' %}" defer></script>
   <script src="{% estatico 'panel/panel.js' %}" defer></script>
@@ -47,6 +46,7 @@
         {% endif %}
         {% block contenido %}{% endblock %}
       </main>
+      <footer class="pie">Pagos de Alberto · Banco Miralmar</footer>
     </div>
   </div>
   <dialog id="visor" class="visor" aria-label="Factura">

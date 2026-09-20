@@ -52,7 +52,11 @@ svg { flex: 0 0 auto; }
 .persona .av { width: 34px; height: 34px; }
 .persona small { display: block; font-size: 12px; color: var(--suave); }
 .contenido { min-width: 0; container-type: inline-size; } /* las rejillas miran el ancho del contenido, no el de la ventana (cuenta el panel Preguntar abierto) */
-main { max-width: var(--ancho); margin: 0 auto; padding: 32px 32px 64px; display: flex; flex-direction: column; gap: 22px; }
+main { max-width: var(--ancho); margin: 0 auto; padding: 32px 32px 48px; display: flex; flex-direction: column; gap: 22px; }
+.pie { max-width: var(--ancho); margin: 0 auto; padding: 0 32px 24px; font-size: 12.5px; color: var(--suave); text-align: center; }
+/* Página suelta (la de «Algo ha fallado»): sin barra lateral, la marca arriba y la tarjeta en medio */
+body.sola main { max-width: 560px; padding-top: 48px; }
+body.sola .marca { align-self: center; }
 
 /* ---- Cabecera de cada pantalla ---- */
 .hero { display: flex; flex-direction: column; gap: 6px; }
@@ -330,7 +334,8 @@ details.conversaciones[open] summary svg { transform: rotate(180deg); }
   .lado .abajo { margin-top: 0; padding-top: 0; border-top: 0; flex-direction: row; }
   .lado .abajo nav { flex-direction: row; }
   .persona, .estado-erp { display: none; }
-  main { padding: 20px 16px 40px; }
+  main { padding: 20px 16px 28px; }
+  .pie { padding: 0 16px 20px; }
   h1 { font-size: 24px; }
   .tarjeta { padding: 16px; }
   .fila, .fila-factura { grid-template-columns: auto 1fr; }
