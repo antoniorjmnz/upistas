@@ -144,7 +144,8 @@ input::placeholder { color: #9CA3AF; }
 .chips input[type=radio]:checked + .chip { background: var(--tinta); color: var(--fondo); border-color: var(--tinta); }
 .chips input[type=radio]:focus-visible + .chip { outline: 3px solid #C7D2FE; outline-offset: 2px; }
 .filtros { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
-.filtros label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--suave); font-weight: 600; }
+.filtros label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--suave); font-weight: 600; flex: 1 1 260px; max-width: min(100%, 520px); min-width: 0; }
+.filtros select { width: 100%; min-width: 0; } /* el desplegable de la copia del ERP mide lo que su texto más largo: sin esto se salía de la tarjeta con el panel abierto */
 
 /* ---- Avatares de proveedor ---- */
 .av { width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center; font-weight: 700; font-size: 13px; letter-spacing: .02em; flex: 0 0 auto; }
