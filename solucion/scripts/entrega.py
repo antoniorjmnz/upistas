@@ -143,7 +143,7 @@ def montar_entrega(outputs: Path, plan: Path, caja: Path, destino: Path, git: bo
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="Monta la carpeta de entrega y comprueba que los outcomes cuadran con La Caja.")
-    p.add_argument("--destino", type=Path, default=ROOT.parent / "la-caja-outcomes", help="Carpeta del repo aparte (por defecto ../la-caja-outcomes)")
+    p.add_argument("--destino", type=Path, default=ROOT.parent.parent / "la-caja-outcomes", help="Carpeta del repo aparte (por defecto ../../la-caja-outcomes)")
     p.add_argument("--git", action="store_true", help="Crear el repo aparte y hacer un commit local; nunca hace push")
     p.add_argument("--plan", type=Path, default=ROOT / "docs" / PLAN,
                    help="Ruta del albertitos_plan.pdf (vive fuera del repo; por defecto docs/albertitos_plan.pdf)")

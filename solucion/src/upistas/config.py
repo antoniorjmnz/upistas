@@ -64,7 +64,7 @@ class Settings:
     # Una sola base de datos para todo: la app (Django) y el estado de los workflows (DBOS).
     # Por defecto SQLite en la raíz del repo; para escalar, postgresql://usuario:clave@host/base.
     database_url: str = os.getenv("DATABASE_URL", _url_por_defecto())
-    caja_dir: Path = Path(os.getenv("CAJA_DIR", ROOT.parent / "caja"))
+    caja_dir: Path = Path(os.getenv("CAJA_DIR", ROOT.parent.parent / "caja"))  # el proyecto vive en solucion/: La Caja se clona al lado del repo
     erp_url: str = os.getenv("ERP_URL", "http://127.0.0.1:8009")
     erp_user: str = os.getenv("ERP_USER", "alberto")
     erp_password: str = os.getenv("ERP_PASSWORD", "FACTURAS2009")

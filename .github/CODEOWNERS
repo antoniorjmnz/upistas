@@ -3,6 +3,6 @@
 # /src/fuentes/       @usuario
 # /src/decision/      @usuario
 # /src/observabilidad/ @usuario
-/contracts/           @antoniorjmnz
-/AGENTS.md            @antoniorjmnz
+/solucion/contracts/           @antoniorjmnz
+/solucion/AGENTS.md            @antoniorjmnz
 /.github/             @antoniorjmnz
