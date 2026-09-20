@@ -65,6 +65,15 @@ para el lote: las referencias guardan todos los apuntes de cada pedido y las reg
 manda. Si alguno está pagado, manda ese; si todos cuadran, el más reciente; si no cuadran, la
 factura se escala diciendo que el ERP tiene dos apuntes que no cuadran (ver [ADR-002](adr/002-criterio.md)).
 
+**Cada lote va con una copia concreta del ERP.** El lote 1 se decidió con la copia del viernes
+(516 asientos) y el lote 2 con la del sábado, que trae la actualización (556 asientos y el pedido
+PO-2026-0071 pagado). Cada línea del outcome lleva en `version_datos` la huella de la copia con la
+que se decidió. Repasar el lote 1 con la copia del sábado cambia exactamente una factura
+(`factura_4635`, PAGAR → NO_PAGAR: su pedido aparece pagado después): la entrega del lote 1 se
+queda con la copia del viernes, que es la historia real, y el reproceso se enseña como prueba de que
+decidir es barato y reproducible. Para repetir una pasada sin hablar con el ERP: `--sin-sync` usa
+la última copia guardada.
+
 **Nunca pagar dos veces.** El ERP no se entera de lo que decidimos. Llevamos nuestra propia
 memoria: los pedidos aprobados en la última pasada de cada otro lote y los aprobados a mano por una
 persona cuentan como pagados para el lote siguiente. Repasar el mismo lote no es pagar dos veces:
