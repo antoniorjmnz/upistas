@@ -11,6 +11,7 @@ from tempfile import NamedTemporaryFile
 import pymupdf
 
 from upistas.adaptadores.lectores.campos import extraer_campos
+from upistas.dominio.modelos import NOMBRE_CAMPO
 from upistas.puertos import DocumentoInspeccionado, LecturaFallida
 
 VERSION = "unificado-7"
@@ -44,7 +45,7 @@ def _discrepancias(pagina: dict) -> list[str]:
             continue
         va, vb = ca.valor, cb.valor
         if va is not None and vb is not None and va != vb:
-            avisos.append(f"Discrepancia OCR/visión en {nombre}")
+            avisos.append(f"Discrepancia OCR/visión en {NOMBRE_CAMPO[nombre]}")
     return avisos
 
 
@@ -151,7 +152,7 @@ class LectorPdfUnificado:
                     else:
                         traza["route"] = getattr(self.ocr, "ruta", "ocr")
                         if self.ocr is None:
-                            raise LecturaFallida("Página sin texto útil; OCR no habilitado")
+                            raise LecturaFallida("Escaneado: no hay lector de imagen disponible")
                         if pagina.rect.width * pagina.rect.height * (200 / 72) ** 2 > 16_000_000:
                             raise LecturaFallida("Página demasiado grande para OCR")
                         imagen = pagina.get_pixmap(dpi=200, alpha=False).tobytes("png")

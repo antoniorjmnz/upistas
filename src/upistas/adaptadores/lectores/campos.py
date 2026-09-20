@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from upistas.contracts.factura_extraida import FacturaExtraida
 from upistas.dominio.importes import normaliza_iban, parse_fecha, parse_fecha_letras, parse_importe
+from upistas.dominio.modelos import NOMBRE_CAMPO, enumerar
 from upistas.dominio.notas import clasificar, normalizar
 
 INVISIBLE = r"[\u200b\ufeff]*"
@@ -65,6 +66,26 @@ def coste_de(paginas: list[dict]) -> dict | None:
     }
 
 FECHA_INVALIDA = "fecha inválida"  # marca interna: el texto es una fecha en cifras que no existe en el calendario
+
+
+def _legible(valor) -> str:
+    """Un valor leído, como se escribe en un aviso: 943.8 → «943,80», '2026-04-01' → «01/04/2026»."""
+    if valor is None:
+        return "uno que no se entiende"
+    if valor == FECHA_INVALIDA:
+        return "una fecha que no existe"
+    if isinstance(valor, float):
+        entero, decimales = f"{valor:,.2f}".split(".")
+        return f"{entero.replace(',', '.')},{decimales}"
+    fecha = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", str(valor))
+    return f"{fecha[3]}/{fecha[2]}/{fecha[1]}" if fecha else str(valor)
+
+
+def contradiccion(nombre: str, valores: list) -> str:
+    """«El NIF aparece con dos valores: A41220987 y A58231074»."""
+    campo = NOMBRE_CAMPO[nombre]
+    textos = list(dict.fromkeys(_legible(v) for v in valores))
+    return f"{campo[0].upper()}{campo[1:]} aparece con {'dos' if len(textos) == 2 else 'varios'} valores: {enumerar(textos)}"
 
 
 def etiqueta(palabra: str) -> str:
@@ -209,15 +230,15 @@ def extraer_campos(file_id: str, paginas: list[dict], documento: dict | None = N
     }}
     for nombre in CAMPOS:
         encontrados = candidatos[nombre]
-        valores = {v for v, _ in encontrados}
+        valores = list(dict.fromkeys(v for v, _ in encontrados))  # distintos, en el orden en que aparecen
         # Una fecha inválida leída con seguridad va sin valor pero con confianza plena: no es un fallo de
         # lectura (el campo queda en `ausentes`, no en `no_leidos`) y la juzga la regla de la fecha.
-        invalida = valores == {FECHA_INVALIDA}
-        valor = next(iter(valores)) if len(valores) == 1 and None not in valores and not invalida else None
+        invalida = valores == [FECHA_INVALIDA]
+        valor = valores[0] if len(valores) == 1 and None not in valores and not invalida else None
         if len(valores) > 1:
-            errores.append(f"Valores contradictorios para {nombre}")
+            errores.append(contradiccion(nombre, valores))
         elif encontrados and valor is None and not invalida:
-            errores.append(f"Valor inválido para {nombre}")
+            errores.append(f"Valor inválido para {NOMBRE_CAMPO[nombre]}")
         campos[nombre] = {
             "valor": valor,
             "confianza": 1.0 if valor is not None or invalida else 0.0,

@@ -156,14 +156,14 @@ def test_mes_que_no_se_reconoce_es_fallo_de_lectura():
     factura = extraer(TEXTO.replace("15 de enero de 2026", "15 de encro de 2026"))
     assert factura.campos.fecha.valor is None
     assert factura.campos.fecha.confianza == 0.0
-    assert "Valor inválido para fecha" in factura.errores
+    assert "Valor inválido para la fecha" in factura.errores
 
 
 def test_fecha_invalida_y_otra_valida_es_contradiccion():
     factura = extraer(TEXTO.replace("15 de enero de 2026", "31/02/2026") + "Fecha factura 01/04/2026")
     assert factura.campos.fecha.valor is None
     assert factura.campos.fecha.confianza == 0.0
-    assert "Valores contradictorios para fecha" in factura.errores
+    assert "La fecha aparece con dos valores: una fecha que no existe y 01/04/2026" in factura.errores
 
 
 def test_pagina_ocr_fallida_no_desaparece():
@@ -225,7 +225,16 @@ def test_sin_ocr_no_se_inventan_campos(tmp_path):
     crear_pdf(ruta, None)
     factura = LectorPdfUnificado().leer(ruta)
     assert factura.campos.total.valor is None
-    assert factura.errores
+    assert factura.errores == ["Página 1: Escaneado: no hay lector de imagen disponible"]
+
+
+def test_dos_valores_distintos_se_dicen_con_los_valores():
+    factura = extraer(TEXTO.replace("NIF B12345678", "NIF B12345678\nNIF A41220987"))
+    assert factura.campos.nif.valor is None
+    assert "El NIF aparece con dos valores: B12345678 y A41220987" in factura.errores
+    factura = extraer(TEXTO + "TOTAL 1.043,80 EUR\n")
+    assert factura.campos.total.valor is None
+    assert "El total aparece con dos valores: 121,00 y 1.043,80" in factura.errores
 
 
 def test_respuesta_ocr_invalida_se_escala(tmp_path):
