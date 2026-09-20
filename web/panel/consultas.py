@@ -215,7 +215,7 @@ def hay_algo_que_marcar(decision: Decision) -> bool:
     """Si el PDF marcado enseñaría algo: alguna comprobación que falla y no es solo que no se pudo leer,
     o avisos del fichero. Una escaneada que solo falla por lectura abriría un PDF sin ninguna marca."""
     reglas = (decision.outcome or {}).get("reglas") or []
-    if any(not r.get("ok") and r.get("id") != "R0_lectura" for r in reglas):
+    if any(not r.get("ok") for r in reglas):  # también «no se pudo leer»: va como etiqueta arriba de la primera página
         return True
     return bool((decision.documento.alertas or []) + (decision.alertas or []))
 
