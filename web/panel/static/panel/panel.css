@@ -463,8 +463,9 @@ main { animation: entrada-contenido 320ms ease-out; }
 @keyframes entrada-contenido { from { opacity: 0; transform: translateY(7px); } }
 
 /* 2) Al pasar el ratón: la ficha de la cola se eleva un punto; las filas de factura se tiñen apenas (las tarjetas fijas no se mueven) */
-.factura-cola { transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
-.factura-cola:hover { transform: translateY(-1px); box-shadow: var(--sombra-2); }
+.factura-cola { position: relative; isolation: isolate; }
+.factura-cola::before { content: ""; position: absolute; inset: 6px -14px; border-radius: 12px; background: rgba(79, 70, 229, .035); opacity: 0; transition: opacity 150ms ease-out; z-index: -1; pointer-events: none; }
+.factura-cola:hover::before { opacity: 1; }
 .fila-factura, .fila { transition: background-color 150ms ease-out; }
 .fila-factura:hover, .fila:where(:not(.factura-cola *)):hover { background-color: rgba(79, 70, 229, .035); }
 
@@ -482,9 +483,13 @@ dialog.visor[open] { opacity: 1; transform: scale(1); transition: opacity 220ms 
 dialog.visor[open]::backdrop { opacity: 1; transition: opacity 220ms ease-out; }
 @starting-style { dialog.visor[open]::backdrop { opacity: 0; } }
 
-/* 6) El panel Preguntar entra deslizándose desde la derecha; el cierre es inmediato */
+/* 6) El panel Preguntar entra deslizándose desde la derecha y se va igual: panel.js le pone .cerrando y espera a que acabe la transición */
 dialog.asistente[open] { transform: translateX(0); opacity: 1; transition: transform 220ms ease-out, opacity 220ms ease-out; }
 @starting-style { dialog.asistente[open] { transform: translateX(24px); opacity: 0; } }
+dialog.asistente[open].cerrando { transform: translateX(24px); opacity: 0; transition-timing-function: ease-in; }
+/* Al abrirlo entre 1000 y 1280 px el menú pasa a iconos: que se estreche deslizando, no de golpe */
+.app { transition: grid-template-columns 220ms ease-out; }
+.lado { transition: padding 220ms ease-out; }
 
 /* 7) El asistente mientras piensa: una burbuja suya con tres puntos que laten y un brillo suave (es el htmx-indicator:
       solo se ve durante la petición). Cada mensaje nuevo, el suyo y el de Alberto, entra con un fundido corto. */
@@ -508,6 +513,6 @@ dialog.asistente .mensaje.pensando { margin: 0 16px; }
   .factura-cola, .fila-factura, .fila, .chip, .kpi, dialog.visor[open], dialog.visor[open]::backdrop, dialog.asistente[open], body.con-asistente .contenido { transition: none; }
   .chat .mensaje, details.conversaciones summary svg { transition: none; }
   .chat .mensaje.htmx-added { opacity: 1; transform: none; }
-  .factura-cola:hover { transform: none; box-shadow: var(--sombra); }
+  .factura-cola::before { transition: none; }
   .boton:active { transform: none; }
 }

@@ -37,8 +37,11 @@
     botones.forEach(function (b) { b.setAttribute("aria-expanded", abierto ? "true" : "false"); });
     document.body.classList.toggle("con-asistente", abierto);
   }
+  var cierre = null; // el temporizador del cierre en marcha, para poder reabrir a mitad
   function abrir() {
     if (!panel || abierto) { return; }
+    if (cierre) { clearTimeout(cierre); cierre = null; }
+    panel.classList.remove("cerrando");
     if (typeof panel.show === "function") { panel.show(); } else { panel.setAttribute("open", ""); }
     abierto = true;
     marcar();
@@ -50,10 +53,18 @@
   }
   function cerrar() {
     if (!panel || !abierto) { return; }
-    if (typeof panel.close === "function") { panel.close(); } else { panel.removeAttribute("open"); }
     abierto = false;
     marcar();
     guardar(false);
+    // Se va deslizando (clase .cerrando en el CSS) y solo entonces se cierra de verdad; sin movimiento, al instante.
+    var fin = function () {
+      cierre = null;
+      panel.classList.remove("cerrando");
+      if (typeof panel.close === "function") { panel.close(); } else { panel.removeAttribute("open"); }
+    };
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) { fin(); return; }
+    panel.classList.add("cerrando");
+    cierre = setTimeout(fin, 240);
   }
 
   if (panel) {
