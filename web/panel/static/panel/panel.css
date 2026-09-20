@@ -424,19 +424,25 @@ details.filtro.activo > summary { border-color: var(--marca); color: var(--marca
 .fila .accion, .fila-factura .accion { grid-column: 4; grid-row: 1 / span 2; flex-wrap: nowrap; }
 .fila .porque, .fila-factura .porque { grid-column: 2 / 4; grid-row: 2; }
 .fila.tres .porque, .fila-factura.tres .porque, .fila-factura:not(:has(.accion)) .porque { grid-column: 2 / -1; }
-@media (max-width: 640px) {
+/* Cuando el contenido baja de 640 px (móvil, o un portátil con el panel Preguntar abierto) las filas se apilan: nombre, importe,
+   porqué y botones uno debajo de otro. Mira el ancho del contenido, no el de la ventana: con el panel abierto a 1024 px el
+   contenido mide 540 px y las filas de cuatro columnas partían los nombres letra a letra. */
+@container (max-width: 640px) {
+  .fila, .fila-factura { grid-template-columns: 36px minmax(0, 1fr); }
   .fila > .av, .fila-factura > .av { grid-row: 1; }
   .fila .quien, .fila-factura .quien { grid-column: 2; }
   .fila .importe, .fila-factura .importe { grid-column: 2; grid-row: 2; text-align: left; }
   .fila .porque, .fila-factura .porque { grid-column: 2; grid-row: 3; }
   .fila .accion, .fila-factura .accion { grid-column: 2; grid-row: 4; flex-wrap: wrap; }
-  /* Los botones largos («Ver en el PDF qué ha hecho saltar la alarma») caben en la pantalla: se parten en dos líneas y,
-     en la cabecera de una tarjeta, se apilan a todo lo ancho. El comentario de una decisión ocupa su propia línea. */
-  .boton { white-space: normal; line-height: 1.25; padding-block: 8px; text-align: center; }
+  /* Los botones largos («Ver en el PDF qué ha hecho saltar la alarma») caben: se parten en dos líneas y, en la cabecera
+     de una tarjeta, se apilan a todo lo ancho. El comentario de una decisión ocupa su propia línea. */
+  main .boton { white-space: normal; line-height: 1.25; padding-block: 8px; text-align: center; }
   .cabecera-tarjeta .acciones { width: 100%; }
   .cabecera-tarjeta .acciones .boton { flex: 1 1 auto; }
   .decidir-form input[type=text] { flex-basis: 100%; }
+  main { padding: 20px 16px 40px; }
 }
+@media (max-width: 640px) { .boton { white-space: normal; line-height: 1.25; padding-block: 8px; text-align: center; } } /* también los de la barra y el panel */
 
 td.num { white-space: nowrap; }
 
