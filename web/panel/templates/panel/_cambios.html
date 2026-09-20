@@ -7,7 +7,7 @@
     <span class="quien"><a href="{% url 'panel:factura' lote c.file_id %}">{{ c.file_id }}</a>
       <span class="suave"> · antes {{ c.antes|etiqueta|lower }}</span></span>
     <span></span>
-    <span class="porque">{{ c.motivo|truncatechars:140 }}</span>
+    <span class="porque">{{ c.motivo|motivo_llano|truncatechars:140 }}</span>
   </li>
   {% endfor %}
 </ul>

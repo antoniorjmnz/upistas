@@ -60,7 +60,7 @@ def test_que_ha_cambiado_desde_el_repaso_anterior(alberto, lote_de_prueba):
 
 def test_dice_cuando_y_con_que_se_decidio_sin_agobiar(alberto, lote_de_prueba):
     html = portada(alberto)
-    assert "con la copia del ERP de ese momento y la norma v3" in html
+    assert "con la copia del ERP de ese momento y la versión 3 de la norma" in html
     assert reverse("panel:ejecucion", args=[lote_de_prueba["ejecucion"].id]) in html
     assert "tokens" not in html and "b189d7434436" not in html  # lo técnico no va en la portada
 

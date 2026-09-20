@@ -23,7 +23,6 @@
       Traída el {{ en_uso.fin|date:"j \d\e F" }} a las {{ en_uso.fin|date:"H:i" }} ({{ en_uso.fin|naturaltime }}) ·
       {% if en_uso.lote2_cargado %}con la actualización del lote 2{% else %}sin la actualización del lote 2{% endif %} ·
       <a href="{% url 'panel:asientos' %}?version={{ en_uso.version_id }}">ver sus asientos</a>
-      <span class="mono">{{ en_uso.version_id }}</span>
     </p>
   {% else %}
     <div class="vacio">
