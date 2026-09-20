@@ -153,18 +153,18 @@ def norma(version: str) -> Norma:
 
 @cache
 def referencias() -> Referencias:
+    from upistas.aplicacion.referencias import vigente_por_pedido
+
     fuente = maestro()
-    asientos = erp().asientos()
-    if len({a.pedido for a in asientos}) != len(asientos):
-        raise ValueError("ERP: hay varios asientos para un mismo pedido; requiere revisión")
+    asientos = vigente_por_pedido(erp().asientos())
     return Referencias(
         proveedores={p.nif: p for p in fuente.proveedores() if p.nif},
         proveedores_por_id={p.id: p for p in fuente.proveedores()},
         pedidos={p.id: p for p in fuente.pedidos()},
-        asientos={a.pedido: a for a in asientos},
+        asientos=asientos,
         hoy=settings.hoy or date.today(),
         marcados_por_alberto=fuente.marcados_para_revisar(),
-        version_datos=f"{getattr(fuente, 'version', '')}:{version_asientos(asientos)}",
+        version_datos=f"{getattr(fuente, 'version', '')}:{version_asientos(asientos.values())}",
     )
 
 

@@ -48,6 +48,17 @@ def test_las_referencias_traen_todo_lo_que_pueden_mirar_las_reglas():
     assert refs.version_datos == "erp1+ex1"
 
 
+def test_con_varios_asientos_del_mismo_pedido_manda_el_mas_reciente():
+    maestro = MaestroEnMemoria([PROV], [], frozenset(), version="ex1")
+    erp = ErpEnMemoria([
+        Asiento("AS-00071", "PO-2026-0071", "P001", "B46102331", Decimal("951.89"), date(2026, 5, 24), "PENDIENTE"),
+        Asiento("AS-90001", "PO-2026-0071", "P001", "B46102331", Decimal("951.89"), date(2026, 9, 1), "PAGADA"),
+    ])
+    refs = construir_referencias(maestro, erp, [], date(2026, 9, 18), "erp1")
+    assert refs.asientos["PO-2026-0071"].id == "AS-90001"
+    assert refs.asientos["PO-2026-0071"].estado == "PAGADA"
+
+
 def test_decidir_lote_da_un_outcome_por_documento_y_el_ilegible_escala(tmp_path):
     maestro, erp = MaestroEnMemoria([PROV], []), ErpEnMemoria([])
     lecturas = [registro("a.pdf", extraida()), registro("z.pdf"), registro("f.pdf", extraida("f.pdf", pedido="PO-2026-0097", fecha="2027-01-01"))]

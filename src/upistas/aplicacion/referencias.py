@@ -5,10 +5,20 @@ from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date
 
-from upistas.dominio.modelos import FacturaResumen, Referencias
+from upistas.dominio.modelos import Asiento, FacturaResumen, Referencias
 from upistas.puertos import FuenteERP, FuenteMaestro, RegistroLectura
 
 from upistas.aplicacion.mapeo import a_factura
+
+
+def vigente_por_pedido(asientos: Sequence[Asiento]) -> dict[str, Asiento]:
+    """Un asiento por pedido: si el ERP registra varios (export incremental), manda el más reciente."""
+    vigente: dict[str, Asiento] = {}
+    for a in asientos:
+        previo = vigente.get(a.pedido)
+        if previo is None or (a.fecha or date.min) > (previo.fecha or date.min):
+            vigente[a.pedido] = a
+    return vigente
 
 
 def construir_referencias(
@@ -27,16 +37,14 @@ def construir_referencias(
         f = a_factura(r.extraida)
         if f.pedido:
             por_pedido[f.pedido].append(FacturaResumen(f.file_id, f.numero, f.fecha, f.total, f.nif))
-    asientos = erp.asientos()
-    if len({a.pedido for a in asientos}) != len(asientos):
-        raise ValueError("ERP: hay varios asientos para un mismo pedido; requiere revisión")
+    asientos = vigente_por_pedido(erp.asientos())
     proveedores = maestro.proveedores()
     return Referencias(
         proveedores={p.nif: p for p in proveedores if p.nif},
         proveedores_por_id={p.id: p for p in proveedores},
         hashes_ya_aprobados=hashes_ya_aprobados,
         pedidos={p.id: p for p in maestro.pedidos()},
-        asientos={a.pedido: a for a in asientos},
+        asientos=asientos,
         hoy=hoy,
         pedidos_ya_decididos=pedidos_ya_decididos,
         marcados_por_alberto=maestro.marcados_para_revisar(),
