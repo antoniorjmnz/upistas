@@ -211,6 +211,20 @@ def test_r2_rodea_el_total_con_el_importe_del_pedido_en_la_etiqueta_y_el_pedido(
     assert [e for e, _ in _busquedas("R2_pedido_importe", "Pedido ausente o no encontrado")] == ["Pedido que no está en el ERP"]
 
 
+def test_la_divisa_rodea_el_total_con_la_moneda_y_el_pedido_en_euros():
+    detalle = "Factura en USD (2.450,00 USD); el pedido es de 2.254,00 €: al tipo de referencia (1 € = 1,0870 USD) son 2.253,91 €, cuadra con el pedido."
+    assert _busquedas("R2_divisa", detalle) == [
+        ("Importe en USD: el pedido va en euros", textos_de_campo(CAMPOS["total"])),
+        ("Pedido en euros con el que se compara", textos_de_campo(CAMPOS["pedido"])),
+    ]
+
+
+def test_la_duda_fiscal_rodea_el_iva_y_el_nif_de_fuera():
+    assert [e for e, _ in _busquedas("R3_datos_fiscales", "Proveedor de fuera de España (DE) cobra IVA español (21 %): comprobar inversión del sujeto pasivo")] == [
+        "IVA español de un proveedor de fuera", "NIF de fuera de España",
+    ]
+
+
 def test_r3_rodea_base_iva_y_total():
     assert [e for e, _ in _busquedas("R3_iva_total", "El total no coincide con base más IVA")] == ["Base", "IVA", "Total que no es base más IVA"]
     assert [e for e, _ in _busquedas("R3_iva_total", "La cuota de IVA no corresponde a la base y al tipo")] == [
