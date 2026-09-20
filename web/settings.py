@@ -45,6 +45,10 @@ ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1
 # Orígenes de confianza para los formularios cuando la web se sirve desde un dominio (Cloudflare, previews...).
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 
+# Si está, la web pide esta clave una vez antes de enseñar nada (web/panel/acceso.py): para cuando se publica
+# el portátil con un túnel de Cloudflare y cualquiera con la dirección entraría. Vacía, la web se abre sin más.
+WEB_CLAVE = os.getenv("WEB_CLAVE", "").strip()
+
 # Detrás de Cloudflare (o cualquier proxy que termine el TLS) la petición llega por http con esta cabecera:
 # sin esto Django cree que la web va sin https y rechaza los formularios por CSRF.
 if not DEBUG:
@@ -68,6 +72,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",  # sirve el CSS, las letras y htmx también sin DEBUG
+    "web.panel.acceso.ClaveDeAcceso",  # con WEB_CLAVE, la puerta: antes de la sesión, del CSRF y de cualquier vista
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

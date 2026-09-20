@@ -1,0 +1,28 @@
+{% load panel_extras %}<!doctype html>
+{# La puerta cuando la web está publicada (WEB_CLAVE): sin barra lateral ni base de datos; quien no tenga la clave no ve nada más. #}
+<html lang="es">
+<head>
+  <title>Esta web es privada · Pagos de Alberto</title>
+  <meta name="description" content="Pagos de Alberto: esta web es privada; escriba la clave que le han dado para entrar.">
+  <meta name="robots" content="noindex">
+  {% include "panel/_cabeza.html" %}
+</head>
+<body class="sola">
+  <main>
+    <div class="marca"><span class="logo">{% icono "check" 20 %}</span><span>Pagos de Alberto<small>Banco Miralmar</small></span></div>
+    <section class="tarjeta">
+      <form method="post" class="entrada">
+        <div class="hero">
+          <h1>Esta web es privada</h1>
+          <p class="lead">Escriba la clave que le han dado para entrar.</p>
+        </div>
+        {% if error %}<div class="aviso mal">{% icono "alerta" 18 %}<p>{{ error }}</p></div>{% endif %}
+        <label class="campo{% if error %} con-error{% endif %}"><span>Clave</span><input type="password" name="clave" autofocus autocomplete="current-password" required></label>
+        <input type="hidden" name="siguiente" value="{{ siguiente }}">
+        <p class="acciones"><button class="boton grande" type="submit">Entrar</button></p>
+      </form>
+    </section>
+  </main>
+  <footer class="pie">Pagos de Alberto · Banco Miralmar</footer>
+</body>
+</html>

@@ -192,6 +192,6 @@ def test_salud_responde_en_texto_llano(alberto):
 def test_las_variables_estan_documentadas():
     ejemplo = (RAIZ / ".env.example").read_text(encoding="utf-8")
     doc = (RAIZ / "docs" / "web.md").read_text(encoding="utf-8")
-    for variable in ("DJANGO_SECRET_KEY", "DJANGO_DEBUG", "DJANGO_HTTPS", "DJANGO_ALLOWED_HOSTS", "CSRF_TRUSTED_ORIGINS"):
+    for variable in ("DJANGO_SECRET_KEY", "DJANGO_DEBUG", "DJANGO_HTTPS", "DJANGO_ALLOWED_HOSTS", "CSRF_TRUSTED_ORIGINS", "WEB_CLAVE"):
         assert variable in ejemplo and variable in doc, variable
     assert "## En producción" in doc and "/salud/" in doc

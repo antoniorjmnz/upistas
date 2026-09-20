@@ -43,7 +43,7 @@ def comprobaciones() -> list[Comprobacion]:
 def _django() -> list[Comprobacion]:
     hosts = [h for h in settings.ALLOWED_HOSTS if h not in LOCALES]
     origenes = [o for o in settings.CSRF_TRUSTED_ORIGINS if o.startswith("https://")]
-    return [
+    resultado = [
         bien("DJANGO_DEBUG está apagado") if not settings.DEBUG
         else falta("DJANGO_DEBUG=0: con el modo de desarrollo encendido la web enseña errores con detalle a cualquiera"),
         bien("DJANGO_SECRET_KEY es propia y larga") if settings.SECRET_KEY != CLAVE_DE_DESARROLLO and len(settings.SECRET_KEY) >= 50
@@ -53,6 +53,12 @@ def _django() -> list[Comprobacion]:
         bien(f"CSRF_TRUSTED_ORIGINS confía en {', '.join(origenes)}") if origenes
         else falta("CSRF_TRUSTED_ORIGINS: el mismo dominio con https:// delante; sin esto los formularios se rechazan"),
     ]
+    # La clave de acceso es opcional (Cloudflare Access también pone puerta): sin ella se avisa, no se impide.
+    if settings.WEB_CLAVE:
+        resultado.append(bien("WEB_CLAVE está: la web pide la clave antes de entrar"))
+    elif not settings.DEBUG:
+        resultado.append(aviso("WEB_CLAVE=… : sin clave, cualquiera con la dirección entra"))
+    return resultado
 
 
 def _claves() -> list[Comprobacion]:

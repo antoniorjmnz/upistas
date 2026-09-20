@@ -32,6 +32,10 @@ va en el entorno (el `.env` o las variables del despliegue):
   cuando la web se sirve desde ellos (túnel de Cloudflare, previews).
 - `DJANGO_HTTPS`: `1` cuando la web va detrás de Cloudflare o de otro proxy que termina el TLS y manda
   `X-Forwarded-Proto`. Activa las cookies `Secure`, la redirección a https y HSTS. En local no se pone.
+- `WEB_CLAVE`: si se pone, la web pide esa clave una vez antes de enseñar nada («Esta web es privada», en
+  la piel de la web) y deja una cookie firmada que dura 16 horas; `/salud/` y los estáticos no la piden.
+  Sin ella, la web se abre sin más, como en el portátil. Es una sola clave compartida, no usuarios
+  (`web/panel/acceso.py`); para cuando se publica con un túnel de Cloudflare ([despliegue.md](despliegue.md)).
 - `DATABASE_URL` y `ALMACEN_DIR`: la base de datos y la carpeta de los PDF subidos, como en
   [backend.md](backend.md).
 

@@ -24,7 +24,7 @@ def entorno_de_produccion(monkeypatch, tmp_path):
     (estaticos / "panel").mkdir(parents=True)
     (estaticos / "panel" / "panel.css").write_text("/* recogido */", encoding="utf-8")
     with override_settings(
-        DEBUG=False, SECRET_KEY=CLAVE, ALLOWED_HOSTS=["facturas.ejemplo.com"],
+        DEBUG=False, SECRET_KEY=CLAVE, ALLOWED_HOSTS=["facturas.ejemplo.com"], WEB_CLAVE="la-clave-de-alberto",
         CSRF_TRUSTED_ORIGINS=["https://facturas.ejemplo.com"], MEDIA_ROOT=tmp_path / "almacen", STATIC_ROOT=estaticos,
     ):
         yield tmp_path
@@ -66,6 +66,14 @@ def test_en_el_portatil_dice_cada_cosa_que_falta(monkeypatch, tmp_path):
     assert "Aviso  HOY no está" in texto
     assert "Bien   Conecto con la base de datos" in texto
     assert "Bien   El almacén se puede escribir" in texto
+
+
+def test_sin_clave_de_acceso_avisa_pero_no_impide_desplegar(entorno_de_produccion):
+    with override_settings(WEB_CLAVE=""):
+        salida = comprobar()
+
+    assert "Aviso  WEB_CLAVE=… : sin clave, cualquiera con la dirección entra" in salida
+    assert "Falta" not in salida and "Todo listo para desplegar." in salida
 
 
 def test_una_sola_cosa_que_falta_va_en_singular(entorno_de_produccion, monkeypatch):

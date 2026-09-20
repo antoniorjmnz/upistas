@@ -57,6 +57,11 @@ main { max-width: var(--ancho); margin: 0 auto; padding: 32px 32px 48px; display
 /* Página suelta (la de «Algo ha fallado»): sin barra lateral, la marca arriba y la tarjeta en medio */
 body.sola main { max-width: 560px; padding-top: 48px; }
 body.sola .marca { align-self: center; }
+/* La puerta (acceso.html, con WEB_CLAVE): el campo a todo el ancho y el botón debajo */
+.entrada { display: flex; flex-direction: column; gap: 18px; }
+.entrada .campo { display: flex; flex-direction: column; gap: 6px; }
+.entrada input[type=password] { width: 100%; min-height: 44px; font-size: 17px; letter-spacing: .08em; }
+.entrada .acciones { margin: 0; }
 
 /* ---- Cabecera de cada pantalla ---- */
 .hero { display: flex; flex-direction: column; gap: 6px; }
@@ -128,7 +133,7 @@ h2 { margin: 0; font: 600 17px/1.3 var(--f-titulo); }
 .buscador { position: relative; }
 .buscador svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--suave); pointer-events: none; }
 .buscador input { width: 100%; padding-left: 42px; }
-input[type=search], input[type=text], select { font: inherit; padding: 0 14px; min-height: 42px; border: 1px solid var(--linea); border-radius: var(--radio-s); background: var(--panel); color: var(--tinta); box-shadow: var(--sombra); }
+input[type=search], input[type=text], input[type=password], select { font: inherit; padding: 0 14px; min-height: 42px; border: 1px solid var(--linea); border-radius: var(--radio-s); background: var(--panel); color: var(--tinta); box-shadow: var(--sombra); }
 input:focus, select:focus { border-color: var(--marca); box-shadow: 0 0 0 4px var(--marca-claro); outline: none; }
 input::placeholder { color: #9CA3AF; }
 .barra { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
