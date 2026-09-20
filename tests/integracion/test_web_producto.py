@@ -144,20 +144,26 @@ def test_cada_pantalla_tiene_su_titulo(alberto, lote_de_prueba):
 
 
 def test_sin_variables_la_web_arranca_como_en_produccion(monkeypatch):
-    from django.core.exceptions import ImproperlyConfigured
-
-    with pytest.raises(ImproperlyConfigured, match="DJANGO_SECRET_KEY"):
-        _ajustes(monkeypatch)
-    ajustes = _ajustes(monkeypatch, DJANGO_SECRET_KEY="una-clave-larga-de-verdad")
-    assert ajustes["DEBUG"] is False and ajustes["SECRET_KEY"] == "una-clave-larga-de-verdad"
+    """Sin ninguna variable la web arranca sin DEBUG y con una clave generada en el portátil (no vale para un servidor)."""
+    ajustes = _ajustes(monkeypatch)
+    assert ajustes["DEBUG"] is False and ajustes["SECRET_KEY_GENERADA"] is True and len(ajustes["SECRET_KEY"]) >= 50
     assert ajustes["SECURE_CONTENT_TYPE_NOSNIFF"] is True and ajustes["X_FRAME_OPTIONS"] == "SAMEORIGIN"
     assert ajustes["SECURE_REFERRER_POLICY"] == "same-origin" and "SECURE_SSL_REDIRECT" not in ajustes
-    assert "whitenoise.middleware.WhiteNoiseMiddleware" in ajustes["MIDDLEWARE"]
+
+
+def test_con_clave_en_el_entorno_se_usa_esa_y_no_se_genera_ninguna(monkeypatch):
+    ajustes = _ajustes(monkeypatch, DJANGO_SECRET_KEY="una-clave-larga-de-verdad")
+    assert ajustes["SECRET_KEY"] == "una-clave-larga-de-verdad" and ajustes["SECRET_KEY_GENERADA"] is False
+
+
+def test_la_clave_generada_se_conserva_entre_arranques(monkeypatch):
+    primera = _ajustes(monkeypatch)["SECRET_KEY"]
+    assert _ajustes(monkeypatch)["SECRET_KEY"] == primera
 
 
 def test_con_debug_vale_la_clave_de_desarrollo(monkeypatch):
     ajustes = _ajustes(monkeypatch, DJANGO_DEBUG="1")
-    assert ajustes["DEBUG"] is True and ajustes["SECRET_KEY"] == "solo-desarrollo-no-usar-en-produccion"
+    assert ajustes["DEBUG"] is True and len(ajustes["SECRET_KEY"]) >= 50
 
 
 def test_con_https_las_cookies_van_seguras_y_se_confia_en_el_proxy(monkeypatch):
