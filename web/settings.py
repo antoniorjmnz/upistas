@@ -57,8 +57,8 @@ WEB_CLAVE = os.getenv("WEB_CLAVE", "").strip()
 # sin esto Django cree que la web va sin https y rechaza los formularios por CSRF.
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+# Las cookies solo van marcadas Secure con DJANGO_HTTPS=1 (más abajo): en el portátil, por http, un navegador
+# estricto no las mandaría y todos los formularios fallarían por CSRF.
 
 # Application definition
 
