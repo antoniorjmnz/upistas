@@ -197,7 +197,13 @@ def _que_senalar(r: ReglaFallida, a: Alarmas) -> list[tuple[tuple[str, ...], str
         if "cuota" in d:
             return [(campo("base"), "Base"), (campo("iva"), "IVA que no corresponde a la base"), (campo("total"), "Total")]
         return [(campo("base"), "Base"), (campo("iva"), "IVA"), (campo("total"), "Total que no es base más IVA")]
+    if r.id == "R2_divisa":  # «Factura en USD (2.450,00 USD); el pedido es de 2.254,00 €: …»
+        moneda = re.search(r"Factura en ([A-Z]{3})", d)
+        etiqueta = f"Importe en {moneda.group(1)}: el pedido va en euros" if moneda else "Importe en otra moneda"
+        return [(campo("total"), etiqueta), (campo("pedido"), "Pedido en euros con el que se compara")]
     if r.id == "R3_datos_fiscales":
+        if "cobra IVA español" in d:
+            return [(campo("iva_pct") or campo("iva"), "IVA español de un proveedor de fuera"), (campo("nif"), "NIF de fuera de España")]
         etiqueta = "Importe negativo" if "negativ" in d else "Importe que no se puede comprobar"
         return [(campo(n), etiqueta) for n in ("base", "iva", "total")]
     if r.id == "R4_fecha":
