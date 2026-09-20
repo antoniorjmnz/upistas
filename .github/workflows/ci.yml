@@ -9,6 +9,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# El proyecto vive en solucion/; en la raíz solo están los tres ficheros de la entrega.
+defaults:
+  run:
+    working-directory: solucion
+
 jobs:
   # El único obligatorio: capas + tests unitarios. Menos de un minuto con caché.
   check:
@@ -17,6 +22,7 @@ jobs:
     steps:
       - name: La PR enlaza una issue (solo aviso)
         if: github.event_name == 'pull_request'
+        working-directory: .
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -27,7 +33,7 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-          cache-dependency-glob: uv.lock
+          cache-dependency-glob: solucion/uv.lock
       - name: Dependencias (desde uv.lock, con caché)
         run: uv sync --extra dev --frozen
       - name: Capas
@@ -47,19 +53,19 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-          cache-dependency-glob: uv.lock
+          cache-dependency-glob: solucion/uv.lock
       - name: Dependencias (desde uv.lock, con caché)
         run: uv sync --extra dev --frozen
       - name: La Caja (con caché)
         id: caja
         uses: actions/cache@v4
         with:
-          path: caja
+          path: solucion/caja
           key: caja-2026-09-19
       - name: Clonar La Caja si no está en caché
         if: steps.caja.outputs.cache-hit != 'true'
         run: git -c core.autocrlf=false clone --depth 1 --quiet https://github.com/ikurotime/500-sombras-de-alberto caja
       - name: Checks completos (contratos, capas, outcomes, secretos, todos los tests)
         env:
-          CAJA_DIR: ${{ github.workspace }}/caja
+          CAJA_DIR: ${{ github.workspace }}/solucion/caja
         run: uv run python scripts/check.py

@@ -60,7 +60,7 @@ def check_outcomes():
     sys.path.insert(0, str(ROOT / "scripts"))
     from entrega import OUTCOMES, ficheros_de, verificar_outcomes  # la misma comprobación que la entrega
 
-    caja = Path(os.environ.get("CAJA_DIR", ROOT.parent / "caja"))
+    caja = Path(os.environ.get("CAJA_DIR", ROOT.parent.parent / "caja"))
     files = sorted((ROOT / "outputs").glob("outcomes*.jsonl"))
     if not files:
         ok("no hay outcomes todavía (se omite)")
