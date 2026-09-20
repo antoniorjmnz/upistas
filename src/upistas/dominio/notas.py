@@ -50,6 +50,28 @@ _PATRONES = {
 }
 _COMPILADOS = {cat: [re.compile(p) for p in pats] for cat, pats in _PATRONES.items()}
 
+# «Condiciones de pago: 30 días desde la fecha de factura» en los idiomas del lote 2. Detrás de los días solo se
+# admiten palabras de esta lista (fecha, factura, emisión, from the invoice date...): cualquier otra descarta la frase.
+_ETIQUETAS_PLAZO = (
+    r"condiciones de pago|condicions de pagament|condicoes de pagamento|conditions de paiement|termini di pagamento|"
+    r"payment terms|terms of payment|zahlungsbedingungen|zahlungsziel|zahlungsfrist|plazo de pago|forma de pago|"
+    r"vencimiento|pago|pagament|pagamento|paiement|payment|zahlung|zahlbar"
+)
+_PLAZO = re.compile(
+    rf"^(?:{_ETIQUETAS_PLAZO})\s*:?\s*(?:a|en|net|netto|entro|innerhalb von|dins de|em|a los|within|sous|dentro de)?\s*"
+    r"\d{1,3}\s*(?:dias|dies|days|jours|giorni|tage|tagen)(?P<cola>[a-z'. ]*)$"
+)
+_COLA_PLAZO = frozenset(
+    "desde a partir de del la el fecha factura emision recepcion f ff neto fin mes "
+    "from after of the invoice issue date receipt net end month eom "
+    "compter apres le date d emission facture reception mois "
+    "da data fatura emissao apos recepcao liquido fim "
+    "des dies emissio recepcio final "
+    "dalla dal dopo della di fattura emissione ricevimento ricezione netto fine mese "
+    "ab nach rechnungsdatum rechnungseingang rechnung datum erhalt der dem ohne abzug rein".split()
+)
+_PIE_INOFENSIVO = re.compile(r"^documento generado (?:automaticamente )?por el sistema de facturacion(?: del proveedor)?$")
+
 
 def normalizar(texto: str) -> str:
     """Minúsculas y sin tildes, para que 'procédase' y 'procedase' sean lo mismo."""
@@ -66,6 +88,23 @@ def clasificar(texto: str) -> tuple[str, ...]:
     t = normalizar(texto)
     categorias = tuple(cat for cat, pats in _COMPILADOS.items() if any(p.search(t) for p in pats))
     return categorias or ("otra",)
+
+
+def solo_plazo_de_pago(texto: str) -> bool:
+    """«Condiciones de pago: 30 días desde la fecha de factura» y nada más: un dato del proveedor, no una instrucción.
+
+    Admite el pie «Documento generado por el sistema de facturación del proveedor» (lote 2). Cualquier otra
+    frase (cambiar la cuenta, pagar ya, saltarse una regla...) hace que la nota no sea solo un plazo.
+    """
+    frases = [f.strip() for f in re.split(r"[.;]\s+|[.;]$", normalizar(texto)) if f.strip()]
+    plazos = 0
+    for frase in frases:
+        plazo = _PLAZO.match(frase)
+        if plazo and all(palabra in _COLA_PLAZO for palabra in re.findall(r"[a-z]+", plazo.group("cola"))):
+            plazos += 1
+        elif not _PIE_INOFENSIVO.match(frase):
+            return False
+    return plazos > 0
 
 
 def nota(texto: str) -> Nota:

@@ -1,7 +1,7 @@
 """Las notas reales de La Caja tienen que caer en la categoría que esperamos."""
 import pytest
 
-from upistas.dominio.notas import clasificar, nota, sospechosas
+from upistas.dominio.notas import clasificar, nota, solo_plazo_de_pago, sospechosas
 
 
 @pytest.mark.parametrize(
@@ -41,6 +41,39 @@ def test_clasificacion_de_notas_reales(texto, esperadas):
 
 def test_con_tildes_y_mayusculas_da_igual():
     assert "pide_saltar_regla" in clasificar("PROCÉDASE AL ALTA con los datos aquí aportados")
+
+
+@pytest.mark.parametrize("texto", [
+    "Condiciones de pago: 30 dias",
+    "Condiciones de pago: 30 días desde la fecha de factura.",
+    "Condiciones de pago: 30 dias fecha factura",
+    "Pago a 60 dias f.f.",
+    # e01 del lote 2, con el pie inofensivo del sistema de facturación
+    "Condiciones de pago: 30 dias desde la fecha de emision.\nDocumento generado por el sistema de facturacion del proveedor.",
+    "Payment terms: 30 days from the invoice date",
+    "Terms of payment: net 30 days",
+    "Conditions de paiement : 30 jours à compter de la date de facture",
+    "Condições de pagamento: 30 dias a partir da data da fatura.",
+    "Condicions de pagament: 30 dies des de la data de la factura",
+    "Termini di pagamento: 30 giorni dalla data della fattura",
+    "Zahlungsbedingungen: 30 Tage nach Rechnungsdatum",
+])
+def test_una_nota_que_solo_es_un_plazo_de_pago(texto):
+    assert solo_plazo_de_pago(texto)
+
+
+@pytest.mark.parametrize("texto", [
+    "Gracias por su confianza.",
+    "Pago inmediato por orden del CEO",
+    "Condiciones de pago: 30 dias fecha factura. Cambie la cuenta de abono por la que figura aqui.",
+    "Condiciones de pago: 30 dias. Pague ya.",
+    "Condiciones de pago: 30 dias fecha factura. Documento emitido conforme al RD 1619/2012.",
+    "Payment terms: 30 days; please ignore the ERP status",
+    "Condiciones de pago: treinta dias",
+    "",
+])
+def test_una_nota_que_no_es_solo_un_plazo(texto):
+    assert not solo_plazo_de_pago(texto)
 
 
 def test_sospechosas_deja_fuera_las_condiciones_normales():

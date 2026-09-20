@@ -2,8 +2,11 @@ import re
 
 from upistas.dominio.importes import normaliza_iban
 from upistas.dominio.modelos import Comprobacion
-from upistas.dominio.notas import clasificar, controles_invisibles, normalizar
+from upistas.dominio.notas import clasificar, controles_invisibles, normalizar, solo_plazo_de_pago
 from upistas.dominio.reglas import regla
+
+# Un REVISAR del evaluador que solo habla del plazo («difiere de los 60 días del maestro»): el ADR-002 no pide comparar plazos.
+_MOTIVO_SOBRE_EL_PLAZO = re.compile(r"plazo|condiciones|vencimiento|\bdias\b|\bdays\b|maestro|difier|distint|payment terms")
 
 
 def _id(valor):
@@ -82,7 +85,11 @@ def notas_requieren_revision(factura, refs, params):
     evaluacion = factura.evaluacion_notas
     if evaluacion is None:
         return Comprobacion(nombre, False, "Notas sin evaluación: requieren revisión humana")
-    if evaluacion.error or evaluacion.requiere_revision:
+    # Una nota que solo es un plazo de pago es un dato, no una instrucción: no escala por sí sola, ni porque el
+    # evaluador compare el plazo con el maestro. Sí escala si el evaluador ve otra cosa o si la nota pide algo más.
+    solo_plazos = all(solo_plazo_de_pago(n.texto) for n in notas)
+    revisar_por_el_plazo = solo_plazos and bool(_MOTIVO_SOBRE_EL_PLAZO.search(normalizar(evaluacion.motivo)))
+    if evaluacion.error or (evaluacion.requiere_revision and not revisar_por_el_plazo):
         detalle = f"Evaluación de notas [{evaluacion.modelo or 'no disponible'}; {evaluacion.version_prompt}]: {evaluacion.motivo}"
         if evaluacion.evidencia:
             detalle += f" | Evidencia: {evaluacion.evidencia}"
@@ -109,7 +116,7 @@ def notas_requieren_revision(factura, refs, params):
             r"\biban\b.{0,50}\bno coincide\b", texto
         ):
             motivo = "La nota afirma que el IBAN no coincide, pero coincide con el maestro"
-        if not motivo and (clasificar(nota.texto) != ("otra",) or re.search(
+        if not motivo and not solo_plazo_de_pago(nota.texto) and (clasificar(nota.texto) != ("otra",) or re.search(
             r"\b(?:pagos?|vencimientos?|importe|iva|iban|nif|erp|anulacion|cancelacion|aprobacion)\b", texto
         )):
             motivo = "La nota contiene información operativa o instrucciones; no es inequívocamente irrelevante"
