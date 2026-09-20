@@ -103,7 +103,7 @@ def datos_fiscales(factura, refs, params):
     pais = pais_del_nif(factura.nif)
     if pais not in ("ES", "??") and factura.iva_pct in (21, 10, 4) and factura.iva > 0:
         return Comprobacion("R3_datos_fiscales", False,
-                            f"Proveedor de fuera de España ({pais}) cobra IVA español ({factura.iva_pct:g} %): comprobar inversión del sujeto pasivo")
+                            f"Proveedor de fuera de España ({pais}) cobra IVA español ({factura.iva_pct.normalize():f} %): comprobar inversión del sujeto pasivo")
     return Comprobacion("R3_datos_fiscales", True)
 
 

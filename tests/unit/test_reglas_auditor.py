@@ -436,7 +436,7 @@ def test_iva_incorrecto_prevalece_sobre_nota_oculta():
 
 
 def test_proveedor_de_fuera_de_espana_cobrando_iva_espanol_es_duda_fiscal():
-    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, nif="DE812345678"), REFS)
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, nif="DE812345678", iva_pct=Decimal("21.0")), REFS)
     fiscal = next(c for c in decision.comprobaciones if c.regla == "R3_datos_fiscales")
     assert not fiscal.ok and "fuera de España (DE) cobra IVA español (21 %)" in fiscal.detalle
 
