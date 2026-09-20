@@ -71,7 +71,7 @@ class Settings:
     helmcode_api_key: str = os.getenv("HELMCODE_API_KEY", "")
     helmcode_base_url: str = os.getenv("HELMCODE_BASE_URL", "https://api.helmcode.com/v1")
     modelo_vision: str = os.getenv("MODELO_VISION", "deepseek-v4-flash")
-    vision_timeout_s: float = float(os.getenv("VISION_TIMEOUT_S", "30"))
+    vision_timeout_s: float = float(os.getenv("VISION_TIMEOUT_S", "120"))
     modelo_vision_respaldo: str = os.getenv("MODELO_VISION_RESPALDO", "gemma4")
     modelo_texto: str = os.getenv("MODELO_TEXTO", "glm5.3")
     modelo_notas: str = os.getenv("MODELO_NOTAS", os.getenv("MODELO_TEXTO", "glm5.3"))
