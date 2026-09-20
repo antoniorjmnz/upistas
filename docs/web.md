@@ -11,8 +11,9 @@ No hay usuarios ni contraseña: la web se abre y ya está. Alberto es quien la a
 uv run python manage.py migrate
 uv run python manage.py runserver      # http://127.0.0.1:8000
 ```
-En el portátil hace falta `DJANGO_DEBUG=1` en el `.env` (viene puesto en `.env.example`): sin ella la web
-arranca como en producción y pide su clave. Los datos los pone el pipeline: `uv run upistas run` deja el
+En el portátil no hace falta ninguna variable: sin `DJANGO_DEBUG=1` la web arranca como en producción
+(páginas de error propias, sin trazas), y la clave secreta se genera sola la primera vez y se guarda en
+`.django_secret_key`, fuera de git. Con `DJANGO_DEBUG=1` se ven las trazas de Django al desarrollar. Los datos los pone el pipeline: `uv run upistas run` deja el
 lote decidido y la web lo enseña, o los sube Alberto desde «Subir facturas». Sin ninguna ejecución, la
 portada lo explica y dice cómo lanzarla. Funciona sin internet: htmx, el CSS y las letras van en el repo.
 
@@ -22,9 +23,9 @@ variables arranca sin DEBUG, y sin DEBUG exige su clave. Todo lo que cambia entr
 va en el entorno (el `.env` o las variables del despliegue):
 
 - `DJANGO_DEBUG`: `1` solo en el portátil. Apagado (`0` o sin poner) es el valor por defecto.
-- `DJANGO_SECRET_KEY`: obligatoria sin DEBUG; 50 caracteres o más al azar
-  (`python -c "import secrets; print(secrets.token_urlsafe(60))"`). Con DEBUG, si falta, se usa una de
-  desarrollo.
+- `DJANGO_SECRET_KEY`: en el servidor, obligatoria; 50 caracteres o más al azar
+  (`python -c "import secrets; print(secrets.token_urlsafe(60))"`). Si falta, se genera una y se guarda en
+  `.django_secret_key` junto al código: vale para el portátil, no para un servidor (`comprobar_despliegue` avisa).
 - `DJANGO_ALLOWED_HOSTS`: los dominios desde los que se abre la web, separados por comas
   (`pagos.ejemplo.com`). Sin ella, solo `127.0.0.1` y `localhost`.
 - `CSRF_TRUSTED_ORIGINS`: esos mismos dominios con `https://` delante, para que los formularios se acepten
@@ -56,6 +57,11 @@ Identidad: `<html lang="es">`, un título por pantalla («Hoy · Pagos de Albert
 marca de la barra lateral como favicon (`static/panel/marca.svg`) y un manifest mínimo
 (`static/panel/manifest.webmanifest`) para que el navegador llame a la web «Pagos de Alberto» y no por su
 dominio. Un pie discreto en todas las pantallas: «Pagos de Alberto · Banco Miralmar», y nada más.
+
+Los datos los pone el pipeline: `uv run upistas run` deja el lote decidido y la web lo enseña, o los
+sube Alberto desde «Subir facturas». Sin ninguna ejecución, la portada lo explica y dice cómo lanzarla.
+Funciona sin internet: htmx, el CSS y las letras van en el repo.
+Para ponerla en un servidor detrás de Cloudflare: [despliegue.md](despliegue.md).
 
 ## Cómo se escribe cada pantalla
 Alberto tiene 60 años y no sabe de informática. De ahí tres reglas que valen para toda la web:
