@@ -46,19 +46,48 @@ def test_run_sin_erp_no_emite_decisiones(opciones, monkeypatch, capsys):
     assert "ERP" in capsys.readouterr().err
 
 
-def test_resumen_compatible_con_consola_windows(opciones, monkeypatch):
+RESULTADO = {"file_id": "a.pdf", "result": "PAGAR", "motivo": "Cumple", "norma": "v3", "reglas": []}
+
+
+def _lote_de_una_factura(monkeypatch):
+    """El pipeline de mentira: maestro con un proveedor y un lote ya decidido con una factura que se paga."""
     monkeypatch.setattr(contenedor, "maestro", cache(lambda: SimpleNamespace(proveedores=lambda: [object()])))
     monkeypatch.setattr(pipeline, "iniciar", lambda: None)
-    resultado = {"file_id": "a.pdf", "result": "PAGAR", "motivo": "Cumple", "norma": "v3", "reglas": []}
     informe = SimpleNamespace(
         sincronizacion=None, avisos=[], leidos_ahora=1, desde_cache=0, anterior=None,
         segundos_lectura=0.1, segundos_decision=0.01,
         ejecucion=SimpleNamespace(id=1, version_erp="erp", version_excel="excel", resumen={
             "PAGAR": 1, "NO_PAGAR": 0, "ESCALAR": 0, "tokens_in": 0, "coste_eur": 0,
         }),
-        decisiones=[SimpleNamespace(file_id="a.pdf", resultado="PAGAR", motivo="Cumple", alertas=(), outcome=resultado)],
+        decisiones=[SimpleNamespace(file_id="a.pdf", resultado="PAGAR", motivo="Cumple", alertas=(), outcome=RESULTADO)],
     )
     monkeypatch.setattr(pipeline, "procesar_lote", lambda *args, **kwargs: informe)
+
+
+def test_el_informe_se_llama_como_el_fichero_de_la_entrega():
+    assert cli.nombre_outcomes("lote1") == "outcomes.jsonl"
+    assert cli.nombre_outcomes("lote2") == "outcomes_lote2.jsonl"
+
+
+def test_run_guarda_el_informe_aunque_no_se_pida_salida(opciones, monkeypatch):
+    _lote_de_una_factura(monkeypatch)
+    opciones.salida = None
+    opciones.lote = "lote2"
+    assert cli.cmd_run(opciones) == 0
+    lineas = (cli.settings.outputs_dir / "outcomes_lote2.jsonl").read_text(encoding="utf-8").splitlines()
+    assert [json.loads(linea) for linea in lineas] == [RESULTADO]
+    assert not (cli.settings.outputs_dir / "outcomes.jsonl").exists()
+
+
+def test_salida_cambia_el_nombre_del_informe(opciones, monkeypatch):
+    _lote_de_una_factura(monkeypatch)
+    assert cli.cmd_run(opciones) == 0
+    assert (cli.settings.outputs_dir / "prueba.jsonl").exists()
+    assert not (cli.settings.outputs_dir / "outcomes_test-cli.jsonl").exists()
+
+
+def test_resumen_compatible_con_consola_windows(opciones, monkeypatch):
+    _lote_de_una_factura(monkeypatch)
     buffer = io.BytesIO()
     consola = io.TextIOWrapper(buffer, encoding="cp1252")
     monkeypatch.setattr(cli.sys, "stdout", consola)

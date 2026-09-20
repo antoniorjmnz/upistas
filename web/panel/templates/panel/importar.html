@@ -1,0 +1,59 @@
+{% extends "panel/base.html" %}
+{% load panel_extras %}
+{% block titulo %}Importar datos · Pagos de Alberto{% endblock %}
+{% block contenido %}
+
+<section class="hero">
+  <a class="volver" href="{% url 'panel:proveedores' %}">Volver a proveedores</a>
+  <h1>Importar datos</h1>
+  <p class="lead">Suba el fichero de proveedores o el de pedidos que le hayan mandado. Antes de guardar nada
+    verá, fila a fila, qué es nuevo, qué cambia y qué no vale.</p>
+</section>
+
+<section class="tarjeta">
+  <form class="formulario" method="post" action="{% url 'panel:proveedor_importar' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <label class="zona-subida campo ancho" id="zona-subida">
+      <span class="icono">{% icono "subir" 24 %}</span>
+      <b>Suelte aquí el fichero</b>
+      <span class="ayuda">o pulse para buscarlo en el ordenador. Vale un fichero de proveedores (ID, Razon Social,
+        NIF, IBAN, Ciudad, Condiciones), un fichero de pedidos (pedido, proveedor_id, nif, importe_total, estado,
+        fecha_pedido), los dos a la vez, o su Excel de siempre con las hojas Proveedores y Pedidos_2026.</span>
+      <input type="file" name="ficheros" id="ficheros" multiple accept=".csv,.txt,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <span class="ayuda" id="elegidas" hidden></span>
+    </label>
+
+    <div class="pie-formulario">
+      <button type="submit" class="boton grande" id="enviar">{% icono "ojo" 18 %}Ver qué trae</button>
+      <span class="ayuda">No se guarda nada hasta que usted lo aplique en el paso siguiente.</span>
+    </div>
+  </form>
+</section>
+
+<section class="tarjeta">
+  <div class="cabecera-tarjeta"><h2>Últimas importaciones</h2></div>
+  {% if ultimas %}
+    <div class="tabla-caja">
+      <table>
+        <thead><tr><th>Cuándo</th><th>Fichero</th><th class="num">Nuevos</th><th class="num">Cambiados</th><th class="num">Sin importar</th></tr></thead>
+        <tbody>
+        {% for i in ultimas %}
+          <tr>
+            <td class="entero">{{ i.cuando|date:"j/n/Y H:i" }}</td>
+            <td>{{ i.ficheros }}</td>
+            <td class="num">{{ i.nuevos }}</td>
+            <td class="num">{{ i.cambiados }}</td>
+            <td class="num">{{ i.invalidos }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="suave" style="margin: 0;">Todavía no ha importado ningún fichero.</p>
+  {% endif %}
+</section>
+
+<script defer src="{% estatico 'panel/subida.js' %}"></script>
+{% endblock %}

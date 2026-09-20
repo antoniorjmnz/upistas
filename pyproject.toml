@@ -42,7 +42,7 @@ DJANGO_SETTINGS_MODULE = "web.settings_test"
 
 # Fronteras entre capas. `lint-imports` falla si alguien las cruza (lo ejecuta check.py y la CI).
 [tool.importlinter]
-root_packages = ["upistas"]
+root_packages = ["upistas", "web"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -62,3 +62,14 @@ name = "La aplicacion no conoce DBOS, Django ni adaptadores concretos"
 type = "forbidden"
 source_modules = ["upistas.aplicacion"]
 forbidden_modules = ["upistas.adaptadores", "upistas.infra", "dbos", "django", "httpx", "openai", "pymupdf", "openpyxl"]
+
+# Las vistas llaman a la aplicación y al contenedor; nunca abren un adaptador por su cuenta (solo importes
+# directos: consultas.py y el contenedor sí los conocen). La excepción de erp.py viene de antes (#32) y se
+# deja apuntada, no escondida.
+[[tool.importlinter.contracts]]
+name = "Las vistas de la web no importan adaptadores ni PyMuPDF: pasan por la aplicacion"
+type = "forbidden"
+source_modules = ["web.panel.views"]
+forbidden_modules = ["upistas.adaptadores", "pymupdf"]
+allow_indirect_imports = true
+ignore_imports = ["web.panel.views.erp -> upistas.adaptadores.persistencia.django_erp"]

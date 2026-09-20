@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -52,6 +53,44 @@ class Asiento:
     importe: Decimal
     fecha: date | None
     estado: str  # PENDIENTE | PAGADA
+
+
+def _antiguedad(a: Asiento) -> tuple[date, str]:
+    return (a.fecha or date.min, a.id)
+
+
+def asientos_por_pedido(asientos: Iterable[Asiento]) -> dict[str, tuple[Asiento, ...]]:
+    """Los apuntes del ERP agrupados por pedido, del más antiguo al más reciente. Puede haber varios."""
+    grupos: dict[str, list[Asiento]] = defaultdict(list)
+    for a in sorted(asientos, key=_antiguedad):
+        grupos[a.pedido].append(a)
+    return {pedido: tuple(apuntes) for pedido, apuntes in grupos.items()}
+
+
+def apuntes_contradictorios(apuntes: Sequence[Asiento]) -> bool:
+    """El ERP tiene varios apuntes de un pedido que no cuadran entre sí (proveedor, NIF o importe distintos).
+
+    Si alguno está pagado no se considera contradicción: ese manda y el pedido no se vuelve a pagar.
+    """
+    if any(a.estado == "PAGADA" for a in apuntes):
+        return False
+    return len({(a.proveedor_id, a.nif, a.importe) for a in apuntes}) > 1
+
+
+def asiento_que_manda(apuntes: Sequence[Asiento]) -> Asiento | None:
+    """Con qué apunte del ERP se decide un pedido que tiene varios.
+
+    Si alguno está PAGADA, el pagado más reciente: nunca se paga dos veces. Si todos cuadran entre sí,
+    el más reciente. Si no cuadran, ninguno: el ERP se contradice y lo mira una persona.
+    """
+    if not apuntes:
+        return None
+    pagados = [a for a in apuntes if a.estado == "PAGADA"]
+    if pagados:
+        return max(pagados, key=_antiguedad)
+    if apuntes_contradictorios(apuntes):
+        return None
+    return max(apuntes, key=_antiguedad)
 
 
 @dataclass(frozen=True)
@@ -131,7 +170,7 @@ class Referencias:
 
     proveedores: dict[str, Proveedor]  # por NIF
     pedidos: dict[str, Pedido]  # Excel, por id de pedido
-    asientos: dict[str, Asiento]  # ERP (copia local), por id de pedido
+    asientos: Mapping[str, tuple[Asiento, ...]]  # ERP (copia local), por id de pedido; puede haber varios apuntes
     hoy: date
     pedidos_ya_decididos: frozenset[str] = frozenset()  # aprobados para pago en lotes anteriores
     marcados_por_alberto: frozenset[str] = frozenset()  # hoja pendiente_revisar del Excel
@@ -139,6 +178,13 @@ class Referencias:
     version_datos: str = ""  # con qué copia del ERP y del Excel se decidió
     proveedores_por_id: dict[str, Proveedor] = field(default_factory=dict)
     hashes_ya_aprobados: frozenset[str] = frozenset()
+
+    def asiento(self, pedido: str | None) -> Asiento | None:
+        """El apunte del ERP que manda para ese pedido; None si no hay ninguno o si el ERP se contradice."""
+        return asiento_que_manda(self.asientos.get(pedido, ())) if pedido else None
+
+    def erp_contradictorio(self, pedido: str | None) -> bool:
+        return bool(pedido) and apuntes_contradictorios(self.asientos.get(pedido, ()))
 
 
 @dataclass(frozen=True)

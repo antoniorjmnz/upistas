@@ -65,12 +65,13 @@ def test_el_detalle_ensena_que_cambio_y_el_fichero_de_resultados(alberto, lote_d
     assert reverse("panel:outcomes", args=[ejecucion.id]) in html
 
 
-def test_el_detalle_pliega_lo_tecnico_en_detalles(alberto, lote_de_prueba):
-    arriba, _, tecnico = repaso(alberto, lote_de_prueba["ejecucion"]).partition("<details")
-    assert "Detalles técnicos" in tecnico
+def test_el_detalle_solo_ensena_lo_que_tardo_y_lo_demas_queda_fuera(alberto, lote_de_prueba):
+    html = repaso(alberto, lote_de_prueba["ejecucion"])
+    arriba, _, tecnico = html.partition("<details")
+    assert "Detalles técnicos" in tecnico and "Lo que tardó" in tecnico and "38,5 segundos" in tecnico
+    # El resto de atributos se decidió no enseñarlos (queda como comentario en la plantilla para el equipo).
     for dato in ("b189d7434436", "d7729db76ec7", "tokens", "facturas por segundo", "Windows", "AMD64", "3.12.6"):
-        assert dato not in arriba and dato in tecnico  # nada de esto se ve sin desplegar
-    assert reverse("panel:asientos") + "?version=b189d7434436" in tecnico
+        assert dato not in html
 
 
 def test_el_primer_repaso_no_tiene_con_que_compararse(alberto, lote_de_prueba):

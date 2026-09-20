@@ -94,6 +94,7 @@ _ICONOS = {
     "mas": '<path d="M12 5v14M5 12h14"/>',
     "editar": '<path d="M4 20h4l11-11-4-4L4 16z"/><path d="M13 7l4 4"/>',
     "papelera": '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    "filtro": '<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
 }
 
 
@@ -140,3 +141,46 @@ def estatico(ruta: str) -> str:
     fichero = finders.find(ruta)
     version = int(os.path.getmtime(fichero)) if fichero else 0
     return f"{static(ruta)}?v={version}"
+
+
+@register.filter
+def sin_markdown(texto: str | None) -> str:
+    """Quita el markdown que se le escapa a la IA: las ** de negrita y las # de los títulos.
+
+    Devuelve texto normal, sin marcar como seguro: la plantilla lo sigue escapando."""
+    import re
+
+    limpio = str(texto or "").replace("**", "")
+    return re.sub(r"(?m)^[ \t]*#{1,6}[ \t]+", "", limpio)
+
+
+@register.filter
+def fecha_corta(texto: str | None) -> str:
+    """'2026-01-08' → '8/1/2026'. Lo que no sea una fecha se deja tal cual."""
+    from datetime import date
+
+    try:
+        d = date.fromisoformat(str(texto).strip())
+    except (ValueError, AttributeError):
+        return str(texto or "")
+    return f"{d.day}/{d.month}/{d.year}"
+
+
+@register.filter
+def cuando_corto(momento) -> str:
+    """Un instante en dos palabras: «hoy 10:32», «ayer», «8/1» o «8/1/2025» si es de otro año."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    if not momento:
+        return ""
+    local = timezone.localtime(momento) if timezone.is_aware(momento) else momento
+    hoy = timezone.localdate()
+    if local.date() == hoy:
+        return f"hoy {local:%H:%M}"
+    if local.date() == hoy - timedelta(days=1):
+        return "ayer"
+    if local.year == hoy.year:
+        return f"{local.day}/{local.month}"
+    return f"{local.day}/{local.month}/{local.year}"

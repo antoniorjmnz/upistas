@@ -30,6 +30,7 @@ def _ordenadas(decisiones: list[Decision]) -> list[tuple[str, Decision]]:
 def _grupos(motivos: list[tuple[str, Decision]], revisiones: dict[int, RevisionHumana]) -> list[dict]:
     """Las filas de la página, con lo leído de cada factura. Una sola consulta de lecturas."""
     lecturas = consultas.lecturas_por_sha(d.documento.sha256 for _, d in motivos)
+    por_nif = consultas.nombres_por_nif()
     grupos: list[dict] = []
     for motivo, decision in motivos:
         campos = consultas.campos(lecturas.get(decision.documento.sha256))
@@ -38,16 +39,19 @@ def _grupos(motivos: list[tuple[str, Decision]], revisiones: dict[int, RevisionH
         grupos[-1]["filas"].append({
             "decision": decision,
             "revision": revisiones.get(decision.documento_id),
-            "proveedor": campos.get("proveedor_nombre"),
+            "proveedor": consultas.nombre_proveedor(campos, por_nif),
             "total": campos.get("total"),
+            "marcable": consultas.hay_algo_que_marcar(decision),  # sin nada que rodear, el botón sobra
         })
     return grupos
 
 
-def _vacio(estado: str, q: str, hay_ejecucion: bool) -> dict:
+def _vacio(estado: str, q: str, hay_filtro: bool, hay_ejecucion: bool) -> dict:
     """Qué decirle cuando no hay nada que enseñar, sin que parezca un error."""
     if not hay_ejecucion:
         return {"titulo": "Todavía no hay facturas", "detalle": "En cuanto se pase el primer lote verá aquí lo que tiene que decidir."}
+    if hay_filtro:
+        return {"titulo": "Ninguna factura coincide", "detalle": "Pruebe con otro proveedor u otras fechas, o quite los filtros."}
     if q:
         return {"titulo": "No hay ninguna factura con eso", "detalle": "Pruebe con el nombre del fichero o con el número del pedido."}
     if estado == "decididas":
@@ -55,11 +59,28 @@ def _vacio(estado: str, q: str, hay_ejecucion: bool) -> dict:
     return {"titulo": "No le queda nada por decidir", "detalle": "Todas las facturas que el sistema no supo resolver ya tienen su decisión."}
 
 
+def _hoy():
+    from datetime import date
+
+    from upistas.config import settings as ajustes
+
+    return ajustes.hoy or date.today()
+
+
 def cola(request: HttpRequest) -> HttpResponse:
     lote = request.GET.get("lote") or None
     ejecucion = consultas.ultima_ejecucion(lote)
     estado = "decididas" if request.GET.get("estado") == "decididas" else "pendientes"
     q = (request.GET.get("q") or "").strip()
+    proveedores = consultas.proveedores_para_filtro()
+    proveedor = (request.GET.get("proveedor") or "").strip()
+    if proveedor not in dict(proveedores):  # un código que ya no está en el maestro no filtra nada
+        proveedor = ""
+    desde = consultas.fecha_o_nada(request.GET.get("desde"))
+    hasta = consultas.fecha_o_nada(request.GET.get("hasta"))
+    desde_texto = desde.isoformat() if desde else ""
+    hasta_texto = hasta.isoformat() if hasta else ""
+    hay_filtro = bool(proveedor) or desde is not None or hasta is not None
 
     if ejecucion is None:
         escaladas, revisiones = Decision.objects.none(), {}
@@ -78,9 +99,11 @@ def cola(request: HttpRequest) -> HttpResponse:
             escaladas = escaladas.filter(
                 Q(documento__file_id__icontains=q) | Q(pedido__icontains=q) | Q(motivo__icontains=q)
             )
+        escaladas = consultas.filtrar_decisiones(escaladas, proveedor=proveedor, fecha_desde=desde, fecha_hasta=hasta)
 
     pagina = Paginator(_ordenadas(list(escaladas)), POR_PAGINA).get_page(request.GET.get("pagina"))
     lotes = consultas.lotes()
+    nombre_proveedor = dict(proveedores).get(proveedor, "") if proveedor else ""
     es_htmx = bool(request.headers.get("HX-Request"))
     ctx = {
         "lotes": lotes,
@@ -88,10 +111,21 @@ def cola(request: HttpRequest) -> HttpResponse:
         "lote": ejecucion.lote if ejecucion else "",
         "estado": estado,
         "q": q,
-        "consulta": urlencode({"q": q, "lote": ejecucion.lote if ejecucion else ""}),
+        "proveedores": proveedores,
+        "proveedor": proveedor,
+        "proveedor_nombre": nombre_proveedor,
+        "desde": desde_texto,
+        "hasta": hasta_texto,
+        "consulta": urlencode({
+            "q": q, "lote": ejecucion.lote if ejecucion else "",
+            "proveedor": proveedor, "desde": desde_texto, "hasta": hasta_texto,
+        }),
+        "sin_filtros": urlencode({"q": q, "lote": ejecucion.lote if ejecucion else ""}),
+        "hay_filtro": hay_filtro,
+        "atajos": consultas.atajos_de_fecha(_hoy()),
         "pagina": pagina,
         "grupos": _grupos(list(pagina), revisiones),
-        "vacio": _vacio(estado, q, ejecucion is not None),
+        "vacio": _vacio(estado, q, hay_filtro, ejecucion is not None),
         "n_pendientes": n_pendientes,
         "n_decididas": n_decididas,
         "n_escaladas": n_escaladas,

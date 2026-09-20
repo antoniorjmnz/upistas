@@ -200,7 +200,7 @@ class Proveedor(models.Model):
 
     codigo = models.CharField(max_length=10, unique=True)  # P001, P002...
     nombre = models.CharField(max_length=200)
-    nif = models.CharField(max_length=12, unique=True)
+    nif = models.CharField(max_length=24, unique=True)
     iban = models.CharField(max_length=34)
     ciudad = models.CharField(max_length=80, blank=True)
     condiciones_dias = models.PositiveSmallIntegerField(null=True, blank=True)  # 30, 60... días para pagar
@@ -244,15 +244,60 @@ class Pedido(models.Model):
         return f"{self.numero} · {self.proveedor.codigo}"
 
 
+class Importacion(models.Model):
+    """Cada vez que Alberto aplica un fichero de proveedores o de pedidos desde «Importar datos»."""
+
+    cuando = models.DateTimeField(auto_now_add=True)
+    ficheros = models.CharField(max_length=255)  # los nombres con los que llegaron, separados por coma
+    nuevos = models.PositiveIntegerField(default=0)
+    cambiados = models.PositiveIntegerField(default=0)
+    invalidos = models.PositiveIntegerField(default=0)  # filas que se quedaron fuera
+
+    class Meta:
+        ordering = ["-cuando", "-id"]
+        verbose_name_plural = "importaciones"
+
+    def __str__(self) -> str:
+        return f"{self.cuando:%d/%m %H:%M} · {self.ficheros}"
+
+
 # --- Asistente (chatbot de «Preguntar») -------------------------------------------------------
 
 
+class Conversacion(models.Model):
+    """Una conversación con el asistente: sus preguntas (`Pregunta`) y las acciones que se confirmaron en ella.
+
+    El título es la primera pregunta, recortada. La sesión solo guarda cuál es la actual; los mensajes
+    se reconstruyen desde aquí (ver views/chat.py).
+    """
+
+    TITULO_MAX = 60
+
+    titulo = models.CharField(max_length=TITULO_MAX, blank=True)
+    creada = models.DateTimeField(auto_now_add=True)
+    actualizada = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-actualizada", "-id"]
+        verbose_name = "conversación"
+        verbose_name_plural = "conversaciones"
+
+    def __str__(self) -> str:
+        return self.titulo or f"Conversación {self.pk}"
+
+
 class Pregunta(models.Model):
-    """Cada pregunta de Alberto al asistente: cuánto tardó y cuánto costó (para #31)."""
+    """Cada pregunta de Alberto al asistente: qué contestó, con qué modelo, cuánto tardó y cuánto costó (para #31).
+
+    `detalles` guarda lo que la respuesta enseña aparte del texto (fuentes, botones «Ir a», propuestas).
+    """
 
     cuando = models.DateTimeField(auto_now_add=True)
+    conversacion = models.ForeignKey(Conversacion, null=True, blank=True, on_delete=models.CASCADE, related_name="preguntas")
     texto = models.TextField()
     respuesta = models.TextField(blank=True)
+    detalles = models.JSONField(default=dict, blank=True)
+    modelo = models.CharField(max_length=60, blank=True)
     ok = models.BooleanField(default=True)
     error = models.TextField(blank=True)
     tokens_in = models.PositiveIntegerField(default=0)
@@ -264,3 +309,26 @@ class Pregunta(models.Model):
 
     def __str__(self) -> str:
         return f"{self.cuando:%d/%m %H:%M} · {self.texto[:60]}"
+
+
+class AccionAsistente(models.Model):
+    """Cada cosa que el asistente propuso y Alberto confirmó: cuándo, qué, con qué datos y en qué quedó.
+
+    El asistente nunca escribe por su cuenta: la fila se crea al pulsar «Confirmar» (ver docs/asistente.md).
+    """
+
+    cuando = models.DateTimeField(auto_now_add=True)
+    # En qué conversación se confirmó. Borrar la conversación no borra la acción: es traza.
+    conversacion = models.ForeignKey(Conversacion, null=True, blank=True, on_delete=models.SET_NULL, related_name="acciones")
+    tipo = models.CharField(max_length=40)
+    datos = models.JSONField(default=dict, blank=True)
+    resultado = models.TextField(blank=True)
+    ok = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-cuando", "-id"]
+        verbose_name = "acción del asistente"
+        verbose_name_plural = "acciones del asistente"
+
+    def __str__(self) -> str:
+        return f"{self.cuando:%d/%m %H:%M} · {self.tipo} · {self.resultado[:60]}"

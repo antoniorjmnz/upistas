@@ -51,11 +51,6 @@ def editar(request: HttpRequest, id: int) -> HttpResponse:
     return _formulario_proveedor(request, get_object_or_404(Proveedor, pk=id))
 
 
-def nuevo_pedido(request: HttpRequest, id: int) -> HttpResponse:
-    proveedor = get_object_or_404(Proveedor, pk=id)
-    return _formulario_pedido(request, Pedido(proveedor=proveedor), proveedor)
-
-
 def editar_pedido(request: HttpRequest, id: int) -> HttpResponse:
     pedido = get_object_or_404(Pedido.objects.select_related("proveedor"), pk=id)
     return _formulario_pedido(request, pedido, pedido.proveedor)
@@ -78,7 +73,7 @@ def _formulario_pedido(request: HttpRequest, pedido: Pedido, proveedor: Proveedo
         form = PedidoForm(request.POST, instance=pedido)
         if form.is_valid():
             guardado = form.save()
-            messages.success(request, f"Guardado el pedido {guardado.numero}.")
+            messages.success(request, f"Guardado lo que ha dicho sobre el pedido {guardado.numero}.")
             return redirect("panel:proveedor", id=guardado.proveedor_id)
     else:
         form = PedidoForm(instance=pedido)

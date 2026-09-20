@@ -41,11 +41,21 @@ def test_las_referencias_traen_todo_lo_que_pueden_mirar_las_reglas():
     lecturas = [registro("a.pdf", extraida("a.pdf")), registro("b.pdf", extraida("b.pdf", fecha="2026-01-12")), registro("c.pdf")]
     refs = construir_referencias(maestro, erp, lecturas, date(2026, 9, 18), "erp1", frozenset({"PO-2026-0001"}))
     assert refs.proveedores["B46102331"] is PROV
-    assert refs.asientos["PO-2026-0096"].estado == "PENDIENTE"
+    assert refs.asiento("PO-2026-0096").estado == "PENDIENTE"
     assert refs.marcados_por_alberto == {"PO-2026-0007"}
     assert refs.pedidos_ya_decididos == {"PO-2026-0001"}
     assert [f.file_id for f in refs.facturas_del_lote["PO-2026-0096"]] == ["a.pdf", "b.pdf"]  # dos facturas del mismo pedido
     assert refs.version_datos == "erp1+ex1"
+
+
+def test_construir_referencias_no_se_para_si_el_erp_trae_dos_asientos_del_mismo_pedido():
+    # Lote 2 de verdad: AS-00071 (PENDIENTE) y AS-90001 (PAGADA) para PO-2026-0071, mismos datos.
+    pendiente = Asiento("AS-00071", "PO-2026-0071", "P010", "B98455101", Decimal("951.89"), date(2026, 5, 24), "PENDIENTE")
+    pagado = Asiento("AS-90001", "PO-2026-0071", "P010", "B98455101", Decimal("951.89"), date(2026, 9, 1), "PAGADA")
+    otro = Asiento("AS-00096", "PO-2026-0096", "P001", "B46102331", Decimal("3012.89"), date(2026, 1, 8), "PENDIENTE")
+    refs = construir_referencias(MaestroEnMemoria([PROV], []), ErpEnMemoria([pagado, otro, pendiente]), [], date(2026, 9, 18), "erp2")
+    assert refs.asientos["PO-2026-0071"] == (pendiente, pagado)  # del más antiguo al más reciente
+    assert refs.asiento("PO-2026-0071") is pagado and refs.asiento("PO-2026-0096") is otro
 
 
 def test_decidir_lote_da_un_outcome_por_documento_y_el_ilegible_escala(tmp_path):

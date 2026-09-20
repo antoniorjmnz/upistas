@@ -50,9 +50,10 @@
     {% for n in notas %}<p>«{{ n.texto }}»</p>{% endfor %}
     {% for a in alertas %}<p>El fichero trae {{ a }}.</p>{% endfor %}
     <p>No se tiene en cuenta: se decide con los datos.</p>
-    {% if con_oculto %}
-      <p>Esta factura lleva texto que no se ve al abrirla.
-        <a href="{% url 'panel:factura_pdf_marcado' documento.lote documento.file_id %}" target="_blank" rel="noopener">Ver el PDF con lo escondido señalado en rojo</a></p>
+    {% if con_oculto or sin_comprobar %}
+      <p>{% if con_oculto %}Esta factura lleva texto que no se ve al abrirla.{% endif %}
+        {% if sin_comprobar %}No hemos podido comprobar si lleva texto escondido{% if con_oculto %} en todas sus páginas{% endif %}.{% endif %}
+        <button type="button" class="enlace" data-pdf="{% url 'panel:factura_pdf_marcado' documento.lote documento.file_id %}" data-titulo="{{ documento.file_id }} · con las alarmas señaladas">{% if con_oculto %}Ver el PDF con lo escondido señalado en rojo{% else %}Ver el PDF con ese aviso al final{% endif %}</button></p>
     {% endif %}
   </div>
 </div>
@@ -63,6 +64,7 @@
     <h2>La factura</h2>
     <span class="acciones">
       {% include "panel/_previsualizar.html" with documento=documento grande=True %}
+      {% if decision.resultado != "PAGAR" or alertas %}{% include "panel/_marcado_boton.html" with documento=documento grande=True %}{% endif %}
       <a class="boton suave" href="{% url 'panel:factura_pdf' documento.lote documento.file_id %}" target="_blank" rel="noopener">{% icono "externo" 16 %}Abrir en otra pestaña</a>
     </span>
   </div>
@@ -129,7 +131,7 @@
       {% if lectura %}
         <dt>Tardó</dt><dd>{{ lectura.segundos|floatformat:2 }} segundos</dd>
         <dt>Enviado a la inteligencia artificial</dt><dd>{{ lectura.tokens_in }} trozos de texto de ida y {{ lectura.tokens_out }} de vuelta</dd>
-        <dt>Lo que costó leerla</dt><dd>{% if lectura.coste_eur %}{{ lectura.coste_eur|euros }}{% else %}nada: se leyó sin inteligencia artificial{% endif %}</dd>
+        <dt>Lo que costó leerla</dt><dd>{% if lectura.coste_eur %}{{ lectura.coste_eur|euros }}{% elif lectura.tokens_in %}se usó inteligencia artificial, pero no hay tarifa configurada{% else %}nada: se leyó sin inteligencia artificial{% endif %}</dd>
       {% endif %}
     </dl>
 
@@ -169,6 +171,12 @@
       </div>
     {% else %}
       <p class="suave">Todavía no ha decidido nada sobre esta factura.</p>
+    {% endif %}
+    {% if comentarios_asistente %}
+      <h2>Comentarios que apuntó desde Preguntar</h2>
+      <ul class="comentarios-asistente">
+        {% for c in comentarios_asistente %}<li><span class="suave">{{ c.cuando|date:"d/m/Y H:i" }}</span> «{{ c.datos.comentario }}»</li>{% endfor %}
+      </ul>
     {% endif %}
   </details>
 </section>

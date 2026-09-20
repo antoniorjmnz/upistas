@@ -100,3 +100,33 @@ def test_el_pdf_se_puede_ensenar_dentro_de_nuestra_pagina(alberto, lote_de_prueb
     r = alberto.get(reverse("panel:factura_pdf", args=["lote1", "2026-07-01_P009.pdf"]))
     assert r.status_code == 200 and r["Content-Type"] == "application/pdf"
     assert r["X-Frame-Options"] == "SAMEORIGIN"  # el visor lo carga en un marco de la misma web
+
+
+def test_filtrar_por_proveedor_e_importe(lote_de_prueba):
+    from decimal import Decimal
+
+    from web.panel.models import Pedido, Proveedor
+
+    p = Proveedor.objects.create(codigo="P001", nombre="Suministros Levante S.L.", nif="B46102331", iban="ES2100491500051234567890")
+    Pedido.objects.create(numero="PO-2026-0001", proveedor=p, importe=Decimal("2490"))
+    todas = consultas.decisiones_de(lote_de_prueba["ejecucion"])
+    assert consultas.proveedores_para_filtro() == [("P001", "Suministros Levante S.L.")]
+    assert consultas.filtrar_decisiones(todas, proveedor="P001").count() == 4  # las cuatro leídas llevan su NIF; el escaneado no
+    assert consultas.filtrar_decisiones(todas, proveedor="P999").count() == 0
+    assert {d.documento.file_id for d in consultas.filtrar_decisiones(todas, desde=Decimal("2000"), hasta=Decimal("3000"))} == {"2026-01-08_P001.pdf"}
+    assert consultas.filtrar_decisiones(todas, hasta=Decimal("400")).count() == 1  # FA-1016, 318,40 €
+    assert consultas.importe_o_nada("1.200,50") == Decimal("1200.50") and consultas.importe_o_nada(" ") is None and consultas.importe_o_nada("abc") is None
+
+
+def test_los_hosts_permitidos_se_leen_del_entorno(monkeypatch):
+    """Por defecto los dos locales; con DJANGO_ALLOWED_HOSTS, lo que diga (túnel, dominio de la demo...)."""
+    import runpy
+    from pathlib import Path
+
+    import web
+
+    settings_py = str(Path(web.__file__).parent / "settings.py")
+    monkeypatch.delenv("DJANGO_ALLOWED_HOSTS", raising=False)
+    assert runpy.run_path(settings_py)["ALLOWED_HOSTS"] == ["127.0.0.1", "localhost"]
+    monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1, pagos.ejemplo.com,")
+    assert runpy.run_path(settings_py)["ALLOWED_HOSTS"] == ["127.0.0.1", "pagos.ejemplo.com"]

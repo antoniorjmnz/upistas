@@ -23,23 +23,62 @@
 </section>
 {% endif %}
 
-<form class="barra" method="get" action="{% url 'panel:cola' %}"
-      hx-get="{% url 'panel:cola' %}" hx-target="#lista" hx-push-url="true"
-      hx-trigger="input changed delay:300ms from:#buscar, change from:#lote, submit">
+{% comment %}Formulario normal: proveedor, fechas, estado y lote recargan la página entera; solo el buscador va con htmx.{% endcomment %}
+<form class="barra" method="get" action="{% url 'panel:cola' %}">
+  {% if lote %}<input type="hidden" name="lote" value="{{ lote }}">{% endif %}
   <div class="buscador">
     {% icono "buscar" 20 %}
-    <input id="buscar" type="search" name="q" value="{{ q }}" placeholder="Busque una factura o un pedido" autocomplete="off" aria-label="Buscar">
+    <input id="buscar" type="search" name="q" value="{{ q }}" placeholder="Busque una factura o un pedido" autocomplete="off" aria-label="Buscar"
+           hx-get="{% url 'panel:cola' %}" hx-include="closest form" hx-trigger="input changed delay:300ms" hx-target="#lista" hx-push-url="true">
   </div>
+  <select id="proveedor" name="proveedor" aria-label="Proveedor" onchange="this.form.requestSubmit()">
+    <option value="">Todos los proveedores</option>
+    {% for codigo, nombre in proveedores %}<option value="{{ codigo }}"{% if codigo == proveedor %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+  </select>
+  <details class="filtro{% if desde or hasta %} activo{% endif %}">
+    <summary>{% icono "filtro" 16 %}Filtrar</summary>
+    <div class="filtro-panel">
+      <div class="dos">
+        <div class="campo">
+          <label for="desde">Fecha desde</label>
+          <input id="desde" type="date" name="desde" value="{{ desde }}">
+        </div>
+        <div class="campo">
+          <label for="hasta">Fecha hasta</label>
+          <input id="hasta" type="date" name="hasta" value="{{ hasta }}">
+        </div>
+      </div>
+      <div class="pie-formulario">
+        <button type="submit" class="boton pequeno">Aplicar</button>
+      </div>
+      <div class="atajos">
+        <span class="eti">O elija</span>
+        {% for a in atajos %}<a class="chip{% if desde == a.desde and hasta == a.hasta %} activa{% endif %}" href="?estado={{ estado }}&amp;{{ sin_filtros }}&amp;proveedor={{ proveedor|urlencode }}&amp;desde={{ a.desde }}&amp;hasta={{ a.hasta }}">{{ a.nombre }}</a>{% endfor %}
+        <a class="chip{% if not desde and not hasta %} activa{% endif %}" href="?estado={{ estado }}&amp;{{ sin_filtros }}&amp;proveedor={{ proveedor|urlencode }}">Cualquier fecha</a>
+      </div>
+    </div>
+  </details>
   {% include "panel/_revisar_chips.html" %}
   {% if varios_lotes %}
   <label class="elegir-lote" for="lote"><span class="suave">Lote</span>
-    <select id="lote" name="lote">
-      {% for l in lotes %}<option value="{{ l }}" {% if l == lote %}selected{% endif %}>{{ l|lote }}</option>{% endfor %}
+    <select id="lote" name="lote" onchange="this.form.requestSubmit()">
+      {% for l in lotes %}<option value="{{ l }}"{% if l == lote %} selected{% endif %}>{{ l|lote }}</option>{% endfor %}
     </select>
   </label>
   {% endif %}
-  <noscript><button class="boton" type="submit">Buscar</button></noscript>
+  <noscript><button class="boton pequeno suave" type="submit">Buscar</button></noscript>
 </form>
+
+{% if hay_filtro %}
+<p class="filtros-puestos">
+  {% if proveedor_nombre %}<span>Proveedor: {{ proveedor_nombre }}</span>{% endif %}
+  {% if desde or hasta %}
+    <span>Fecha: {% if desde and hasta %}del {{ desde|fecha_corta }} al {{ hasta|fecha_corta }}{% elif desde %}desde el {{ desde|fecha_corta }}{% else %}hasta el {{ hasta|fecha_corta }}{% endif %}</span>
+    <span class="suave">(las que no se pudieron leer no tienen fecha y no salen)</span>
+  {% endif %}
+  <a href="?estado={{ estado }}&amp;{{ sin_filtros }}">Quitar filtros</a>
+</p>
+{% endif %}
 
 <div id="lista" class="cola">
   {% include "panel/_revisar_lista.html" %}

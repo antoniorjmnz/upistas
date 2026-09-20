@@ -71,10 +71,16 @@ class Settings:
     helmcode_api_key: str = os.getenv("HELMCODE_API_KEY", "")
     helmcode_base_url: str = os.getenv("HELMCODE_BASE_URL", "https://api.helmcode.com/v1")
     modelo_vision: str = os.getenv("MODELO_VISION", "deepseek-v4-flash")
+    vision_timeout_s: float = float(os.getenv("VISION_TIMEOUT_S", "30"))
     modelo_vision_respaldo: str = os.getenv("MODELO_VISION_RESPALDO", "gemma4")
     modelo_texto: str = os.getenv("MODELO_TEXTO", "glm5.3")
     modelo_notas: str = os.getenv("MODELO_NOTAS", os.getenv("MODELO_TEXTO", "glm5.3"))
     notas_timeout_s: float = float(os.getenv("NOTAS_TIMEOUT_S", "30"))
+    # El asistente de «Preguntar» puede ir con otro proveedor compatible con OpenAI (OpenRouter, por
+    # ejemplo) sin tocar código: con estas tres variables. Sin ellas usa Helmcode, como el resto.
+    asistente_base_url: str = os.getenv("ASISTENTE_BASE_URL", os.getenv("HELMCODE_BASE_URL", "https://api.helmcode.com/v1"))
+    asistente_api_key: str = os.getenv("ASISTENTE_API_KEY", os.getenv("HELMCODE_API_KEY", ""))
+    asistente_modelo: str = os.getenv("ASISTENTE_MODELO", os.getenv("MODELO_TEXTO", "glm5.3"))
     notas_max_tokens: int = int(os.getenv("NOTAS_MAX_TOKENS", "4096"))
     concurrencia: int = int(os.getenv("CONCURRENCIA", "16"))
     outputs_dir: Path = ROOT / "outputs"

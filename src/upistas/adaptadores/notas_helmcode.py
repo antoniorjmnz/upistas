@@ -103,7 +103,7 @@ class EvaluadorNotasHelmcode:
             return EvaluacionNotas(False, "Sin notas: no se consulta la API")
         if sum(map(len, notas)) > 32000:
             return self.fallo("Notas demasiado extensas para evaluarlas con seguridad")
-        asiento = refs.asientos.get(factura.pedido)
+        asiento = refs.asiento(factura.pedido)
         pedido = refs.pedidos.get(factura.pedido)
         proveedor = refs.proveedores.get(factura.nif)
         datos = {

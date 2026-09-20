@@ -14,8 +14,11 @@
 </section>
 
 {% if ejecucion %}
+{% comment %}Todo el filtro es un formulario normal: elegir proveedor, aplicar fechas o cambiar de estado recarga la página
+entera, así el desplegable, el estado y la línea de filtros van siempre a una. Solo escribir en el buscador va con htmx.{% endcomment %}
 <form class="barra" method="get" action="{% url 'panel:facturas' %}">
   <input type="hidden" name="resultado" value="{{ resultado }}">
+  {% if lote %}<input type="hidden" name="lote" value="{{ lote }}">{% endif %}
   <div class="buscador">
     {% icono "buscar" 20 %}
     <input type="search" name="q" value="{{ q }}" autocomplete="off" aria-label="Buscar una factura"
@@ -23,31 +26,64 @@
            hx-get="{% url 'panel:facturas' %}" hx-include="closest form"
            hx-trigger="input changed delay:300ms" hx-target="#tabla" hx-push-url="true">
   </div>
+  <select name="proveedor" aria-label="Proveedor" onchange="this.form.requestSubmit()">
+    <option value="">Todos los proveedores</option>
+    {% for codigo, nombre in proveedores %}
+      <option value="{{ codigo }}"{% if codigo == proveedor %} selected{% endif %}>{{ nombre }}</option>
+    {% endfor %}
+  </select>
+  <details class="filtro{% if desde or hasta %} activo{% endif %}">
+    <summary>{% icono "filtro" 16 %}Filtrar</summary>
+    <div class="filtro-panel">
+      <div class="dos">
+        <div class="campo">
+          <label for="fac-desde">Fecha desde</label>
+          <input type="date" id="fac-desde" name="desde" value="{{ desde }}">
+        </div>
+        <div class="campo">
+          <label for="fac-hasta">Fecha hasta</label>
+          <input type="date" id="fac-hasta" name="hasta" value="{{ hasta }}">
+        </div>
+      </div>
+      <div class="pie-formulario">
+        <button class="boton pequeno" type="submit">Aplicar</button>
+      </div>
+      <div class="atajos">
+        <span class="eti">O elija</span>
+        {% for a in atajos %}<a class="chip{% if desde == a.desde and hasta == a.hasta %} activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring desde=a.desde hasta=a.hasta pagina=None %}">{{ a.nombre }}</a>{% endfor %}
+        <a class="chip{% if not desde and not hasta %} activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring desde=None hasta=None pagina=None %}">Cualquier fecha</a>
+      </div>
+    </div>
+  </details>
   <div class="chips">
-    <a class="chip {% if not resultado %}activa{% endif %}"
-       href="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}"
-       hx-get="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}"
-       hx-target="#tabla" hx-push-url="true">Todas <span class="cuenta">{{ total }}</span></a>
-    <a class="chip {% if resultado == 'PAGAR' %}activa{% endif %}"
-       href="{% url 'panel:facturas' %}{% querystring resultado='PAGAR' pagina=None %}"
-       hx-get="{% url 'panel:facturas' %}{% querystring resultado='PAGAR' pagina=None %}"
-       hx-target="#tabla" hx-push-url="true"><span class="punto pagar"></span>Se pagan <span class="cuenta">{{ cuenta.PAGAR|default:"0" }}</span></a>
-    <a class="chip {% if resultado == 'NO_PAGAR' %}activa{% endif %}"
-       href="{% url 'panel:facturas' %}{% querystring resultado='NO_PAGAR' pagina=None %}"
-       hx-get="{% url 'panel:facturas' %}{% querystring resultado='NO_PAGAR' pagina=None %}"
-       hx-target="#tabla" hx-push-url="true"><span class="punto nopagar"></span>No se pagan <span class="cuenta">{{ cuenta.NO_PAGAR|default:"0" }}</span></a>
-    <a class="chip {% if resultado == 'ESCALAR' %}activa{% endif %}"
-       href="{% url 'panel:facturas' %}{% querystring resultado='ESCALAR' pagina=None %}"
-       hx-get="{% url 'panel:facturas' %}{% querystring resultado='ESCALAR' pagina=None %}"
-       hx-target="#tabla" hx-push-url="true"><span class="punto revisar"></span>Para revisar <span class="cuenta">{{ cuenta.ESCALAR|default:"0" }}</span></a>
+    <a class="chip {% if not resultado %}activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring resultado=None pagina=None %}">Todas <span class="cuenta">{{ total }}</span></a>
+    <a class="chip {% if resultado == 'PAGAR' %}activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring resultado='PAGAR' pagina=None %}"><span class="punto pagar"></span>Se pagan <span class="cuenta">{{ cuenta.PAGAR|default:"0" }}</span></a>
+    <a class="chip {% if resultado == 'NO_PAGAR' %}activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring resultado='NO_PAGAR' pagina=None %}"><span class="punto nopagar"></span>No se pagan <span class="cuenta">{{ cuenta.NO_PAGAR|default:"0" }}</span></a>
+    <a class="chip {% if resultado == 'ESCALAR' %}activa{% endif %}" href="{% url 'panel:facturas' %}{% querystring resultado='ESCALAR' pagina=None %}"><span class="punto revisar"></span>Para revisar <span class="cuenta">{{ cuenta.ESCALAR|default:"0" }}</span></a>
   </div>
   {% if lotes|length > 1 %}
     <label class="elegir-lote"><span class="suave">Lote</span>
-      <select name="lote">{% for l in lotes %}<option value="{{ l }}" {% if l == lote %}selected{% endif %}>{{ l|lote }}</option>{% endfor %}</select>
-      <button class="boton pequeno suave" type="submit">Ver</button>
+      <select name="lote" onchange="this.form.requestSubmit()">{% for l in lotes %}<option value="{{ l }}"{% if l == lote %} selected{% endif %}>{{ l|lote }}</option>{% endfor %}</select>
     </label>
   {% endif %}
+  <noscript><button class="boton pequeno suave" type="submit">Buscar</button></noscript>
 </form>
+
+{% if filtrando %}
+<div class="filtros-puestos">
+  {% if proveedor_nombre %}<span>Proveedor: {{ proveedor_nombre }}</span>{% endif %}
+  {% if desde or hasta %}
+    <span>Fecha:
+      {% if desde and hasta %}del {{ desde|fecha_corta }} al {{ hasta|fecha_corta }}
+      {% elif desde %}desde el {{ desde|fecha_corta }}
+      {% else %}hasta el {{ hasta|fecha_corta }}
+      {% endif %}
+    </span>
+    <span class="suave">(las que no se pudieron leer no tienen fecha y no salen)</span>
+  {% endif %}
+  <a href="{% url 'panel:facturas' %}{% querystring proveedor=None desde=None hasta=None pagina=None %}">Quitar filtros</a>
+</div>
+{% endif %}
 {% endif %}
 
 <div id="tabla">

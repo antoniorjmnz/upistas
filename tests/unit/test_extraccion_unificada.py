@@ -2,14 +2,17 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import httpx
 import pymupdf
 import pytest
+from openai import APITimeoutError
 
 from upistas.adaptadores.lectores.campos import extraer_campos
 from upistas.adaptadores.lectores.pdf_unificado import LectorPdfUnificado
 from upistas.adaptadores.lectores.vision_helmcode import VisionHelmcode
 from upistas.puertos import LecturaFallida
 
+URL = "https://api.helmcode.com/v1"
 TEXTO = """FACTURA FA-1001
 Proveedor Demo SL
 NIF B12345678
@@ -143,7 +146,24 @@ def test_conflicto_entre_paginas_no_elige_la_primera():
 def test_fecha_invalida_no_se_sustituye_por_vencimiento():
     factura = extraer(TEXTO.replace("15 de enero de 2026", "31/02/2026") + "Fecha vencimiento 01/04/2026")
     assert factura.campos.fecha.valor is None
-    assert factura.errores
+    # Se leyó bien y no existe: no es un fallo de lectura, es un dato inválido que juzga la regla de la fecha.
+    assert factura.campos.fecha.confianza == 1.0
+    assert "31/02/2026" in factura.campos.fecha.fuente
+    assert factura.errores == []
+
+
+def test_mes_que_no_se_reconoce_es_fallo_de_lectura():
+    factura = extraer(TEXTO.replace("15 de enero de 2026", "15 de encro de 2026"))
+    assert factura.campos.fecha.valor is None
+    assert factura.campos.fecha.confianza == 0.0
+    assert "Valor inválido para fecha" in factura.errores
+
+
+def test_fecha_invalida_y_otra_valida_es_contradiccion():
+    factura = extraer(TEXTO.replace("15 de enero de 2026", "31/02/2026") + "Fecha factura 01/04/2026")
+    assert factura.campos.fecha.valor is None
+    assert factura.campos.fecha.confianza == 0.0
+    assert "Valores contradictorios para fecha" in factura.errores
 
 
 def test_pagina_ocr_fallida_no_desaparece():
@@ -318,6 +338,80 @@ def test_fallo_de_vision_conserva_el_ocr(tmp_path):
     assert factura.campos.total.valor == 121
     assert factura.campos.nif.valor is None
     assert any("visión" in error.lower() or "vision" in error.lower() for error in factura.errores)
+
+
+def respuesta_vision(texto=TEXTO, tokens_in=0, tokens_out=0):
+    return SimpleNamespace(
+        choices=[SimpleNamespace(finish_reason="stop", message=SimpleNamespace(content=texto, refusal=None))],
+        usage=SimpleNamespace(prompt_tokens=tokens_in, completion_tokens=tokens_out),
+    )
+
+
+def cliente_vision(*respuestas):
+    """Cliente OpenAI falso: cada llamada devuelve (o lanza) el siguiente elemento."""
+    crear = Mock(side_effect=list(respuestas))
+    return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=crear)))
+
+
+def test_fallo_pasajero_de_vision_no_se_cachea_y_conserva_el_ocr(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    ocr_llamadas = []
+
+    def ocr(imagen):
+        ocr_llamadas.append(imagen)
+        return "FACTURA ILEGIBLE\nTOTAL 121,00 EUR"
+
+    cliente = cliente_vision(APITimeoutError(request=httpx.Request("POST", URL)), respuesta_vision())
+    lector = LectorPdfUnificado(ocr=ocr, vision=VisionHelmcode("k", URL, "qwen3.6", cliente=cliente), cache_dir=tmp_path / "cache")
+
+    primera = lector.leer(ruta)
+    assert primera.campos.total.valor == 121  # lo que el OCR sí leyó se conserva
+    assert primera.campos.nif.valor is None
+    assert any("visión" in error for error in primera.errores)
+
+    segunda = lector.leer(ruta)  # la API vuelve: se reintenta la visión sin repetir el OCR
+    assert segunda.campos.nif.valor == "B12345678"
+    assert segunda.metodo.value == "vision_llm"
+    assert segunda.errores == []
+    assert len(ocr_llamadas) == 1
+    assert cliente.chat.completions.create.call_count == 2
+
+    assert lector.leer(ruta).campos.nif.valor == "B12345678"  # ahora sí vale la caché
+    assert cliente.chat.completions.create.call_count == 2
+
+
+def test_coste_acumula_ocr_y_vision_con_los_tokens_de_la_api(tmp_path):
+    ruta = tmp_path / "scan.pdf"
+    crear_pdf(ruta, None)
+    vision = VisionHelmcode("k", URL, "qwen3.6", cliente=cliente_vision(respuesta_vision(tokens_in=1200, tokens_out=300)))
+    class OcrFalso:
+        modelo = "ocr-falso"
+
+        def __call__(self, imagen):
+            return "FACTURA ILEGIBLE" + chr(10) + "TOTAL 121,00 EUR"
+
+    factura = LectorPdfUnificado(ocr=OcrFalso(), vision=vision).leer(ruta)
+    assert factura.metodo.value == "vision_llm"
+    assert factura.coste.modelo == "ocr-falso + qwen3.6"
+    assert (factura.coste.tokens_in, factura.coste.tokens_out) == (1200, 300)
+
+
+def test_coste_suma_los_tokens_de_todas_las_paginas():
+    factura = extraer_campos("a.pdf", [
+        {"page": 1, "route": "vision_llm", "text": TEXTO, "model": "qwen3.6", "modelo_ocr": "fal-ai/got-ocr/v2", "tokens_in": 1000, "tokens_out": 200},
+        {"page": 2, "route": "vision_llm", "text": "Página 2 de 3", "model": "qwen3.6", "modelo_ocr": "fal-ai/got-ocr/v2", "tokens_in": 500, "tokens_out": 100},
+        {"page": 3, "route": "fal_ocr", "text": "Página 3 de 3", "model": "fal-ai/got-ocr/v2"},
+    ])
+    assert factura.coste.modelo == "fal-ai/got-ocr/v2 + qwen3.6"
+    assert (factura.coste.tokens_in, factura.coste.tokens_out) == (1500, 300)
+
+
+def test_coste_solo_ocr_no_inventa_tokens_y_sin_ia_no_hay_coste():
+    ocr = extraer_campos("a.pdf", [{"page": 1, "route": "fal_ocr", "text": TEXTO, "model": "fal-ai/got-ocr/v2"}])
+    assert ocr.coste.modelo == "fal-ai/got-ocr/v2"
+    assert (ocr.coste.tokens_in, ocr.coste.tokens_out) == (0, 0)
+    assert extraer().coste is None
 
 
 def test_discrepancia_ocr_vision_no_elige_por_conveniencia(tmp_path):

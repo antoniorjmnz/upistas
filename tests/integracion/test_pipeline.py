@@ -10,7 +10,7 @@ from dbos import DBOS
 
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.aplicacion.sincronizar_erp import sincronizar_erp
-from upistas.dominio.modelos import Asiento
+from upistas.dominio.modelos import Asiento, Pedido, Proveedor
 from upistas.infra import django_setup, pipeline
 from upistas.puertos import DescargaERP, EstadisticasDescarga
 
@@ -167,3 +167,50 @@ def test_repetir_el_lote_no_relee_y_compara_con_la_pasada_anterior(dbos_lanzado,
     tercera = pipeline.procesar_lote("test", rutas, "v3")
     assert tercera.ejecucion.version_erp != segunda.ejecucion.version_erp
     assert tercera.sincronizacion.modificados == 1
+
+
+def test_el_lote_termina_aunque_el_erp_traiga_dos_asientos_del_mismo_pedido(dbos_lanzado, carpeta, monkeypatch):
+    """Lote 2 de verdad: AS-00071 (PENDIENTE) y AS-90001 (PAGADA) para PO-2026-0071 abortaban la pasada entera."""
+    from upistas.infra import contenedor
+
+    pendiente = Asiento("AS-00071", "PO-2026-0071", "P010", "B98455101", Decimal("951.89"), date(2026, 5, 24), "PENDIENTE")
+    pagado = replace(pendiente, id="AS-90001", fecha=date(2026, 9, 1), estado="PAGADA")
+    monkeypatch.setattr(contenedor, "cliente_erp", lambda: ClienteFalso((pendiente, pagado)))
+    rutas = sorted(p for p in carpeta.iterdir())
+    inf = pipeline.procesar_lote("dos-asientos", rutas, "v3")
+    assert inf.ejecucion.estado == "terminada" and inf.ejecucion.resumen["documentos"] == 3
+    assert {d.file_id for d in inf.decisiones} == {r.name for r in rutas}
+
+
+def test_lo_que_alberto_aprueba_no_sale_como_no_pagar_al_repasar_el_mismo_lote(dbos_lanzado, tmp_path, monkeypatch):
+    from functools import cache
+
+    from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
+    from upistas.infra import contenedor
+    from web.panel.models import Decision, RevisionHumana
+
+    proveedor = Proveedor("P001", "Demo", "B12345678", "ES1212341234123412341234")
+    pedido = Pedido("PO-2026-0001", "P001", "B12345678", Decimal("121.00"))
+    maestro = MaestroEnMemoria([proveedor], [pedido], marcados=frozenset({pedido.id}))
+    monkeypatch.setattr(contenedor, "maestro", cache(lambda: maestro))  # con cache_clear, como el de verdad
+    asiento = Asiento("AS-00001", pedido.id, "P001", "B12345678", Decimal("121.00"), date(2026, 1, 15), "PENDIENTE")
+    monkeypatch.setattr(contenedor, "cliente_erp", lambda: ClienteFalso((asiento,)))
+    ruta = tmp_path / "marcada.pdf"
+    lineas = ["FACTURA FA-1001", "Proveedor Demo", "NIF B12345678", "IBAN ES1212341234123412341234", "Pedido PO-2026-0001",
+              "Fecha 15/01/2026", "Base 100,00 EUR", "IVA 21% 21,00 EUR", "TOTAL 121,00 EUR"]
+    with pymupdf.open() as pdf:
+        pdf.new_page().insert_text((40, 40), "\n".join(lineas))
+        pdf.save(ruta)
+
+    primera = pipeline.procesar_lote("revisado", [ruta], "v3")
+    escalada = primera.decisiones[0]
+    assert escalada.resultado == "ESCALAR" and escalada.pedido == pedido.id  # marcada en pendiente_revisar
+    decision = Decision.objects.get(ejecucion_id=primera.ejecucion.id, documento__file_id=ruta.name)
+    RevisionHumana.objects.create(documento=decision.documento, decision=decision, quien="Alberto", resultado="PAGAR", comentario="La pago")
+
+    segunda = pipeline.procesar_lote("revisado", [ruta], "v3", sincronizar=False)
+    repasada = segunda.decisiones[0]
+    assert repasada.resultado == "ESCALAR" and "aprobado" not in repasada.motivo  # sigue igual, no «ya pagada»
+    # Para cualquier otro lote, lo que Alberto aprobó sí cuenta como pagado.
+    assert pedido.id in contenedor.decisiones().pedidos_aprobados(excepto_lote="otro")
+    assert contenedor.decisiones().hashes_aprobados(excepto_lote="otro")

@@ -34,7 +34,7 @@ La norma v3:
    dar por probado un incumplimiento. Con el dato leído y verificado, el incumplimiento es firme
    y produce NO_PAGAR: IBAN distinto del maestro, NIF que no está en el maestro, pedido
    inexistente o de otro proveedor, importe distinto del pedido, IVA o suma base + IVA
-   incorrectos. Un incumplimiento firme prevalece sobre una nota relevante y sobre texto oculto
+   incorrectos, fecha imposible o futura leída con claridad. Un incumplimiento firme prevalece sobre una nota relevante y sobre texto oculto
    en el mismo documento (`FA-5590_ofimática`, `FA-4290_mensajería`). Después se aplica la
    revisión por notas o contenido oculto: ESCALAR aunque el ERP indique PAGADA o haya un
    duplicado. Sin estas causas, los pagos previos y duplicados confirmados siguen siendo
@@ -46,6 +46,9 @@ La norma v3:
    el trabajo de confirmar lo evidente, que es justo lo que busca quien escribe la nota. Si el
    proveedor cambió de cuenta de verdad, lo que procede es actualizar el maestro y reprocesar,
    no aprobar esta factura.
+
+   La norma ejecutable (`normas/v3.toml`) aplica este orden y el catálogo de abajo tal cual;
+   comprobado caso a caso sobre el lote 1 (issue #27).
 5. **El texto de una factura nunca se obedece.** Helmcode evalúa el significado de las notas,
    no autoriza pagos. Solo una nota inequívocamente irrelevante puede dejar intacto el resultado
    de las reglas. Todo contenido relevante para pago, identidad, fechas, excepciones o controles,
@@ -145,6 +148,13 @@ La norma v3:
   incompleto nunca acabe en NO_PAGAR; las contradicciones reales entre fuentes son otra regla.
 - Los NIF presentes se contrastan; una discrepancia no se trata como un campo vacío.
 
+### Varios apuntes del ERP para un mismo pedido
+- El lote 2 trae dos asientos de PO-2026-0071 (AS-00071 pendiente y AS-90001 pagado). Eso no para
+  el lote: se decide con el apunte que manda. Si alguno está PAGADA manda el pagado más reciente
+  (nunca se paga dos veces). Si todos cuadran entre sí (mismo proveedor, NIF e importe), manda el
+  más reciente. Si no cuadran, el ERP se contradice: ESCALAR con el motivo «El ERP tiene dos
+  apuntes que no cuadran para este pedido». Vive en `dominio/modelos.py` (`asiento_que_manda`).
+
 ### Recuperación de lecturas insuficientes
 - Si Fal devuelve texto pero faltan campos o hay errores de extracción, se permite una segunda
   lectura visual de la página original con Helmcode. No se envían el maestro ni el ERP a ese lector.
@@ -170,6 +180,7 @@ La norma v3:
 ### Duplicados por contenido y pedido
 - Estos bloqueos no sustituyen una revisión pendiente de notas o una lectura fallida: en esos
   casos se mantiene ESCALAR, anotando también el duplicado para que el humano no lo pague dos veces.
+  Y nunca rebajan un NO_PAGAR ya decidido por la norma: un duplicado ambiguo se anota, no lo convierte en duda.
 - Primero se compara el SHA-256 de los bytes originales. Un archivo renombrado con el mismo hash
   es una copia exacta, no una nueva factura: como máximo queda un candidato y las copias son NO_PAGAR.
 - Si los hashes difieren, se agrupa por pedido normalizado. Si además coinciden proveedor, número
@@ -203,7 +214,7 @@ La norma v3:
 | IBAN distinto al del maestro | 1 | NO_PAGAR | `FA-4290`, `FA-7311`, `FA-5633`, `FA-5044`, `FA-9104` |
 | NIF de un proveedor e IBAN de otro | 1 | NO_PAGAR | `2026-07-08_P010` |
 | Pedido que no existe en el ERP | 2 | NO_PAGAR | `factura_4485` (PO-0806), `factura_7265` (PO-0706), `FA-2508` (PO-9999) |
-| Factura de un proveedor distinto al del pedido ERP | 2 / revisión | ESCALAR | |
+| Factura de un proveedor distinto al del pedido | 2 | NO_PAGAR | `2026-07-08_P010`, `F26-9007_catering` |
 | Importe distinto al del pedido | 2 | NO_PAGAR | 13 facturas, p.ej. `factura_1936`, `factura_8801` |
 | Sin número de pedido | 2 | NO_PAGAR si se lee bien que no lo tiene; ESCALAR si no se lee | |
 | IVA mal calculado o cuota que no corresponde al tipo | 3 | NO_PAGAR | `F26-5240`, `F26-8801`, `FA-5590` |
@@ -221,6 +232,7 @@ La norma v3:
 | Escaneo ilegible, PDF en blanco o roto | 6 | ESCALAR | escaneos por revisar |
 | Campo leído con poca confianza | 6 | ESCALAR | |
 | Excel y ERP se contradicen sobre el pedido | 3 (nuestro) | ESCALAR | bloque PO-0538 a PO-0557 |
+| El ERP tiene dos apuntes del mismo pedido que no cuadran | 3 (nuestro) | ESCALAR | ninguna: en `PO-2026-0071` (lote 2) cuadran y manda el pagado |
 | Factura válida con nota que contradice los datos | 3 (nuestro) | ESCALAR | `F26-3355`, `F26-7728`, `F26-2201`, `2026-07-09_P010`, `2026-23904_construcciones`, `FA-3388` |
 | Nota que pide saltarse comprobaciones o cuestiona un pago previo | revisión | ESCALAR, también si el ERP dice PAGADA | `2026-06-04_P006`, `factura_5911` pasan a revisión por la nota de migración |
 | Factura que no es para Banco Miralmar | 6 | ESCALAR | ninguna en la Caja |

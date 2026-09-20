@@ -1,8 +1,8 @@
 from django.contrib import admin
 
 from web.panel.models import (
-    AsientoERP, Decision, Documento, Ejecucion, Lectura, Pedido, Proveedor, RevisionHumana,
-    SincronizacionERP, VersionERP,
+    AccionAsistente, AsientoERP, Conversacion, Decision, Documento, Ejecucion, Importacion, Lectura, Pedido, Pregunta, Proveedor,
+    RevisionHumana, SincronizacionERP, VersionERP,
 )
 
 
@@ -69,3 +69,31 @@ class PedidoAdmin(admin.ModelAdmin):
     list_display = ("numero", "proveedor", "importe", "fecha", "revisar", "actualizado")
     list_filter = ("revisar", "proveedor")
     search_fields = ("numero", "proveedor__nombre", "proveedor__nif")
+
+
+@admin.register(Importacion)
+class ImportacionAdmin(admin.ModelAdmin):
+    list_display = ("cuando", "ficheros", "nuevos", "cambiados", "invalidos")
+    readonly_fields = ("cuando",)
+
+
+@admin.register(Conversacion)
+class ConversacionAdmin(admin.ModelAdmin):
+    list_display = ("titulo", "creada", "actualizada")
+    search_fields = ("titulo",)
+
+
+@admin.register(Pregunta)
+class PreguntaAdmin(admin.ModelAdmin):
+    list_display = ("cuando", "texto", "conversacion", "modelo", "ok", "tokens_in", "tokens_out", "segundos")
+    list_filter = ("ok", "modelo")
+    search_fields = ("texto", "respuesta", "error")
+    readonly_fields = ("cuando",)
+
+
+@admin.register(AccionAsistente)
+class AccionAsistenteAdmin(admin.ModelAdmin):
+    list_display = ("cuando", "tipo", "resultado", "ok")
+    list_filter = ("tipo", "ok")
+    search_fields = ("resultado",)
+    readonly_fields = ("cuando",)

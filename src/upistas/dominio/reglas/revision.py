@@ -14,13 +14,15 @@ def _id(valor):
 def lectura_suficiente(factura, refs, params):
     if factura.errores_lectura:
         return Comprobacion("R0_lectura", False, "; ".join(factura.errores_lectura))
-    faltan = [c for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total") if getattr(factura, c) is None]
+    # Un campo que el lector da por ausente con seguridad no es una duda de lectura: lo juzga su propia regla.
+    faltan = [c for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total")
+              if getattr(factura, c) is None and c not in factura.ausentes]
     return Comprobacion("R0_lectura", not faltan, "Campos no verificables: " + ", ".join(faltan) if faltan else "")
 
 
 def _identidad_del_pedido(factura, refs):
     """Asiento y fila del pedido, y la ficha del maestro del proveedor que el ERP les asigna."""
-    asiento = refs.asientos.get(factura.pedido)
+    asiento = refs.asiento(factura.pedido)
     pedido = refs.pedidos.get(factura.pedido)
     if asiento is None or pedido is None or not asiento.proveedor_id or not pedido.proveedor_id:
         return asiento, pedido, None
@@ -42,6 +44,8 @@ def maestro_verificable(factura, refs, params):
         return Comprobacion(nombre, False, "No se puede contrastar el proveedor del pedido entre Excel y ERP")
     if proveedor is None or not proveedor.nif:
         return Comprobacion(nombre, False, f"El maestro no permite verificar el NIF del proveedor {asiento.proveedor_id}")
+    if not proveedor.iban:
+        return Comprobacion(nombre, False, f"El maestro no permite verificar el IBAN del proveedor {asiento.proveedor_id}")
     return Comprobacion(nombre, True)
 
 
@@ -83,7 +87,7 @@ def notas_requieren_revision(factura, refs, params):
         if evaluacion.evidencia:
             detalle += f" | Evidencia: {evaluacion.evidencia}"
         return Comprobacion(nombre, False, detalle)
-    asiento = refs.asientos.get(factura.pedido)
+    asiento = refs.asiento(factura.pedido)
     proveedor = refs.proveedores.get(factura.nif)
     for nota in notas:
         if len(nota.texto) > 16384:

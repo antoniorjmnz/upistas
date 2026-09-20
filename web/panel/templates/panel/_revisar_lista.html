@@ -5,7 +5,7 @@
     <div class="vacio">
       <div class="icono">{% icono "check" 28 %}</div>
       <p class="grande">{{ vacio.titulo }}</p>
-      <p class="suave">{{ vacio.detalle }}</p>
+      <p class="suave">{{ vacio.detalle }}{% if hay_filtro %} <a href="?estado={{ estado }}&amp;{{ sin_filtros }}">Quitar filtros</a>{% endif %}</p>
     </div>
   </section>
 {% else %}
@@ -29,6 +29,7 @@
       <p class="enlaces">
         <a href="{% url 'panel:factura' doc.lote doc.file_id %}">Ver la factura</a>
         {% include "panel/_previsualizar.html" with documento=doc %}
+        {% if f.marcable %}{% include "panel/_marcado_boton.html" with documento=doc %}{% endif %}
       </p>
     </article>
     {% endwith %}

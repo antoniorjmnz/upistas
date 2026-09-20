@@ -6,57 +6,36 @@
 <section class="hero">
   <p class="sobre">Asistente</p>
   <h1>Pregunte lo que quiera</h1>
-  <p class="lead">Le contesto con los datos que ya tenemos guardados de sus facturas: no invento nada y nunca toco el ERP.</p>
+  <p class="lead">Le contesto con los datos que ya tenemos guardados de sus facturas: no invento nada y nunca toco el ERP. Puedo llevarle a una pantalla y proponerle alguna cosa, que solo se hace si usted la confirma.</p>
 </section>
 
 <section class="tarjeta preguntar">
-  <div id="conversacion" class="chat">
+  {% include "panel/_conversaciones.html" %}
+  <div id="conversacion" class="chat" aria-live="polite">
     {% include "panel/_mensajes.html" with mensajes=historial %}
   </div>
+  <div id="cargando" class="mensaje asistente pensando htmx-indicator" aria-hidden="true"><span class="puntos"><i></i><i></i><i></i></span>Pensando…</div>
   <form method="post" action="{% url 'panel:preguntar' %}" id="formpregunta"
         hx-post="{% url 'panel:preguntar' %}" hx-target="#conversacion" hx-swap="beforeend"
         hx-indicator="#cargando" hx-disabled-elt="find input, find button"
         hx-on::after-request="this.reset()" class="formpregunta">
     {% csrf_token %}
+    <input type="hidden" name="ruta" value="{{ request.get_full_path }}">
     <div class="buscador">
       {% icono "buscar" 20 %}
       <input type="search" name="pregunta" required autocomplete="off" autofocus
              placeholder="P. ej.: ¿por qué no se paga la factura FA-1016?" aria-label="Preguntar">
     </div>
     <button type="submit" class="boton">Preguntar</button>
-    <span id="cargando" class="htmx-indicator suave"><span class="girando"></span>&nbsp;Pensando…</span>
   </form>
-  <p class="suave"><small>Las preguntas tardan unos 15-20 segundos: consulto los datos antes de responder.</small></p>
+  <p class="suave"><small>Las preguntas pueden tardar medio minuto: consulto los datos antes de responder.</small></p>
   <h2>Puede preguntarme, por ejemplo</h2>
   <div class="chips ejemplos">
     <button type="button" class="chip" data-ejemplo>¿Por qué no se paga la FA-1016?</button>
     <button type="button" class="chip" data-ejemplo>¿Qué facturas quedan por revisar?</button>
     <button type="button" class="chip" data-ejemplo>¿Qué ha cambiado desde la última vez?</button>
     <button type="button" class="chip" data-ejemplo>¿Está pagado el pedido PO-2026-0474?</button>
+    <button type="button" class="chip" data-ejemplo>Llévame a las facturas que no se pagan</button>
   </div>
 </section>
-
-<script>
-// La pregunta aparece al instante; la respuesta llega por htmx cuando la IA termina.
-document.getElementById('formpregunta').addEventListener('htmx:beforeRequest', function () {
-  const input = this.querySelector('input[name=pregunta]');
-  if (!input.value.trim()) return;
-  const vacio = document.getElementById('vacio');
-  if (vacio) vacio.remove();
-  const div = document.createElement('div');
-  div.className = 'mensaje alberto';
-  const p = document.createElement('p');
-  p.textContent = input.value;
-  div.appendChild(p);
-  document.getElementById('conversacion').appendChild(div);
-});
-// Las preguntas de ejemplo rellenan el cuadro.
-document.querySelectorAll('[data-ejemplo]').forEach(function (chip) {
-  chip.addEventListener('click', function () {
-    const input = document.querySelector('input[name=pregunta]');
-    input.value = chip.textContent.trim();
-    input.focus();
-  });
-});
-</script>
 {% endblock %}

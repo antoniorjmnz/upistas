@@ -1,9 +1,0 @@
-fastapi>=0.116,<1
-uvicorn[standard]>=0.35,<1
-python-multipart>=0.0.20,<1
-pymupdf>=1.26,<2
-fal-client>=0.10,<1
-python-dotenv>=1.1,<2
-pydantic>=2.11,<3
-pytest>=8.4,<9
-pillow

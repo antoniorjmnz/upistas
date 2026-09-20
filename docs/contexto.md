@@ -27,6 +27,8 @@ El domingo, además, cambiarán un dato de La Caja para comprobar que la demo es
 Un repo público **aparte** con solo `outcomes.jsonl`, `outcomes_lote2.jsonl` y `albertitos_plan.pdf`.
 Para optar al premio tiene que haber exactamente un resultado por factura y coincidir con la
 referencia privada de Maisa. El código se enseña en la defensa, no se entrega.
+`uv run python scripts/entrega.py --git` comprueba que cada outcomes cuadra con su carpeta de La Caja
+y deja los tres ficheros en `../la-caja-outcomes` con un commit local; subirlo es a mano.
 
 Rúbrica (110 puntos): producto, arquitectura y ADRs 35 · escala y coste 25 · trazabilidad 20 ·
 resiliencia 10 · calidad 10 · bonus 10. El bonus es una mejora extra para Alberto que no sea
@@ -49,7 +51,7 @@ necesaria para el flujo principal.
 ## Lo que hemos decidido
 - **El LLM solo lee; las reglas deciden.** La IA convierte documentos en datos. PAGAR/NO_PAGAR/ESCALAR lo decide código determinista y auditable.
 - **Stack**: Python + DBOS + Django + HTMX. Por qué y alternativas en [ADR-001](adr/001-stack.md).
-- **IA**: Helmcode (servidores en la UE, tarifa plana). `qwen3.6` para escaneos, `glm5.3` para texto. La clave va en tu `.env`; pídela por privado.
+- **IA**: Helmcode (servidores en la UE, tarifa plana). `deepseek-v4-flash` para escaneos (con `gemma4` de respaldo si falla), `glm5.3` para texto y notas. La clave va en tu `.env`; pídela por privado.
 - **La norma es un fichero** (`normas/v3.toml`). La v4 del sábado será otro fichero.
 - **Cada factura es un workflow duradero**: si el proceso se cae, al arrancar sigue donde iba sin repetir nada.
 - **Una sola base de datos** (`DATABASE_URL` en `.env`): la app y el estado del pipeline. SQLite en local; Postgres (`docker compose up -d`) para varios procesos.
@@ -70,7 +72,8 @@ Capas separadas (arquitectura hexagonal). Detalle y recetas de "cómo añadir X"
 ## Estado actual
 El backend funciona de punta a punta ([backend.md](backend.md)): sincroniza el ERP (copia local
 versionada, [ADR-003](adr/003-erp-copia-local.md)), lee cada documento de forma duradera, decide
-el lote con la norma, guarda todo con su traza y genera `outputs/outcomes.jsonl`. La lectura de los
+el lote con la norma, guarda todo con su traza y genera `outputs/outcomes.jsonl` (`outcomes_lote2.jsonl`
+si el lote es el 2). La lectura de los
 PDF (texto y OCR, #23 y #24) y las reglas (#27) las lleva el equipo de lectura y siguen cambiando;
 el criterio acordado está en [ADR-002](adr/002-criterio.md).
 La web de Alberto ([web.md](web.md)) tiene Resumen, Facturas con toda su traza, Para revisar,

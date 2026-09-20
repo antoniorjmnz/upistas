@@ -16,7 +16,7 @@
   --sombra: 0 1px 2px rgba(16, 24, 40, .05); --sombra-2: 0 6px 16px rgba(16, 24, 40, .10);
   --f-ui: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --f-titulo: "Sora", "Inter", "Segoe UI", system-ui, sans-serif;
-  --ancho: 1120px; --lado: 252px;
+  --ancho: 1120px; --lado: 252px; --asistente: 420px;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -51,7 +51,7 @@ svg { flex: 0 0 auto; }
 .persona { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; }
 .persona .av { width: 34px; height: 34px; }
 .persona small { display: block; font-size: 12px; color: var(--suave); }
-.contenido { min-width: 0; }
+.contenido { min-width: 0; container-type: inline-size; } /* las rejillas miran el ancho del contenido, no el de la ventana (cuenta el panel Preguntar abierto) */
 main { max-width: var(--ancho); margin: 0 auto; padding: 32px 32px 64px; display: flex; flex-direction: column; gap: 22px; }
 
 /* ---- Cabecera de cada pantalla ---- */
@@ -67,7 +67,10 @@ h2 { margin: 0; font: 600 17px/1.3 var(--f-titulo); }
 /* ---- Tarjetas, cifras y el gráfico del lote ---- */
 .tarjeta { background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); padding: 20px 22px; }
 .tarjeta.ajustada { padding: 14px 18px; }
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr) 1.15fr; gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr) 1.5fr; gap: 16px; }
+/* Cuatro tarjetas mientras quepan; dos cuando el contenido baja de 1100 px (portátil pequeño o panel abierto); una en móvil */
+@container (max-width: 1100px) { .kpis { grid-template-columns: 1fr 1fr; } }
+@container (max-width: 560px) { .kpis { grid-template-columns: 1fr; } .kpi .n { font-size: 34px; } }
 .kpi { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); color: var(--tinta); text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
 .kpi:hover { transform: translateY(-2px); box-shadow: var(--sombra-2); text-decoration: none; color: var(--tinta); }
 .kpi .arriba { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--suave); font-weight: 600; font-size: 14px; }
@@ -102,7 +105,7 @@ h2 { margin: 0; font: 600 17px/1.3 var(--f-titulo); }
 /* ---- Botones ---- */
 .boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 600 15px/1 var(--f-ui); padding: 0 18px; min-height: 42px; border-radius: var(--radio-s); border: 1px solid var(--marca); background: var(--marca); color: var(--marca-texto); cursor: pointer; text-decoration: none; box-shadow: var(--sombra); transition: background .12s ease, transform .05s ease; white-space: nowrap; }
 .boton:hover { background: var(--marca-osc); border-color: var(--marca-osc); color: var(--marca-texto); text-decoration: none; }
-.boton:active { transform: scale(.99); }
+.boton:active { transform: scale(.98); }
 .boton[disabled] { opacity: .6; cursor: progress; }
 .boton.pagar { background: var(--pagar-solido); border-color: var(--pagar-solido); color: #fff; }
 .boton.pagar:hover { background: #0E9F5C; border-color: #0E9F5C; }
@@ -110,6 +113,8 @@ h2 { margin: 0; font: 600 17px/1.3 var(--f-titulo); }
 .boton.nopagar:hover { background: var(--nopagar-fondo); color: var(--nopagar); }
 .boton.suave { background: var(--panel); color: var(--tinta); border-color: var(--linea); }
 .boton.suave:hover { background: var(--hover); border-color: #D1D5DB; color: var(--tinta); }
+.boton.suave.alarma { color: var(--revisar); border-color: var(--revisar-borde); background: var(--revisar-fondo); }
+.boton.suave.alarma:hover { background: #FEF0C7; border-color: var(--revisar-solido); color: var(--revisar); }
 .boton.grande { min-height: 48px; font-size: 16px; padding: 0 22px; }
 .boton.pequeno { min-height: 34px; font-size: 13px; padding: 0 12px; gap: 6px; }
 .enlace { font: inherit; background: none; border: 0; color: var(--marca); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
@@ -165,6 +170,8 @@ td { padding: 11px 12px; border-bottom: 1px solid var(--linea-2); vertical-align
 tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: var(--hover); }
 td.num, th.num { text-align: right; }
+td.mono, td > .mono { white-space: nowrap; } /* los códigos no se parten en dos líneas */
+@media (min-width: 1400px) { td.entero { white-space: nowrap; } } /* fechas y lotes en una línea solo cuando sobra sitio: si no, la última columna se saldría */
 tr.raro td { background: #FFFBEB; }
 td .quien { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 td .quien small { display: block; font-weight: 400; color: var(--suave); font-size: 12px; }
@@ -195,6 +202,7 @@ dl.datos dd { margin: 0; overflow-wrap: anywhere; }
 .regla { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linea-2); align-items: flex-start; }
 .regla:last-child { border-bottom: 0; }
 .regla .estado { flex: 0 0 auto; }
+.regla > span:last-child { min-width: 0; overflow-wrap: anywhere; } /* una huella larga sin espacios no ensancha la página */
 .progreso { height: 8px; border-radius: 999px; background: var(--linea); overflow: hidden; max-width: 520px; }
 .progreso i { display: block; height: 100%; background: var(--marca); border-radius: 999px; }
 
@@ -230,14 +238,80 @@ dialog.visor iframe { display: block; width: 100%; height: calc(92vh - 57px); bo
 .formpregunta .buscador { flex: 1; }
 .formpregunta .htmx-indicator { align-items: center; gap: 6px; white-space: nowrap; }
 button.chip { font: inherit; }
+.mensaje .ir-a { margin: 8px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.mensaje .ir-a .boton { text-decoration: none; }
+.mensaje.hecho { align-self: flex-start; background: var(--pagar-fondo); border: 1px solid var(--pagar-borde); color: #085D3A; }
+.mensaje.hecho p { display: flex; gap: 8px; align-items: flex-start; }
+.mensaje.hecho svg { margin-top: 3px; }
+.mensaje.hecho.fallido { background: var(--revisar-fondo); border-color: var(--revisar-borde); color: #7A2E0E; }
+.mensaje.aviso-chat { color: var(--revisar); }
+.propuesta { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--revisar-borde); background: var(--revisar-fondo); border-radius: var(--radio-s); display: flex; flex-direction: column; gap: 6px; }
+.propuesta p { margin: 0; }
+.propuesta .botones { display: flex; gap: 8px; margin-top: 4px; }
+.comentarios-asistente { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+
+/* El panel «Preguntar» de la barra lateral: un diálogo no modal pegado a la derecha, en todas las pantallas */
+.lado nav a[data-abrir-asistente][aria-expanded="true"] { background: var(--marca-claro); color: var(--marca-osc); }
+dialog.asistente { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(var(--asistente), 100vw); max-width: 100vw; height: 100vh; max-height: 100vh; padding: 0; border: 0; border-left: 1px solid var(--linea); background: var(--panel); color: var(--tinta); box-shadow: -12px 0 40px rgba(17, 24, 39, .12); display: none; flex-direction: column; z-index: 20; }
+dialog.asistente[open] { display: flex; }
+.asistente-cab { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 14px; border-bottom: 1px solid var(--linea); }
+.asistente-cab .logo { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--marca-claro); color: var(--marca-osc); flex: 0 0 auto; }
+.asistente-cab > div { flex: 1; min-width: 0; }
+.asistente-cab b { display: block; font: 600 16px/1.3 var(--f-titulo); }
+.asistente-cab small { display: block; font-size: 12.5px; color: var(--suave); line-height: 1.35; }
+.asistente-completa { display: inline-block; margin-top: 4px; font-size: 12.5px; color: var(--marca-osc); }
+.asistente-chat { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; }
+.asistente-chat .mensaje { max-width: 100%; font-size: 15px; }
+.asistente-form { padding: 12px 16px 0; }
+.asistente-form .boton { padding: 0 12px; }
+.asistente-form .buscador svg { left: 12px; }
+.asistente-form .buscador input[type=search] { padding-left: 38px; }
+dialog.asistente .htmx-indicator { margin: 8px 16px 0; font-size: 14px; }
+.asistente-ejemplos { padding: 10px 16px 16px; display: flex; gap: 6px; flex-wrap: wrap; }
+.asistente-ejemplos .ejemplo { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--linea); background: var(--panel); color: var(--tinta-2); font: 500 13px/1.3 var(--f-ui); cursor: pointer; }
+.asistente-ejemplos .ejemplo:hover { background: var(--hover); color: var(--tinta); }
+
+/* La lista de conversaciones: plegada tras un enlace discreto, arriba del chat (en el panel y en la pantalla entera) */
+details.conversaciones { padding: 8px 16px 0; }
+.preguntar > details.conversaciones { padding: 0 0 12px; border-bottom: 1px solid var(--linea-2); margin-bottom: 12px; }
+details.conversaciones summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--suave); }
+details.conversaciones summary::-webkit-details-marker { display: none; }
+details.conversaciones summary:hover { color: var(--tinta); }
+details.conversaciones summary svg { transition: transform 150ms ease-out; }
+details.conversaciones[open] summary svg { transform: rotate(180deg); }
+.conversaciones-acciones { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.conversaciones-acciones .boton.pequeno { min-height: 30px; font-size: 12.5px; }
+.enlace-suave { border: 0; background: none; padding: 4px 0; font: 500 12.5px/1 var(--f-ui); color: var(--suave); cursor: pointer; }
+.enlace-suave:hover { color: var(--revisar); text-decoration: underline; }
+.lista-conversaciones { list-style: none; margin: 6px 0 4px; padding: 0; display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; }
+.lista-conversaciones li { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 8px; font-size: 13.5px; }
+.lista-conversaciones li:hover { background: var(--hover); }
+.lista-conversaciones li.actual { background: var(--marca-claro); }
+.lista-conversaciones li.actual a { color: var(--marca-osc); font-weight: 600; }
+.lista-conversaciones a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tinta-2); }
+.lista-conversaciones a:hover { color: var(--tinta); text-decoration: none; }
+.lista-conversaciones time { font-size: 12px; color: var(--suave); white-space: nowrap; }
+.lista-conversaciones form { display: contents; }
+.lista-conversaciones .papelera { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--suave); cursor: pointer; opacity: .55; }
+.lista-conversaciones li:hover .papelera, .lista-conversaciones .papelera:focus-visible { opacity: 1; }
+.lista-conversaciones .papelera:hover { background: var(--revisar-fondo); color: var(--revisar); }
+
+/* En el menú lateral, bajo «Preguntar»: las tres últimas conversaciones, pequeñas y atenuadas */
+.lado nav .recientes { display: flex; flex-direction: column; gap: 1px; margin: 0 0 4px; padding-left: 44px; }
+.lado nav .recientes a.reciente { display: block; padding: 4px 8px 4px 0; font-size: 12.5px; font-weight: 500; color: var(--suave); border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lado nav .recientes a.reciente:hover { color: var(--tinta); background: none; }
+.lado nav .recientes a.reciente.actual { color: var(--marca-osc); }
+.lado nav .recientes a.ver-todas { color: var(--marca-osc); font-size: 12px; }
+@media (max-width: 640px) { dialog.asistente { width: 100vw; border-left: 0; } }
+/* Con el panel abierto, en pantallas anchas el contenido le deja sitio (ancho del panel + margen); en móvil el panel lo tapa todo y no hace falta */
+@media (min-width: 1001px) { body.con-asistente .contenido { padding-right: calc(var(--asistente) + 24px); transition: padding-right 220ms ease-out; } }
 
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
 .girando { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: girar .8s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .girando { animation: none; } .kpi { transition: none; } }
-@media (max-width: 1000px) { .kpis { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 900px) {
+  .lado nav .recientes { display: none; } /* en el carril de iconos no caben las conversaciones recientes */
   .app { grid-template-columns: 76px 1fr; }
   .lado { padding: 16px 10px; }
   .lado nav a span, .marca span, .persona div, .estado-erp div, .lado .abajo nav a span { display: none; }
@@ -245,16 +319,19 @@ button.chip { font: inherit; }
   .insignia { margin-left: 0; }
   .estado-erp { justify-content: center; padding: 10px; }
 }
+/* En móvil la barra lateral pasa a ser una barra superior de dos filas: arriba la marca y «Subir facturas», debajo todas las
+   secciones a la vista (sin scroll escondido). Las filas de la rejilla van auto + 1fr para que la barra no crezca en pantallas cortas. */
 @media (max-width: 640px) {
-  .app { grid-template-columns: 1fr; }
-  .lado { position: static; height: auto; flex-direction: row; align-items: center; gap: 4px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--linea); overflow-x: auto; }
-  .lado nav { flex-direction: row; }
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .lado { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 4px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--linea); overflow: visible; }
+  .marca { padding: 4px 6px 4px 0; }
+  aside.lado .subir-facturas { width: auto; margin: 0 0 0 auto; }
+  .lado > nav { flex-direction: row; flex: 1 1 calc(100% - 140px); }
   .lado .abajo { margin-top: 0; padding-top: 0; border-top: 0; flex-direction: row; }
+  .lado .abajo nav { flex-direction: row; }
   .persona, .estado-erp { display: none; }
   main { padding: 20px 16px 40px; }
   h1 { font-size: 24px; }
-  .kpis { grid-template-columns: 1fr; }
-  .kpi .n { font-size: 34px; }
   .tarjeta { padding: 16px; }
   .fila, .fila-factura { grid-template-columns: auto 1fr; }
   .fila .importe, .fila-factura .importe { grid-column: 2; }
@@ -302,3 +379,101 @@ td.porque { max-width: 42ch; }
 .aviso.success { background: var(--pagar-fondo); color: #085D3A; border-color: var(--pagar-borde); }
 .aviso.warning { background: var(--revisar-fondo); color: #7A2E0E; border-color: var(--revisar-borde); }
 .aviso.error { background: var(--nopagar-fondo); color: #7A271A; border-color: var(--nopagar-borde); }
+
+/* ---- Filtrar: el proveedor a la vista y, plegado, el importe ---- */
+.barra select { min-height: 42px; max-width: 280px; }
+details.filtro { display: contents; }
+details.filtro > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 42px; border-radius: 999px; border: 1px solid var(--linea); background: var(--panel); color: var(--tinta-2); font-weight: 600; font-size: 14px; cursor: pointer; }
+details.filtro > summary::-webkit-details-marker { display: none; }
+details.filtro > summary:hover, details.filtro[open] > summary { background: var(--hover); color: var(--tinta); }
+details.filtro.activo > summary { border-color: var(--marca); color: var(--marca-osc); background: var(--marca-claro); }
+.filtro-panel { flex-basis: 100%; display: flex; gap: 14px 18px; align-items: end; flex-wrap: wrap; padding: 16px 18px; background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); }
+.filtro-panel .campo { display: flex; flex-direction: column; gap: 6px; }
+.filtro-panel label { font-size: 13px; font-weight: 600; color: var(--tinta-2); }
+.filtro-panel input[type=date] { font: inherit; padding: 0 12px; min-height: 42px; border: 1px solid var(--linea); border-radius: var(--radio-s); background: var(--panel); color: var(--tinta); box-shadow: var(--sombra); min-width: 170px; }
+.filtro-panel .dos { display: flex; gap: 12px; flex-wrap: wrap; }
+.filtro-panel .pie-formulario { display: flex; gap: 10px; align-items: center; }
+.filtro-panel .atajos { display: flex; gap: 8px 6px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.filtro-panel .atajos .eti { font-size: 13px; font-weight: 600; color: var(--suave); margin-right: 4px; }
+.filtro-panel .atajos .chip { min-height: 36px; padding: 6px 12px; font-size: 14px; }
+.filtros-puestos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--tinta-2); }
+@media (max-width: 640px) { .filtro-panel .atajos { margin-left: 0; } .filtro-panel input[type=date] { min-width: 0; width: 100%; } }
+
+/* Filas de facturas: cada pieza en su columna, para que los botones no se metan donde va el avatar */
+.fila > .av, .fila-factura > .av { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+.fila .quien, .fila-factura .quien { grid-column: 2; grid-row: 1; }
+.fila .importe, .fila-factura .importe { grid-column: 3; grid-row: 1; }
+.fila .accion, .fila-factura .accion { grid-column: 4; grid-row: 1 / span 2; flex-wrap: nowrap; }
+.fila .porque, .fila-factura .porque { grid-column: 2 / 4; grid-row: 2; }
+.fila.tres .porque, .fila-factura.tres .porque, .fila-factura:not(:has(.accion)) .porque { grid-column: 2 / -1; }
+@media (max-width: 640px) {
+  .fila > .av, .fila-factura > .av { grid-row: 1; }
+  .fila .quien, .fila-factura .quien { grid-column: 2; }
+  .fila .importe, .fila-factura .importe { grid-column: 2; grid-row: 2; text-align: left; }
+  .fila .porque, .fila-factura .porque { grid-column: 2; grid-row: 3; }
+  .fila .accion, .fila-factura .accion { grid-column: 2; grid-row: 4; flex-wrap: wrap; }
+  /* Los botones largos («Ver en el PDF qué ha hecho saltar la alarma») caben en la pantalla: se parten en dos líneas y,
+     en la cabecera de una tarjeta, se apilan a todo lo ancho. El comentario de una decisión ocupa su propia línea. */
+  .boton { white-space: normal; line-height: 1.25; padding-block: 8px; text-align: center; }
+  .cabecera-tarjeta .acciones { width: 100%; }
+  .cabecera-tarjeta .acciones .boton { flex: 1 1 auto; }
+  .decidir-form input[type=text] { flex-basis: 100%; }
+}
+
+td.num { white-space: nowrap; }
+
+/* ==== Movimiento sutil (issue #32): pocos toques cortos, apagados si se pide menos movimiento ==== */
+
+/* 1) Entrada de página: el contenido de {% block contenido %} aparece con fundido y sube unos píxeles */
+main { animation: entrada-contenido 320ms ease-out; }
+@keyframes entrada-contenido { from { opacity: 0; transform: translateY(7px); } }
+
+/* 2) Al pasar el ratón: la ficha de la cola se eleva un punto; las filas de factura se tiñen apenas (las tarjetas fijas no se mueven) */
+.factura-cola { transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
+.factura-cola:hover { transform: translateY(-1px); box-shadow: var(--sombra-2); }
+.fila-factura, .fila { transition: background-color 150ms ease-out; }
+.fila-factura:hover, .fila:where(:not(.factura-cola *)):hover { background-color: rgba(79, 70, 229, .035); }
+
+/* 3) La rosquilla de Hoy se dibuja sola al cargar (289.03 = 2πr con r=46, igual que en resumen.html); las cifras no llevan contador */
+.rosquilla-arco { animation: dibujar-rosquilla 600ms ease-out; }
+@keyframes dibujar-rosquilla { from { stroke-dasharray: 0 289.03; } }
+
+/* 4) Botones y chips: pulsación algo más marcada (.boton:active va arriba), foco visible en índigo y chips que funden su color */
+.boton:focus-visible { outline: 3px solid var(--marca); outline-offset: 3px; }
+.chip { transition: background-color 150ms ease-out, color 150ms ease-out; }
+
+/* 5) El visor de PDF abre con fundido y escala; el cierre es inmediato para no dejar un panel vacío desvaneciéndose */
+dialog.visor[open] { opacity: 1; transform: scale(1); transition: opacity 220ms ease-out, transform 220ms ease-out; }
+@starting-style { dialog.visor[open] { opacity: 0; transform: scale(.98); } }
+dialog.visor[open]::backdrop { opacity: 1; transition: opacity 220ms ease-out; }
+@starting-style { dialog.visor[open]::backdrop { opacity: 0; } }
+
+/* 6) El panel Preguntar entra deslizándose desde la derecha; el cierre es inmediato */
+dialog.asistente[open] { transform: translateX(0); opacity: 1; transition: transform 220ms ease-out, opacity 220ms ease-out; }
+@starting-style { dialog.asistente[open] { transform: translateX(24px); opacity: 0; } }
+
+/* 7) El asistente mientras piensa: una burbuja suya con tres puntos que laten y un brillo suave (es el htmx-indicator:
+      solo se ve durante la petición). Cada mensaje nuevo, el suyo y el de Alberto, entra con un fundido corto. */
+.mensaje.pensando { display: none; align-items: center; gap: 10px; align-self: flex-start; color: var(--suave); font-size: 14px; }
+dialog.asistente .mensaje.pensando { margin: 0 16px; }
+.preguntar .mensaje.pensando { margin-top: 10px; }
+.htmx-request .mensaje.pensando, .mensaje.pensando.htmx-request { display: inline-flex; animation: brillo-pensando 600ms ease-out infinite alternate; }
+.pensando .puntos { display: inline-flex; gap: 4px; }
+.pensando .puntos i { width: 6px; height: 6px; border-radius: 50%; background: var(--marca); animation: latir 600ms ease-out infinite alternate; }
+.pensando .puntos i:nth-child(2) { animation-delay: 150ms; }
+.pensando .puntos i:nth-child(3) { animation-delay: 300ms; }
+@keyframes latir { from { opacity: .25; transform: translateY(0); } to { opacity: 1; transform: translateY(-2px); } }
+@keyframes brillo-pensando { from { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); } to { box-shadow: 0 0 0 4px rgba(79, 70, 229, .12); } }
+.chat .mensaje { transition: opacity 250ms ease-out, transform 250ms ease-out; }
+.chat .mensaje.htmx-added { opacity: 0; transform: translateY(4px); }
+
+/* Quien pide menos movimiento no ve ninguno de estos toques (ni el girando ni los KPI) */
+@media (prefers-reduced-motion: reduce) {
+  main, .rosquilla-arco, .girando, .mensaje.pensando, .pensando .puntos i { animation: none; }
+  .pensando .puntos i { opacity: .6; }
+  .factura-cola, .fila-factura, .fila, .chip, .kpi, dialog.visor[open], dialog.visor[open]::backdrop, dialog.asistente[open], body.con-asistente .contenido { transition: none; }
+  .chat .mensaje, details.conversaciones summary svg { transition: none; }
+  .chat .mensaje.htmx-added { opacity: 1; transform: none; }
+  .factura-cola:hover { transform: none; box-shadow: var(--sombra); }
+  .boton:active { transform: none; }
+}

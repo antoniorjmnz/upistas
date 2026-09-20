@@ -60,7 +60,7 @@
         <tbody>
         {% for s in historial %}
           <tr>
-            <td>{{ s.inicio|date:"d/m H:i:s" }}</td>
+            <td class="entero">{{ s.inicio|date:"d/m H:i:s" }}</td>
             <td>{% if s.ok %}<span class="pildora bien">Correcta</span>{% else %}<span class="pildora mal" title="{{ s.error }}">Falló</span>{% endif %}</td>
             <td class="num">{{ s.segundos|floatformat:1 }} s</td>
             <td class="num">{{ s.peticiones }}</td>

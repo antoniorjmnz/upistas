@@ -1,12 +1,39 @@
+{% load panel_extras %}
 {% for m in mensajes %}
+  {% if m.hecho %}
+    <div class="mensaje hecho{% if m.ok == False %} fallido{% endif %}">
+      <p>{% if m.ok == False %}{% icono "alerta" 16 %}{% else %}{% icono "check" 16 %}{% endif %}<span><b>Hecho:</b> {{ m.hecho }}</span></p>
+      {% if m.enlaces %}<p class="ir-a">{% for e in m.enlaces %}<a class="boton pequeno suave" href="{{ e.url }}">{{ e.titulo }}</a>{% endfor %}</p>{% endif %}
+    </div>
+  {% elif m.aviso %}
+    <div class="mensaje asistente aviso-chat"><p>{{ m.aviso }}</p></div>
+  {% else %}
   <div class="mensaje {{ m.quien }}">
-    <p>{{ m.texto }}</p>
+    <p>{{ m.texto|sin_markdown|linebreaksbr }}</p>
     {% if m.fuentes %}
       <p class="fuentes">De:
         {% for f in m.fuentes %}<a href="{{ f.url }}">{{ f.titulo }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
       </p>
     {% endif %}
+    {% if m.enlaces %}
+      <p class="ir-a">{% for e in m.enlaces %}<a class="boton pequeno" href="{{ e.url }}">{{ e.titulo }}{% icono "flecha" 14 %}</a>{% endfor %}</p>
+    {% endif %}
+    {% for p in m.propuestas %}
+      <form class="propuesta" method="post" action="{% url 'panel:asistente_accion' %}"
+            hx-post="{% url 'panel:asistente_accion' %}" hx-target="this" hx-swap="outerHTML"
+            hx-disabled-elt="find button">
+        {% csrf_token %}
+        <input type="hidden" name="token" value="{{ p.token }}">
+        <p><b>El asistente propone:</b> {{ p.descripcion }}</p>
+        <p class="suave"><small>No se hace nada hasta que lo confirme.</small></p>
+        <div class="botones">
+          <button type="submit" class="boton pequeno">{% icono "check" 14 %}Confirmar</button>
+          <button type="submit" name="rechazar" value="1" class="boton pequeno suave">No</button>
+        </div>
+      </form>
+    {% endfor %}
   </div>
+  {% endif %}
 {% empty %}
-  <p class="suave" id="vacio">Aún no ha preguntado nada.</p>
+  <p class="suave vacio-chat">Aún no ha preguntado nada.</p>
 {% endfor %}

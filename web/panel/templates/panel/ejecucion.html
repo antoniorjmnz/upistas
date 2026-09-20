@@ -51,26 +51,22 @@
   <details class="mas">
     <summary>Detalles técnicos{% icono "chevron" 16 %}</summary>
     <dl class="datos">
-      <dt>Norma</dt><dd>{{ ejecucion.norma }}, las reglas de pago en vigor ese día</dd>
-      <dt>Copia del ERP</dt>
-      <dd><a href="{% url 'panel:asientos' %}?version={{ ejecucion.version_erp }}">Ver los asientos con los que se decidió</a>
-        <span class="mono suave">{{ ejecucion.version_erp }}</span></dd>
-      <dt>Excel de proveedores</dt>
-      <dd>El maestro tal como estaba entonces <span class="mono suave">{{ ejecucion.version_excel }}</span></dd>
-      <dt>Empezó</dt><dd>{{ ejecucion.inicio|date:"d/m/Y H:i:s" }}</dd>
-      <dt>Acabó</dt><dd>{% if ejecucion.fin %}{{ ejecucion.fin|date:"d/m/Y H:i:s" }}{% else %}<span class="suave">todavía no</span>{% endif %}</dd>
-      <dt>Duración</dt>
+      <dt>Lo que tardó</dt>
       <dd>{% if cifras.segundos %}{{ cifras.segundos|floatformat:1 }} segundos{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
-      <dt>Ritmo</dt>
-      <dd>{% if cifras.por_segundo %}{{ cifras.por_segundo|floatformat:1 }} facturas por segundo{% else %}<span class="suave">sin datos</span>{% endif %}</dd>
-      <dt>Se pudieron leer</dt><dd>{{ cifras.leidos }} de {{ cifras.documentos }}</dd>
-      <dt>Sin inteligencia artificial</dt><dd>{{ cifras.sin_ia }}, solo con el texto del propio PDF</dd>
-      <dt>Cómo se leyeron</dt>
-      <dd><ul class="menuda">{% for m in cifras.metodos %}<li>{{ m.n }} {{ m.texto }}</li>{% empty %}<li>sin datos</li>{% endfor %}</ul></dd>
-      <dt>Coste</dt>
-      <dd>{{ cifras.coste_eur|euros }} <span class="suave">({{ cifras.tokens_in|intcomma }} tokens de entrada y {{ cifras.tokens_out|intcomma }} de salida)</span></dd>
-      {% for h in hardware %}<dt>{{ h.que }}</dt><dd>{{ h.valor }}</dd>{% endfor %}
     </dl>
+    {% comment %}
+    PREGUNTA PARA EL EQUIPO (19/09): de los detalles técnicos solo dejamos a la vista lo que tardó. Estos otros
+    atributos están guardados en la ejecución y se pueden volver a enseñar si alguien los quiere para la defensa:
+    - Norma: {{ ejecucion.norma }}
+    - Copia del ERP: enlace a asientos con ?version={{ ejecucion.version_erp }} (huella {{ ejecucion.version_erp }})
+    - Versión del maestro de proveedores: {{ ejecucion.version_excel }}
+    - Empezó / acabó: {{ ejecucion.inicio|date:"d/m/Y H:i:s" }} / {{ ejecucion.fin|date:"d/m/Y H:i:s" }}
+    - Ritmo: {{ cifras.por_segundo }} facturas por segundo (solo tiene sentido si se leyó algo ahora)
+    - Se pudieron leer: {{ cifras.leidos }} de {{ cifras.documentos }}; sin IA: {{ cifras.sin_ia }}; desglose por método: cifras.metodos
+    - Coste: {{ cifras.coste_eur|euros }} ({{ cifras.tokens_in }} tokens de entrada, {{ cifras.tokens_out }} de salida)
+    - Máquina: sistema, procesador, núcleos y versión de Python (contexto hardware)
+    - Faltaría: leídas ahora / ya guardadas (resumen.leidos_ahora y resumen.desde_cache)
+    {% endcomment %}
   </details>
 </section>
 {% endblock %}

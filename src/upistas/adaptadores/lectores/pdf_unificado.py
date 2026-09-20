@@ -80,15 +80,20 @@ class LectorPdfUnificado:
             clave = self._clave(sha)
             cache = self.cache_dir / f"{clave}.json" if self.cache_dir else None
             raw = None
+            ocr_previo = {}
             if cache and cache.exists():
                 try:
                     anterior = json.loads(cache.read_text(encoding="utf-8"))
                     if anterior.get("status") in ("success", "partial") and anterior.get("sha256") == sha:
-                        raw = anterior
-                except (ValueError, OSError):
+                        if any(p.get("vision_error") for p in anterior["pages"]):
+                            # La visión falló (quizá de forma pasajera): se reintenta sin repetir el OCR que sí respondió.
+                            ocr_previo = {p["page"]: p["text_ocr"] for p in anterior["pages"] if p.get("text_ocr")}
+                        else:
+                            raw = anterior
+                except (ValueError, OSError, KeyError, TypeError):
                     pass
             if raw is None:
-                raw = self._extraer(contenido, sha)
+                raw = self._extraer(contenido, sha, ocr_previo)
                 if cache and raw.get("status") != "failed":
                     cache.parent.mkdir(parents=True, exist_ok=True)
                     with NamedTemporaryFile(mode="w", encoding="utf-8", dir=cache.parent, suffix=".tmp", delete=False) as f:
@@ -115,6 +120,11 @@ class LectorPdfUnificado:
         except (OSError, ValueError, RuntimeError) as exc:
             raise LecturaFallida(f"No se pudo leer {ruta.name}: {exc}") from exc
 
+    def _ver(self, imagen: bytes) -> tuple[str, dict]:
+        """(texto, uso): un adaptador con `transcribir` informa del modelo y los tokens; un callable simple, solo del texto."""
+        transcribir = getattr(self.vision, "transcribir", None)
+        return transcribir(imagen) if transcribir else (self.vision(imagen), {})
+
     def texto_extraido(self, ruta: Path) -> str:
         if self.cache_dir is None:
             return ""
@@ -125,7 +135,8 @@ class LectorPdfUnificado:
         except (OSError, ValueError, KeyError):
             return ""
 
-    def _extraer(self, contenido: bytes, sha: str) -> dict:
+    def _extraer(self, contenido: bytes, sha: str, ocr_previo: dict[int, str] | None = None) -> dict:
+        ocr_previo = ocr_previo or {}
         paginas = []
         with pymupdf.open(stream=contenido, filetype="pdf") as pdf:
             if pdf.needs_pass or not 0 < len(pdf) <= 50:
@@ -145,7 +156,7 @@ class LectorPdfUnificado:
                             raise LecturaFallida("Página demasiado grande para OCR")
                         imagen = pagina.get_pixmap(dpi=200, alpha=False).tobytes("png")
                         traza["model"] = getattr(self.ocr, "modelo", "ocr")
-                        texto_ocr = self.ocr(imagen)
+                        texto_ocr = ocr_previo.get(indice) or self.ocr(imagen)
                         if not isinstance(texto_ocr, str) or not texto_ocr.strip():
                             raise LecturaFallida("OCR sin texto")
                         traza["text"] = texto_ocr
@@ -153,13 +164,16 @@ class LectorPdfUnificado:
                         traza["route_ocr"] = traza["route"]  # la visión puede sobrescribir route; quién hizo el OCR se conserva
                         if self.vision is not None and _campos_insuficientes(traza):
                             try:
-                                texto_vision = self.vision(imagen)
+                                texto_vision, uso = self._ver(imagen)
                                 if not isinstance(texto_vision, str) or not texto_vision.strip():
                                     raise LecturaFallida("Visión sin texto")
                                 traza["text_vision"] = texto_vision
                                 traza["text"] = texto_vision
+                                traza["modelo_ocr"] = traza.get("model")
                                 traza["route"] = "vision_llm"
-                                traza["model"] = getattr(self.vision, "version", None)
+                                traza["model"] = uso.get("modelo") or getattr(self.vision, "version", None)
+                                traza["tokens_in"] = uso.get("tokens_in") or 0
+                                traza["tokens_out"] = uso.get("tokens_out") or 0
                             except LecturaFallida as exc:
                                 traza["vision_error"] = str(exc)
                             except Exception:

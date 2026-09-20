@@ -3,14 +3,19 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlencode
 
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
+from django.utils.http import content_disposition_header
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
+from upistas.aplicacion.marcar_pdf import PdfNoMarcable, marcar_pdf
 from web.panel import consultas
+from web.panel.asistente import acciones
 from web.panel.models import Decision, Documento, Lectura
 from web.panel.templatetags.panel_extras import euros
 
@@ -83,12 +88,27 @@ def _fecha(valor) -> str:
         return str(valor)
 
 
+def _hoy() -> date:
+    """La fecha de referencia del sistema (HOY en .env), para que los atajos de fecha cuadren con los datos."""
+    from upistas.config import settings as ajustes
+
+    return ajustes.hoy or date.today()
+
+
 def lista(request: HttpRequest) -> HttpResponse:
     """Todas las facturas del lote, con lo que se decidió de cada una."""
     pedido_lote = (request.GET.get("lote") or "").strip()
     ejecucion = consultas.ultima_ejecucion(pedido_lote or None)
     q = (request.GET.get("q") or "").strip()
     resultado = request.GET.get("resultado") or ""
+    proveedores = consultas.proveedores_para_filtro()
+    proveedor = request.GET.get("proveedor") or ""
+    if proveedor not in dict(proveedores):  # un código que ya no está en el maestro no filtra nada
+        proveedor = ""
+    fecha_desde = consultas.fecha_o_nada(request.GET.get("desde"))
+    fecha_hasta = consultas.fecha_o_nada(request.GET.get("hasta"))
+    desde = fecha_desde.isoformat() if fecha_desde else ""
+    hasta = fecha_hasta.isoformat() if fecha_hasta else ""
 
     decisiones = consultas.decisiones_de(ejecucion) if ejecucion else Decision.objects.none()
     cuenta = {f["resultado"]: f["n"] for f in decisiones.values("resultado").annotate(n=Count("id"))}
@@ -104,13 +124,15 @@ def lista(request: HttpRequest) -> HttpResponse:
             | Q(motivo__icontains=q)
             | Q(documento__sha256__in=con_ese_proveedor)
         )
+    qs = consultas.filtrar_decisiones(qs, proveedor=proveedor, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta)
 
     pagina = Paginator(qs.order_by("documento__file_id"), POR_PAGINA).get_page(request.GET.get("pagina"))
     filas = list(pagina)
     lecturas = consultas.lecturas_por_sha([d.documento.sha256 for d in filas])
+    por_nif = consultas.nombres_por_nif()
     for d in filas:
         datos = consultas.campos(lecturas.get(d.documento.sha256))
-        d.proveedor = datos.get("proveedor_nombre")
+        d.proveedor = consultas.nombre_proveedor(datos, por_nif)
         d.fecha = _fecha(datos.get("fecha"))
         d.total = datos.get("total")
         d.revision = revisiones.get(d.documento_id)
@@ -122,6 +144,14 @@ def lista(request: HttpRequest) -> HttpResponse:
         "ejecucion": ejecucion,
         "q": q,
         "resultado": resultado,
+        "proveedores": proveedores,
+        "proveedor": proveedor,
+        "proveedor_nombre": dict(proveedores).get(proveedor, ""),
+        "desde": desde,
+        "hasta": hasta,
+        "filtrando": bool(proveedor or desde or hasta),
+        "atajos": consultas.atajos_de_fecha(_hoy()),
+        "quitar_filtros": f"{reverse('panel:facturas')}?{urlencode({k: v for k, v in (('resultado', resultado), ('q', q), ('lote', pedido_lote)) if v})}",
         "pagina": pagina,
         "cuenta": cuenta,
         "total": sum(cuenta.values()),
@@ -206,7 +236,7 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
         "documento": documento,
         "lectura": lectura,
         "ejecucion": ejecucion,
-        "proveedor": leido.get("proveedor_nombre"),
+        "proveedor": consultas.nombre_proveedor(leido),
         "total": leido.get("total"),
         "motivo_corto": consultas.motivo_corto(decision),
         "reglas": reglas,
@@ -218,12 +248,15 @@ def detalle(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
             for n in (decision.notas or [])
         ],
         "alertas": alertas,
-        "con_oculto": any(a.startswith(("texto potencialmente oculto", "visibilidad del texto no verificable")) for a in alertas),
+        # Dos cosas distintas: encontramos texto escondido, o no pudimos mirar si lo había.
+        "con_oculto": any(a.startswith("texto potencialmente oculto") for a in alertas),
+        "sin_comprobar": any(a.startswith("visibilidad del texto no verificable") for a in alertas),
         "tipo": TIPO.get(documento.tipo, documento.tipo),
         "metodo": METODO.get(lectura.metodo, lectura.metodo) if lectura else METODO["ninguno"],
         "historial": Decision.objects.filter(documento=documento).select_related("ejecucion").order_by("ejecucion__inicio"),
         "revisiones": documento.revisiones.all(),
         "revision": revision,
+        "comentarios_asistente": acciones.comentarios_de_factura(lote, file_id),
         # Si el sistema no lo tiene claro, o si Alberto ya dijo la suya, lo primero es su decisión.
         "decidir_arriba": decision.resultado == "ESCALAR" or revision is not None,
     })
@@ -238,36 +271,27 @@ def pdf(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
     return FileResponse(open(documento.ruta, "rb"), content_type="application/pdf")
 
 
+@xframe_options_sameorigin  # se enseña en el mismo visor que Previsualizar
 def pdf_marcado(request: HttpRequest, lote: str, file_id: str) -> HttpResponse:
-    """El mismo PDF, pero con el texto escondido marcado en rojo y transcrito al pie.
-
-    El original no se toca: se sirve una copia en memoria. Así Alberto ve dónde estaba el
-    texto que no se veía y qué decía, sin perder la versión tal cual llegó.
+    """El mismo PDF con lo que hace saltar la alarma rodeado en naranja (con su etiqueta), el texto escondido
+    en rojo y, al final, una página nueva con el resultado, las alarmas, la transcripción de lo escondido y
+    lo que no se pudo leer. Lo hace el caso de uso `marcar_pdf`; aquí solo se juntan los datos de la última
+    decisión y se sirve la copia.
     """
-    import pymupdf
-
-    from upistas.adaptadores.lectores.pdf import ocultos_de_pagina
+    from upistas.infra import contenedor
 
     documento = get_object_or_404(Documento, lote=lote, file_id=file_id)
     ruta = Path(documento.ruta)
     if not ruta.is_file():
         raise Http404(f"El PDF ya no está donde lo dejamos ({documento.ruta}). Vuelva a copiar la carpeta de facturas.")
-
-    original = pymupdf.open(ruta)
+    ejecucion = consultas.ultima_ejecucion(lote)
+    decision = Decision.objects.filter(ejecucion=ejecucion, documento=documento).select_related("documento").first() if ejecucion else None
+    lectura = consultas.lecturas_por_sha([documento.sha256]).get(documento.sha256)
+    alarmas = consultas.alarmas_de(decision, lectura) if decision else None
     try:
-        for pagina in original:
-            ocultos, _ = ocultos_de_pagina(pagina)
-            if not ocultos:
-                continue
-            pagina.add_freetext_annot(
-                pymupdf.Rect(40, pagina.rect.height - 100, pagina.rect.width - 40, pagina.rect.height - 16),
-                "Texto escondido en esta página (no se veía al abrirla):\n"
-                + "\n".join(f"«{s['texto'][:180]}»" for s in ocultos),
-                fontsize=9, text_color=(0.55, 0, 0), fill_color=(1, 0.95, 0.8),
-            )
-            for s in ocultos:
-                pagina.draw_rect(s["caja"], color=(0.8, 0, 0), width=1.2)
-        datos = original.tobytes()
-    finally:
-        original.close()
-    return HttpResponse(datos, content_type="application/pdf")
+        marcado = marcar_pdf(ruta, contenedor.marcador_pdf(), alarmas)
+    except PdfNoMarcable as exc:  # cifrado, roto o enorme: se dice, no se revienta
+        raise Http404(str(exc)) from exc
+    respuesta = HttpResponse(marcado.datos, content_type="application/pdf")
+    respuesta["Content-Disposition"] = content_disposition_header(False, f"{Path(file_id).stem} marcado.pdf")
+    return respuesta

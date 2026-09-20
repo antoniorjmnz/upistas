@@ -5,7 +5,12 @@ from dataclasses import replace
 from datetime import date
 
 from upistas.dominio.importes import normaliza_iban
-from upistas.dominio.modelos import Comprobacion, Decision, Factura, Resultado
+from upistas.dominio.modelos import GRAVEDAD, Comprobacion, Decision, Factura, Resultado
+
+# Con estas causas no se puede dar por probado nada: un bloqueo por duplicado no las convierte en NO_PAGAR.
+DUDA_REAL = frozenset({"R0_lectura", "R6_evaluacion_disponible", "R6_maestro_verificable"})
+# Si la norma ya había dejado la factura en revisión por esto, el duplicado se anota pero no decide.
+REVISION_PENDIENTE = frozenset({"R3_datos_fiscales", "R6_notas", "R6_contenido_oculto"})
 
 
 def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factura] | None = None,
@@ -15,27 +20,18 @@ def resolver_duplicados(decisiones: list[Decision], facturas: Mapping[str, Factu
     por_hash, por_pedido = defaultdict(list), defaultdict(list)
     copias = set()
 
-    # Las mismas prioridades que la norma: lo no verificable manda sobre el incumplimiento probado,
-    # y el incumplimiento probado sobre la revisión por notas o por contenido oculto.
     LECTURA_FALLIDA = "R0_lectura"
-    NO_VERIFICABLE = (LECTURA_FALLIDA, "R3_datos_fiscales", "R6_evaluacion_disponible", "R6_maestro_verificable")
-    PROBADO = ("R1_nif_iban", "R2_pedido_importe", "R3_iva_total")
     # Si no nos creemos sus campos, tampoco su pedido: no puede bloquear a una factura que sí se leyó.
     no_fiables = {d.file_id for d in decisiones if any(not c.ok and c.regla == LECTURA_FALLIDA for c in d.comprobaciones)}
 
     def bloquear(file_id, regla, detalle, resultado):
         actual = salida[file_id]
-        probado = any(not c.ok and c.regla in PROBADO for c in actual.comprobaciones)
-        if resultado == Resultado.ESCALAR and actual.resultado == Resultado.NO_PAGAR:
-            if not actual.comprobaciones or probado or any(not c.ok and c.regla in (
-                "R5_no_pagada", "R5_hash_previo", "R5_copia_hash", "R5_reenvio",
-            ) for c in actual.comprobaciones):
-                resultado = Resultado.NO_PAGAR
-        if any(not c.ok and c.regla in NO_VERIFICABLE for c in actual.comprobaciones):
-            resultado = Resultado.ESCALAR
-        elif not probado and any(not c.ok and c.regla == "R6_contenido_oculto" for c in actual.comprobaciones):
-            resultado = Resultado.ESCALAR
-        elif not probado and actual.resultado == Resultado.ESCALAR and any(not c.ok and c.regla == "R6_notas" for c in actual.comprobaciones):
+        fallidas = {c.regla for c in actual.comprobaciones if not c.ok}
+        # Un duplicado nunca rebaja lo ya decidido: gana el resultado más restrictivo.
+        if GRAVEDAD[actual.resultado] > GRAVEDAD[resultado]:
+            resultado = actual.resultado
+        # Y tampoco convierte una duda en un incumplimiento probado.
+        if fallidas & DUDA_REAL or (actual.resultado == Resultado.ESCALAR and fallidas & REVISION_PENDIENTE):
             resultado = Resultado.ESCALAR
         motivo = detalle if actual.resultado == Resultado.PAGAR else f"{actual.motivo}; {detalle}"
         salida[file_id] = replace(actual, resultado=resultado, motivo=motivo,

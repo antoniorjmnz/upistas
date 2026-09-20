@@ -5,6 +5,7 @@ from django.http import HttpRequest
 
 from web.panel import consultas
 from web.panel.models import SincronizacionERP
+from web.panel.views import chat
 
 
 def _estado_erp() -> dict:
@@ -25,4 +26,9 @@ def panel(request: HttpRequest) -> dict:
         "lote_actual": ejecucion.lote if ejecucion else None,
         "pendientes_revision": consultas.pendientes_de_revision(ejecucion).count() if ejecucion else 0,
         "erp_estado": _estado_erp(),
+        # El panel «Preguntar» está en todas las pantallas: la conversación abierta y la lista para cambiar de una a otra.
+        "chat": chat.historial_de(request),
+        "conversacion_actual": chat.conversacion_actual(request),
+        "lista_abierta": bool(request.GET.get("lista")),  # «Ver todas» llega con ?lista=1 y la lista sale desplegada
+        **chat.lista_de_conversaciones(),
     }

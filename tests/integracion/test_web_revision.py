@@ -53,6 +53,28 @@ def test_cada_factura_lleva_a_su_detalle_y_se_puede_previsualizar(alberto, lote_
     assert f'data-pdf="{reverse("panel:factura_pdf", args=["lote1", ESCANEADA])}"' in html
 
 
+def test_solo_la_ficha_con_algo_que_rodear_lleva_el_boton_pequeno_de_ver_en_el_pdf_que_hizo_saltar_la_alarma(alberto, lote_de_prueba):
+    html = cola(alberto)
+    assert html.count("Ver en el PDF qué ha hecho saltar la alarma") == 1
+    assert f'class="boton pequeno suave alarma" data-pdf="{reverse("panel:factura_pdf_marcado", args=["lote1", ESCALADA])}"' in html
+    assert reverse("panel:factura_pdf_marcado", args=["lote1", ESCANEADA]) not in html  # abriría un PDF sin marcas
+
+
+def test_una_factura_que_solo_falla_por_lectura_no_lleva_el_boton_pero_con_avisos_del_fichero_si(alberto, lote_de_prueba):
+    d = lote_de_prueba["decisiones"][ESCANEADA]
+    boton = reverse("panel:factura_pdf_marcado", args=["lote1", ESCANEADA])
+    d.outcome = {**d.outcome, "reglas": [{"id": "R0_lectura", "ok": False, "detalle": "ningún lector acepta un escaneado"}]}
+    d.save()
+    assert boton not in cola(alberto)
+    d.alertas = ["ficheros incrustados"]
+    d.save()
+    assert boton in cola(alberto)
+    d.alertas = []
+    d.outcome = {**d.outcome, "reglas": d.outcome["reglas"] + [{"id": "R9_destinatario", "ok": False, "detalle": "Va dirigida a otro cliente"}]}
+    d.save()
+    assert boton in cola(alberto)
+
+
 def test_los_chips_separan_lo_pendiente_de_lo_ya_decidido(alberto, lote_de_prueba):
     d = lote_de_prueba["decisiones"][ESCALADA]
     RevisionHumana.objects.create(documento=d.documento, decision=d, quien="Alberto", resultado="PAGAR")
@@ -148,3 +170,44 @@ def test_cuando_todo_esta_decidido_se_lo_dice(alberto, lote_de_prueba):
 
     assert "No hay nada esperando su decisión" in html and "2 de 2 decididas" in html
     assert '<div class="vacio">' in html and "No le queda nada por decidir" in html
+
+
+@pytest.fixture
+def proveedor_p001():
+    from web.panel.models import Proveedor
+
+    return Proveedor.objects.create(codigo="P001", nombre="Suministros Levante S.L.", nif="B46102331")
+
+
+def test_el_filtro_de_proveedor_deja_solo_las_suyas(alberto, lote_de_prueba, proveedor_p001):
+    html = cola(alberto, proveedor="P001")
+    assert ESCALADA in html and ESCANEADA not in html  # el escaneado no tiene NIF leído
+
+
+def test_el_filtro_de_fecha_desde_deja_fuera_lo_anterior(alberto, lote_de_prueba):
+    html = cola(alberto, desde="2026-02-01")
+    assert ESCALADA not in html and ESCANEADA not in html
+    assert "Ninguna factura coincide" in html and "Quitar filtros" in html
+
+
+def test_el_filtro_de_fecha_hasta_deja_lo_anterior(alberto, lote_de_prueba):
+    html = cola(alberto, hasta="2026-01-31")
+    assert ESCALADA in html and ESCANEADA not in html  # el escaneado no tiene fecha leída
+
+
+def test_el_select_de_proveedor_lleva_el_maestro(alberto, lote_de_prueba, proveedor_p001):
+    html = cola(alberto)
+    assert 'value="P001"' in html and "Suministros Levante S.L." in html
+    assert "Todos los proveedores" in html
+
+
+def test_los_chips_oob_conservan_el_proveedor(alberto, lote_de_prueba, proveedor_p001):
+    html = alberto.get(reverse("panel:cola"), {"proveedor": "P001"}, HTTP_HX_REQUEST="true").content.decode()
+    assert 'hx-swap-oob="outerHTML"' in html
+    assert "proveedor=P001" in html
+
+
+def test_quitar_filtros_enlaza_sin_proveedor_ni_importe(alberto, lote_de_prueba, proveedor_p001):
+    html = cola(alberto, proveedor="P001", desde="2026-01-01", hasta="2026-01-31")
+    assert "Quitar filtros" in html
+    assert 'href="?estado=pendientes&amp;q=&amp;lote=lote1"' in html

@@ -17,7 +17,9 @@ donde está la respuesta. Preguntas que tiene que saber contestar desde el prime
    de herramientas de solo lectura sobre nuestra base de datos. Si no hay dato, dice que no lo hay.
 2. **Cada respuesta dice de dónde sale**: la factura, la ejecución o la copia del ERP, con enlace a la
    pantalla. Es lo que se evalúa en trazabilidad.
-3. **No escribe**: ni revisiones, ni pagos, ni nada. Para decidir está la pantalla «Para revisar».
+3. **No escribe por su cuenta**: ni revisiones, ni pagos, ni nada. Solo puede *proponer* cuatro cosas
+   pequeñas que Alberto confirma con un botón (ver «Lo que puede hacer por Alberto»). Para decidir si
+   una factura se paga está la pantalla «Para revisar».
 4. **Sin red en los tests**: el modelo se sustituye por uno falso.
 5. **La web sigue funcionando si la IA no responde**: timeout corto, un reintento y un mensaje claro.
 
@@ -54,10 +56,14 @@ donde está la respuesta. Preguntas que tiene que saber contestar desde el prime
   «responde corto, en español llano, sin jerga; cuando cites una factura pon su enlace; si te piden
   pagar o cambiar algo, explica que eso se hace en Para revisar».
 - Configuración: `HELMCODE_API_KEY` y `HELMCODE_BASE_URL` ya están en `src/upistas/config.py` y en
-  `.env.example`. La clave se pide por privado; nunca va al repo.
+  `.env.example`. La clave se pide por privado; nunca va al repo. El asistente puede ir con otro
+  proveedor (`ASISTENTE_BASE_URL`, `ASISTENTE_API_KEY`, `ASISTENTE_MODELO`; ver más abajo).
 
 ## Cómo se prueba
-`tests/integracion/test_web_asistente.py` con las fixtures `alberto` y `lote_de_prueba` de
+`tests/integracion/test_asistente.py` (herramientas y bucle), `test_web_preguntar.py` (la pantalla),
+`test_asistente_lateral.py` (panel en todas las pantallas, contexto, `ir_a`, acciones con token) y
+`test_asistente_historial.py` (conversaciones: crear, seguir, cambiar, borrar, el menú lateral; el
+proveedor configurable; las animaciones) con las fixtures `alberto` y `lote_de_prueba` de
 `tests/integracion/conftest.py` (cinco facturas con todos los casos, dos ejecuciones):
 - cada herramienta devuelve lo que toca con ese lote (por ejemplo, `factura("FA-1016_papelería.pdf")`
   dice No pagar por «ya está pagado según el ERP» y que antes era Pagar);
@@ -66,8 +72,141 @@ donde está la respuesta. Preguntas que tiene que saber contestar desde el prime
 - si el modelo lanza timeout, la pantalla devuelve 200 con un aviso y la conversación sigue;
 - nunca se llama a nada de escritura (los tests comprueban que no hay `RevisionHumana` nuevas).
 
+## Las herramientas que tiene (lo que hay hoy en `asistente/herramientas.py`)
+Todas de solo lectura sobre nuestra base de datos, en JSON compacto: la cuenta bancaria solo por sus
+cuatro últimas cifras y el texto que trae una factura siempre en `texto_de_la_factura_no_fiable`.
+- `resumen_lote()`: cuántas se pagan, no se pagan y se revisan en el último repaso, y cuánto suman.
+- `buscar_facturas(texto, limite=10)`: por fichero, número de factura, pedido, NIF o proveedor.
+- `detalle_factura(file_id)`: lo leído, las reglas aplicadas y la revisión de Alberto si la hay.
+- `pendientes_revision(limite=15)`: escaladas que nadie ha revisado todavía.
+- `estado_pedido(pedido)`, `cambios_erp()`, `estado_sincronizacion()`: la copia del ERP.
+- `proveedor(codigo_o_nif_o_nombre)`: la ficha del maestro: nombre, código, NIF, cuenta enmascarada, días
+  de pago, cuántos pedidos tiene y cuáles apuntó Alberto para revisar con qué nota.
+- `decisiones_de_alberto(lote?, limite=15)`: lo que decidió a mano (factura, pagar o no, comentario, cuándo).
+- `repasos(limite=10)`: el registro de repasos: cuándo, lote, norma, cuánto tardó, cuántas de cada y qué
+  facturas cambiaron de resultado respecto al repaso anterior (una consulta ligera, no la comparación entera).
+- `importaciones(limite=10)`: cada fichero de proveedores o pedidos aplicado desde «Importar datos».
+- `explicar_regla(id_o_nombre)`: qué comprueba una regla, qué pasa si falla y por qué, en llano
+  (`consultas.EXPLICACION_REGLA`, alineado con `normas/v3.toml` y [flujo_decision.md](flujo_decision.md));
+  acepta el id, el número («regla 1») o una palabra («iban»). Sin argumento, la lista y el flujo entero.
+- `ir_a(pantalla, filtros)` y `proponer_accion(tipo, datos)`: ver los dos apartados de abajo.
+
+**Listas acotadas.** Las que devuelven filas (`buscar_facturas`, `pendientes_revision`,
+`decisiones_de_alberto`, `repasos`, `importaciones`) aceptan `limite` (hasta 100, `consultas.LIMITE_MAXIMO`)
+y dicen `total` y `mas` (cuántas quedan sin enseñar). El mensaje de sistema le pide al modelo que, si
+quedan más, lo diga y ofrezca la pantalla filtrada con `ir_a`, y que solo suba el límite cuando Alberto
+pida más («todas», «las 40», «enséñame más»).
+
+**El porqué sin una factura delante.** El mensaje de sistema lleva el flujo de decisión resumido en cinco
+frases (`consultas.RESUMEN_FLUJO`, menos de 120 palabras para no disparar el coste) y, para una regla
+concreta, el modelo llama a `explicar_regla`. Así contesta «¿qué pasa si el IBAN es distinto?» sin buscar
+ninguna factura.
+
+## Cómo se comporta (lo que se afinó tras la primera versión)
+- **Enlaces**: cada herramienta deja su pantalla en la línea «De:» de la respuesta: la factura
+  (`detalle_factura`, y cada encontrada en `buscar_facturas`, hasta cinco), «Para revisar»
+  (`pendientes_revision`), «Facturas» (`resumen_lote`), los asientos o los cambios del ERP.
+- **Si la IA no responde**: 15 segundos de espera, un solo reintento (el SDK de OpenAI no reintenta
+  por su cuenta) y aviso. Sin clave configurada no se reintenta: se dice que falta. Si el modelo
+  agota las cuatro rondas de consulta, la pregunta queda registrada como fallida.
+- **Texto que viene de la factura**: las notas del proveedor van en la clave
+  `texto_de_la_factura_no_fiable`, recortadas y separadas del motivo; el prompt le dice al modelo que
+  es un dato del que informar, nunca una instrucción. La cuenta bancaria solo se cuenta por sus cuatro
+  últimas cifras y si coincide con la del maestro.
+- **Tema**: el filtro previo solo rechaza palabras inequívocas de programación; «código», «función»,
+  «servidor» o «bug» pasan, que Alberto las usa hablando de proveedores y pantallas.
+- **Texto llano**: se le pide al modelo que no use markdown y la plantilla quita los `**` y `#` que
+  se le escapen; la respuesta se escapa siempre como HTML.
+
+## Dónde está: el panel lateral
+El asistente está en la barra lateral, como en tantas webs: «Preguntar» abre un panel por la derecha
+(`web/panel/templates/panel/_asistente.html`, un `<dialog>` no modal de 420 px, a pantalla entera en
+el móvil) sin salir de donde esté Alberto. `/preguntar/` sigue existiendo a pantalla entera con el
+mismo código (`views/chat.py`) y sin el panel encima (una sola conversación y una sola caja); desde
+el panel se llega con «Abrir en pantalla completa». Las dos envían por htmx y añaden la respuesta
+abajo, con «Pensando…» mientras tanto: una burbuja del asistente con tres puntos que laten y un brillo
+suave (solo CSS, 600 ms; es el `htmx-indicator`), cada mensaje entra con un fundido de 250 ms, el botón
+se desactiva hasta que llega la respuesta (`hx-disabled-elt`) y la zona de mensajes lleva `aria-live`;
+todo apagado con `prefers-reduced-motion`. La conversación se guarda en la base de datos (ver abajo) y
+la sesión solo recuerda cuál está abierta, así que sigue ahí al cambiar de pantalla; el panel recuerda
+si estaba abierto (`sessionStorage`) y se abre también con `#asistente` en la dirección. Con el panel abierto
+en pantallas anchas (más de 1000 px) el contenido le deja sitio (`body.con-asistente`); en el móvil
+el panel lo tapa todo. Un toque de movimiento de 220 ms que se apaga con `prefers-reduced-motion`.
+
+**Sabe en qué pantalla está Alberto.** El formulario manda la ruta actual (`ruta`); `contexto_de`
+la resuelve con `django.urls.resolve` (solo rutas de esta web) y se queda solo con la pantalla y los
+identificadores comprobados en la base de datos (lote y file_id de una factura que existe, nombre y
+código del proveedor): nunca la ruta tal cual ni lo que venga tras el «?», que lo escribe cualquiera
+y acabaría en el prompt. `frase_de_contexto` se lo cuenta al modelo al final del mensaje de sistema:
+«Alberto está ahora en el detalle de la factura X (lote 1)». Así «esta factura» o «este proveedor»
+son los que tiene delante.
+
+## Las conversaciones se guardan
+Cada conversación es una fila de `Conversacion` (título = la primera pregunta recortada a 60 letras,
+creada, actualizada; migración 0008). Sus mensajes no se guardan aparte: cada `Pregunta` lleva su
+conversación, el texto, la respuesta, `detalles` (fuentes, botones «Ir a», propuestas pendientes) y el
+`modelo` que contestó; cada `AccionAsistente` confirmada lleva también en qué conversación se hizo. La
+vista reconstruye el historial desde ahí (`views/chat.py: mensajes_de`), ordenado por instante, y al
+modelo solo le pasa los últimos `MAX_HISTORIAL` mensajes, como antes. La sesión guarda solo el id de la
+abierta (`request.session["conversacion"]`) y los nonces pendientes.
+
+En el panel y en `/preguntar/`, arriba del chat, «Conversaciones» (un `<details>`) despliega la lista
+con título y fecha corta («hoy 10:32», «ayer», «17/9»), el botón «Nueva» (la siguiente pregunta empieza
+otra), una papelera por conversación y «Borrar todas», todo por POST con CSRF y una confirmación en JS
+(`data-confirmar`). Borrar una conversación borra sus preguntas; las acciones confirmadas se quedan
+con la conversación a nulo, porque son traza. En el menú lateral, bajo «Preguntar», salen las tres
+últimas como enlaces pequeños y atenuados que abren esa conversación en el panel (`asistente_abrir`
+vuelve a la pantalla con `#asistente`), y «Ver todas» si hay más. La ruta de vuelta (`siguiente`) solo
+puede ser de esta web.
+
+## El proveedor de IA se elige en el `.env`
+`helmcode.py` crea el cliente OpenAI-compatible con `settings.asistente_base_url`, `asistente_api_key`
+y `asistente_modelo`, que por defecto son los de Helmcode (`HELMCODE_BASE_URL`, `HELMCODE_API_KEY`,
+`MODELO_TEXTO`). Con `ASISTENTE_BASE_URL`, `ASISTENTE_API_KEY` y `ASISTENTE_MODELO` en el `.env` el
+chatbot va con OpenRouter u otro proveedor sin tocar código; el pipeline de notas y visión sigue con
+Helmcode. `.env.example` trae el ejemplo. Sin ninguna clave, el asistente avisa como siempre.
+
+## Llevarle a una pantalla: `ir_a`
+Herramienta de solo lectura (`asistente/navegacion.py`): `ir_a(pantalla, filtros)` devuelve la
+dirección de una pantalla de esta web y sale en la respuesta como botón «Ir a …», además de la línea
+«De:». Pantallas: `inicio`, `facturas` y `revisar` (con `resultado`, `proveedor` del maestro por
+código, NIF o nombre, `desde`/`hasta`, `texto` y `lote`), `factura` (`file_id`), `proveedores`,
+`proveedor`, `ejecuciones`, `erp`, `asientos` (`pedido`) e `importar` (Importar datos). Las direcciones
+salen siempre de `reverse` y los filtros se comprueban uno a uno (los que no valen se avisan y se
+quitan; un lote que no está decidido también): nunca una URL externa.
+
+## Lo que puede hacer por Alberto: proponer, y solo con su confirmación
+`proponer_accion(tipo, datos)` (`asistente/acciones.py`) admite solo estos tipos (lista blanca):
+- `marcar_pedido_para_revisar {pedido}` y `quitar_marca_de_pedido {pedido}` (`Pedido.revisar`);
+- `apuntar_nota_en_pedido {pedido, nota}` (se añade a `Pedido.nota`);
+- `apuntar_comentario_en_factura {file_id, comentario}`: solo en facturas escaladas y sin decidirlas
+  (no crea `RevisionHumana`; el comentario se ve en el detalle de la factura).
+
+La herramienta no cambia nada: comprueba que el pedido o la factura existen y devuelve una propuesta
+con un token firmado (`django.core.signing`, sal propia, caduca a los 10 minutos) que lleva un `nonce`
+de un solo uso. La vista Preguntar apunta ese nonce como pendiente en la sesión
+(`request.session["propuestas_pendientes"]`). La respuesta enseña una tarjeta «El asistente propone: …»
+con «Confirmar» y «No». Solo al pulsar Confirmar se hace un POST (con CSRF) a `/asistente/accion/` con
+el token: la vista lo lee (`leer_token`), rechaza los caducados, manipulados o de un tipo fuera de la
+lista, y también los que ya no están pendientes en la sesión o cuyo nonce ya está en el registro
+(`ya_hecha`): reenviar el mismo token no repite nada. `ejecutar` vuelve a comprobar el tipo y los
+datos antes de tocar nada, y si algo falla (lo esperado o no) deja la fila con `ok=False` y un aviso
+llano en vez de un error 500. Cada acción confirmada queda en `AccionAsistente` (cuándo, tipo, datos
+con el nonce, resultado, ok; migración 0007; se ve en el admin) y al pie de la conversación como
+«Hecho: …» con el enlace a su pantalla (la fila lleva la conversación en la que se confirmó). «No»
+manda el mismo formulario con `rechazar=1`: la propuesta se olvida (sesión y tarjeta) sin hacer nada,
+y se enseña «Vale, no se hace nada.» (los avisos no se guardan); sin JS funciona igual y la tarjeta ya
+no está al recargar.
+
+**Prohibido siempre**, y el código lo impide aunque el modelo lo pida o el token venga firmado: pagar
+o no pagar una factura, crear o borrar proveedores o pedidos, subir o repasar lotes y tocar el ERP.
+El mensaje de sistema se lo dice al modelo y le pide que, si Alberto se lo pide, le mande a la
+pantalla que toca (Para revisar, Proveedores, Subir facturas).
+
 ## Fuera de alcance
-Escribir en nada, consultar el ERP en vivo (se usa la copia), voz, memoria entre sesiones.
+Cualquier escritura fuera de las cuatro acciones de arriba, consultar el ERP en vivo (se usa la
+copia), voz. (Las conversaciones sí se guardan y se pueden retomar; lo que no hay es memoria del
+asistente más allá de la conversación abierta.)
 
 ## Por dónde empezar
 1. Rama desde `32-web-alberto` (o desde main cuando esté fusionada): `git switch -c 39-asistente`.

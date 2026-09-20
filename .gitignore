@@ -43,3 +43,8 @@ caja/
 
 # PDF subidos por la web
 almacen/
+
+# El plan de la entrega se lleva por WhatsApp, fuera del repo
+docs/albertitos_plan.pdf
+docs/albertitos_plan.html
+docs/albertitos_plan.docx

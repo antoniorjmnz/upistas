@@ -57,7 +57,7 @@ def test_el_detalle_ensena_sus_datos_sus_pedidos_y_sus_facturas(alberto, levante
     assert "P001 · B46102331" in html and "ES2100491500051234567890" in html
     assert "Valencia" in html and "60 días" in html and "De alta" in html
     assert reverse("panel:proveedor_editar", args=[levante.id]) in html
-    assert reverse("panel:pedido_nuevo", args=[levante.id]) in html
+    assert "Nuevo pedido" not in html  # los pedidos nacen en el ERP y en el maestro, no aquí
 
     assert "PO-2026-0001" in html and "2.490,00 €" in html
     assert "Revisar" in html and "1 para mirar" in html
@@ -125,40 +125,16 @@ def test_corregir_la_cuenta_de_un_proveedor(alberto, levante):
     assert r.redirect_chain[-1][0] == reverse("panel:proveedor", args=[levante.id])
 
 
-def test_apuntar_un_pedido_nuevo(alberto, levante):
-    formulario = alberto.get(reverse("panel:pedido_nuevo", args=[levante.id])).content.decode()
-    assert "Número de pedido" in formulario and "Alberto quiere mirar las facturas de este pedido" in formulario
-    assert 'class="conmutador"' in formulario
-
-    r = alberto.post(reverse("panel:pedido_nuevo", args=[levante.id]), {
-        "numero": "po-2026-0555", "proveedor": levante.id, "importe": "1210.50",
-        "fecha": "2026-03-01", "nota": "Falta la mitad del material",
-    }, follow=True)
-
-    pedido = Pedido.objects.get(numero="PO-2026-0555")
-    assert pedido.importe == Decimal("1210.50") and pedido.proveedor == levante and not pedido.revisar
-    assert str(pedido.fecha) == "2026-03-01" and pedido.nota == "Falta la mitad del material"
-    assert "Guardado el pedido PO-2026-0555." in r.content.decode()
-    assert r.redirect_chain[-1][0] == reverse("panel:proveedor", args=[levante.id])
-
-
-def test_el_pedido_no_traga_un_numero_raro_ni_un_importe_de_cero(alberto, levante):
-    r = alberto.post(reverse("panel:pedido_nuevo", args=[levante.id]), {
-        "numero": "2026/555", "proveedor": levante.id, "importe": "0",
-    })
-    html = r.content.decode()
-    assert r.status_code == 200 and Pedido.objects.count() == 2
-    assert "El número de pedido se escribe PO, el año y cuatro cifras" in html
-    assert "El importe tiene que ser mayor que cero." in html
-
-
 def test_marcar_un_pedido_para_mirarlo(alberto, levante):
     pedido = Pedido.objects.get(numero="PO-2026-0001")
-    r = alberto.post(reverse("panel:pedido_editar", args=[pedido.id]), {
-        "numero": pedido.numero, "proveedor": levante.id, "importe": "2490.00", "revisar": "on",
-    }, follow=True)
+    formulario = alberto.get(reverse("panel:pedido_editar", args=[pedido.id])).content.decode()
+    assert "Quiero mirar las facturas de este pedido" in formulario and "2.490,00 €" in formulario
+    assert "Número de pedido" not in formulario  # el número y el importe no se tocan desde aquí
+
+    r = alberto.post(reverse("panel:pedido_editar", args=[pedido.id]), {"revisar": "on", "nota": "Llamar antes de pagar"}, follow=True)
 
     pedido.refresh_from_db()
-    assert pedido.revisar is True
-    assert "Guardado el pedido PO-2026-0001." in r.content.decode()
+    assert pedido.revisar is True and pedido.nota == "Llamar antes de pagar"
+    assert pedido.importe == Decimal("2490.00")  # lo que no está en el formulario no cambia
+    assert "Guardado lo que ha dicho sobre el pedido PO-2026-0001." in r.content.decode()
     assert "2 para mirar" in r.content.decode()

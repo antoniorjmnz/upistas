@@ -18,7 +18,9 @@ de cada una, con su porqué". La web solo enseña lo que el backend guarda.
 5. Guarda la ejecución con la versión exacta de los datos, cada decisión con sus reglas, alertas y
    notas, y compara con la pasada anterior del mismo lote: qué facturas cambian de resultado y por qué.
 6. Escribe `outputs/outcomes.jsonl` (una línea por documento, solo `file_id` y `result` son
-   obligatorios; el resto es traza).
+   obligatorios; el resto es traza). Si el lote no es `lote1` el fichero se llama
+   `outputs/outcomes_<lote>.jsonl` (así el lote 2 sale ya como `outcomes_lote2.jsonl`, el nombre de
+   la entrega); `--salida` cambia el nombre.
 
 **Lo que queda guardado** (y la web puede enseñar):
 - Cada conexión con el ERP: cuándo, si fue bien, cuántos reintentos, esperas y reconexiones, y qué cambió.
@@ -29,10 +31,22 @@ de cada una, con su porqué". La web solo enseña lo que el backend guarda.
 - Cada decisión: resultado, motivo, reglas que pasó o falló, alertas para Alberto, notas del documento.
 - Cada revisión humana: quién decidió qué sobre una factura escalada y cuándo. El original no se toca.
 
-**Comandos**: `upistas erp sync`, `upistas erp estado`, `upistas run [--lote] [--norma] [--carpeta] [--limit] [--sin-sync]`.
+**Comandos**: `upistas erp sync`, `upistas erp estado`, `upistas run [--lote] [--norma] [--carpeta] [--limit] [--sin-sync] [--salida]`.
 
 **También desde la web**: Alberto sube sus PDF en «Subir facturas» y el mismo pipeline los decide en un hilo
 del servidor, con barra de progreso; DBOS arranca ahí, dentro del proceso web, en el primer repaso (ver [web.md](web.md)).
+
+**Cómo entra el lote 2.** Tres pasos, sin tocar el Excel de Alberto. (1) Arrancar el ERP con su
+actualización: `python alberto_erp.py --puerto 8010 --lote2 erp_export_lote2.csv` (y `ERP_URL` o
+`--erp-url` apuntando a ese puerto). (2) Dar de alta los proveedores y pedidos nuevos en el maestro de la web:
+`uv run python manage.py importar_maestro --proveedores-csv proveedores_nuevos.csv --pedidos-csv pedidos_nuevos.csv`.
+Lee los CSV de La Caja tal cual vienen (`proveedor_id` donde el Excel dice `ProveedorID`) con el adaptador
+`fuentes/csv_altas.py`, que devuelve los mismos `Proveedor` y `Pedido` que el Excel, y `MaestroDjango.importar`
+los vuelca en las tablas. Con los ficheros reales imprime «4 proveedores nuevos, 39 pedidos nuevos, 0 cambiados»;
+repetirlo dice «0 proveedores nuevos, 0 pedidos nuevos, 0 cambiados» y no pisa las marcas de revisar, las notas
+ni el campo activo que Alberto haya puesto en la web. (3) Subir la carpeta `facturas_primin` desde «Subir facturas»
+o pasarla por línea de comandos:
+`uv run upistas run --lote lote2 --facturas facturas_primin --norma v4 --erp-url http://127.0.0.1:8010 --salida outcomes_lote2.jsonl`.
 
 ## Qué se ha tenido en cuenta
 
@@ -46,10 +60,16 @@ copia del ERP y cada fichero Excel tienen una versión (huella del contenido); c
 con qué versión decidió; al volver a pasar un lote se listan las facturas que cambian de resultado.
 La norma es un fichero: la v4 es otro fichero, no código nuevo.
 
+**El ERP puede traer dos asientos del mismo pedido** (el lote 2 lo hace con PO-2026-0071). Eso no
+para el lote: las referencias guardan todos los apuntes de cada pedido y las reglas miran el que
+manda. Si alguno está pagado, manda ese; si todos cuadran, el más reciente; si no cuadran, la
+factura se escala diciendo que el ERP tiene dos apuntes que no cuadran (ver [ADR-002](adr/002-criterio.md)).
+
 **Nunca pagar dos veces.** El ERP no se entera de lo que decidimos. Llevamos nuestra propia
 memoria: los pedidos aprobados en la última pasada de cada otro lote y los aprobados a mano por una
-persona cuentan como pagados para el lote siguiente. Dentro del mismo lote, las reglas ven todas
-las facturas del lote agrupadas por pedido.
+persona cuentan como pagados para el lote siguiente. Repasar el mismo lote no es pagar dos veces:
+ni sus aprobaciones automáticas ni las de Alberto se cuentan contra él. Dentro del mismo lote, las
+reglas ven todas las facturas del lote agrupadas por pedido.
 
 **Leer es caro y decidir es barato.** Por eso leer es lo duradero y cacheado (por contenido) y
 decidir se repite entero cada vez: reprocesar un lote con una norma nueva cuesta segundos, no

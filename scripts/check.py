@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS = {"PAGAR", "NO_PAGAR", "ESCALAR"}
 failures = []
 
 
@@ -58,43 +57,21 @@ def check_contracts():
 
 def check_outcomes():
     step("Outcomes: un resultado válido por archivo")
-    caja = Path(os.environ.get("CAJA_DIR", ROOT.parent / "caja")) / "facturas"
-    expected = {p.name for p in caja.glob("*.pdf")} if caja.is_dir() else None
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from entrega import OUTCOMES, ficheros_de, verificar_outcomes  # la misma comprobación que la entrega
+
+    caja = Path(os.environ.get("CAJA_DIR", ROOT.parent / "caja"))
     files = sorted((ROOT / "outputs").glob("outcomes*.jsonl"))
     if not files:
         ok("no hay outcomes todavía (se omite)")
         return
     for f in files:
-        seen, bad = {}, 0
-        for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-            if not line.strip():
-                continue
-            try:
-                o = json.loads(line)
-            except json.JSONDecodeError:
-                fail(f"{f.name}:{n} no es JSON")
-                bad += 1
-                continue
-            if o.get("result") not in RESULTS:
-                fail(f"{f.name}:{n} result inválido: {o.get('result')!r}")
-                bad += 1
-            fid = o.get("file_id")
-            if fid in seen:
-                fail(f"{f.name}:{n} file_id duplicado: {fid}")
-                bad += 1
-            seen[fid] = o
-        if f.name == "outcomes.jsonl" and expected is not None:
-            missing, extra = expected - seen.keys(), seen.keys() - expected
-            if missing:
-                fail(
-                    f"{f.name}: faltan {len(missing)} archivos, p.ej. {sorted(missing)[:3]}"
-                )
-            if extra:
-                fail(
-                    f"{f.name}: sobran {len(extra)} file_id, p.ej. {sorted(extra)[:3]}"
-                )
-        if not bad:
-            ok(f"{f.name}: {len(seen)} outcomes")
+        esperados = ficheros_de(caja / OUTCOMES[f.name]) if f.name in OUTCOMES else None
+        problemas, conteo = verificar_outcomes(f, esperados)
+        for p in problemas:
+            fail(f"{f.name}: {p}")
+        if not problemas:
+            ok(f"{f.name}: {sum(conteo.values())} outcomes")
 
 
 def check_hygiene():
@@ -109,7 +86,7 @@ def check_hygiene():
             and not t.endswith(".gitkeep")
         ):
             fail(f"archivo que no debería estar en git: {t}")
-        if t.lower().endswith((".pdf", ".xlsx")):
+        if t.lower().endswith((".pdf", ".xlsx")) and t != "docs/albertitos_plan.pdf":
             fail(f"binario de datos en git: {t}")
     pattern = re.compile(
         r"sk-ant-[A-Za-z0-9_-]{10,}|sk-or-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}"

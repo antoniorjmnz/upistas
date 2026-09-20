@@ -145,8 +145,9 @@ def test_importar_maestro_carga_el_excel_en_nuestras_tablas(excel_pequeno, capsy
     assert set(MaestroDjango().marcados_para_revisar()) == {"PO-2026-0007"}
 
     salida = capsys.readouterr().out
-    assert "Proveedores: 2 (2 nuevos)" in salida and "Pedidos: 3 (3 nuevos)" in salida
-    assert "Marcados para revisar: 1" in salida and "PO-2026-0999" in salida
+    assert "Excel maestro.xlsx: 2 proveedores, 4 pedidos, 1 marcado para revisar" in salida
+    assert "2 proveedores nuevos, 3 pedidos nuevos, 0 cambiados" in salida
+    assert "Sin proveedor conocido, no se cargan: 1 (PO-2026-0999)" in salida
 
 
 def test_importar_maestro_dos_veces_no_duplica_y_actualiza(excel_pequeno, capsys):
@@ -162,7 +163,7 @@ def test_importar_maestro_dos_veces_no_duplica_y_actualiza(excel_pequeno, capsys
     assert Proveedor.objects.count() == 2 and Pedido.objects.count() == 3
     assert Proveedor.objects.get(codigo="P001").nombre == "Suministros Levante S.A."
     assert Pedido.objects.get(numero="PO-2026-0001").importe == Decimal("2500.00")
-    assert "Proveedores: 2 (0 nuevos)" in capsys.readouterr().out
+    assert "0 proveedores nuevos, 0 pedidos nuevos, 2 cambiados" in capsys.readouterr().out
 
 
 def test_importar_maestro_avisa_si_no_encuentra_el_excel(tmp_path):
@@ -181,4 +182,127 @@ def test_importar_el_maestro_de_verdad_de_la_caja(capsys):
     assert Pedido.objects.count() == sum(1 for p in excel.pedidos() if p.proveedor_id)
     assert MaestroDjango().marcados_para_revisar() == excel.marcados_para_revisar()
     assert Pedido.objects.get(numero="PO-2026-0497").importe == Decimal("84700.00")
-    assert "Proveedores: 11 (11 nuevos)" in capsys.readouterr().out
+    assert "11 proveedores nuevos, 516 pedidos nuevos, 0 cambiados" in capsys.readouterr().out
+
+
+# --- las altas del lote 2 en CSV --------------------------------------------------------------
+
+PROVEEDORES_CSV = (
+    "ID,Razon Social,NIF,IBAN,Ciudad,Condiciones\n"
+    "P012,Müller & Partner GmbH,DE812345678,DE89 3704 0044 0532 0130 00,Hamburg,30 dias\n"
+)
+PEDIDOS_CSV = (
+    "pedido,proveedor_id,nif,importe_total,estado,fecha_pedido\n"
+    "PO-2026-0601,P012,DE812345678,1234.50,ABIERTO,2026-08-17\n"
+    "PO-2026-0602,P001,B46102331,99.90,ABIERTO,2026-08-18\n"
+    "PO-2026-0603,P404,,10.00,ABIERTO,2026-08-19\n"
+)
+
+
+@pytest.fixture
+def altas_csv(tmp_path):
+    """Un proveedor nuevo y dos pedidos (uno del proveedor nuevo, otro de uno del Excel); un tercero sin proveedor."""
+    (tmp_path / "proveedores_nuevos.csv").write_text(PROVEEDORES_CSV, encoding="utf-8")
+    (tmp_path / "pedidos_nuevos.csv").write_text(PEDIDOS_CSV, encoding="utf-8")
+    return {"proveedores_csv": [str(tmp_path / "proveedores_nuevos.csv")], "pedidos_csv": [str(tmp_path / "pedidos_nuevos.csv")]}
+
+
+def test_las_altas_en_csv_entran_junto_al_excel(excel_pequeno, altas_csv, capsys):
+    call_command("importar_maestro", excel=str(excel_pequeno))
+    capsys.readouterr()
+
+    call_command("importar_maestro", excel=str(excel_pequeno), **altas_csv)
+
+    assert Proveedor.objects.count() == 3 and Pedido.objects.count() == 5
+    muller = Proveedor.objects.get(codigo="P012")
+    assert muller.nombre == "Müller & Partner GmbH" and muller.iban == "DE89370400440532013000" and muller.condiciones_dias == 30
+    assert Pedido.objects.get(numero="PO-2026-0601").proveedor == muller
+    assert Pedido.objects.get(numero="PO-2026-0602").proveedor.codigo == "P001"
+    assert Pedido.objects.get(numero="PO-2026-0602").importe == Decimal("99.90")
+    salida = capsys.readouterr().out
+    assert "CSV: 1 proveedor, 3 pedidos" in salida
+    assert "1 proveedor nuevo, 2 pedidos nuevos, 0 cambiados" in salida
+    assert "Sin proveedor conocido, no se cargan: 2 (PO-2026-0999, PO-2026-0603)" in salida
+    assert "Aviso: Proveedor P012 con NIF raro" in salida
+
+
+def test_repetir_la_importacion_no_duplica_ni_pisa_lo_que_alberto_hizo_en_la_web(excel_pequeno, altas_csv, capsys):
+    call_command("importar_maestro", excel=str(excel_pequeno), **altas_csv)
+    Pedido.objects.filter(numero="PO-2026-0601").update(revisar=True, nota="Preguntar a Müller por el plazo")
+    Pedido.objects.filter(numero="PO-2026-0007").update(revisar=False, nota="Ya lo miré")
+    Proveedor.objects.filter(codigo="P012").update(activo=False)
+    capsys.readouterr()
+
+    call_command("importar_maestro", excel=str(excel_pequeno), **altas_csv)
+    call_command("importar_maestro", excel=str(excel_pequeno), **altas_csv)
+
+    assert Proveedor.objects.count() == 3 and Pedido.objects.count() == 5
+    marcado = Pedido.objects.get(numero="PO-2026-0601")
+    assert marcado.revisar and marcado.nota == "Preguntar a Müller por el plazo"
+    desmarcado = Pedido.objects.get(numero="PO-2026-0007")
+    assert not desmarcado.revisar and desmarcado.nota == "Ya lo miré"  # el Excel lo sigue marcando, pero la marca ya es de Alberto
+    assert not Proveedor.objects.get(codigo="P012").activo
+    assert capsys.readouterr().out.count("0 proveedores nuevos, 0 pedidos nuevos, 0 cambiados\n") == 2
+
+
+def test_solo_los_csv_si_no_hay_excel_a_mano(altas_csv, tmp_path, monkeypatch, capsys):
+    from upistas.config import settings as config
+    from web.panel.management.commands import importar_maestro
+
+    monkeypatch.setattr(importar_maestro, "settings", replace(config, caja_dir=tmp_path))
+    Proveedor.objects.create(codigo="P001", nombre="Suministros Levante S.L.", nif="B46102331", iban="ES2100491500051234567890")
+
+    call_command("importar_maestro", **altas_csv)
+
+    assert Proveedor.objects.count() == 2 and Pedido.objects.count() == 2
+    assert "1 proveedor nuevo, 2 pedidos nuevos, 0 cambiados" in capsys.readouterr().out
+
+
+def test_importar_maestro_avisa_si_un_csv_trae_caracteres_que_no_se_pueden_leer(excel_pequeno, tmp_path, capsys):
+    ruta = tmp_path / "proveedores_rotos.csv"
+    ruta.write_bytes(b"ID,Razon Social,NIF,IBAN,Ciudad,Condiciones\nP020,Cer\x81micas S.L.,B50123456,ES2100491500051234567890,Zaragoza,60 dias\n")
+
+    call_command("importar_maestro", excel=str(excel_pequeno), proveedores_csv=[str(ruta)])
+
+    assert Proveedor.objects.filter(codigo="P020").exists()
+    assert "Aviso: proveedores_rotos.csv: tiene caracteres que no se han podido leer" in capsys.readouterr().out
+
+
+def test_importar_maestro_avisa_si_no_encuentra_un_csv(excel_pequeno, tmp_path):
+    from django.core.management.base import CommandError
+
+    with pytest.raises(CommandError, match="No encuentro el CSV"):
+        call_command("importar_maestro", excel=str(excel_pequeno), pedidos_csv=[str(tmp_path / "no_esta.csv")])
+
+
+def test_importar_directamente_desde_el_adaptador_sin_pasar_por_el_comando(excel_pequeno, altas_csv):
+    from pathlib import Path
+
+    from upistas.adaptadores.fuentes.csv_altas import AltasCSV
+
+    excel = MaestroExcel(excel_pequeno)
+    altas = AltasCSV(tuple(Path(r) for r in altas_csv["proveedores_csv"]), tuple(Path(r) for r in altas_csv["pedidos_csv"]))
+    resumen = MaestroDjango().importar(excel, altas)
+
+    assert (resumen.proveedores_nuevos, resumen.pedidos_nuevos, resumen.cambiados) == (3, 5, 0)
+    assert resumen.sin_proveedor == ("PO-2026-0999", "PO-2026-0603")
+    assert str(resumen) == "3 proveedores nuevos, 5 pedidos nuevos, 0 cambiados"
+    assert MaestroDjango().marcados_para_revisar() == frozenset({"PO-2026-0007"})
+
+
+CSV_LOTE2 = settings.caja_dir / "proveedores_nuevos.csv", settings.caja_dir / "pedidos_nuevos.csv"
+
+
+@pytest.mark.skipif(not (REAL.exists() and all(r.exists() for r in CSV_LOTE2)), reason="La Caja no está clonada")
+def test_las_altas_de_verdad_del_lote_2_sobre_el_maestro_de_la_caja(capsys):
+    call_command("importar_maestro", excel=str(REAL))
+    capsys.readouterr()
+
+    call_command("importar_maestro", excel=str(REAL), proveedores_csv=[str(CSV_LOTE2[0])], pedidos_csv=[str(CSV_LOTE2[1])])
+    assert Proveedor.objects.count() == 15 and Pedido.objects.count() == 555
+    assert Pedido.objects.filter(proveedor__codigo__in=["P012", "P013", "P014", "P015"]).count() == 5
+    assert "4 proveedores nuevos, 39 pedidos nuevos, 0 cambiados" in capsys.readouterr().out
+
+    call_command("importar_maestro", excel=str(REAL), proveedores_csv=[str(CSV_LOTE2[0])], pedidos_csv=[str(CSV_LOTE2[1])])
+    assert Proveedor.objects.count() == 15 and Pedido.objects.count() == 555
+    assert "0 proveedores nuevos, 0 pedidos nuevos, 0 cambiados" in capsys.readouterr().out

@@ -40,9 +40,14 @@ def _dona(numeros: dict) -> dict:
         return round(CIRCUNFERENCIA * n / total, 2)
 
     pagar, no_pagar, escalar = largo(numeros["PAGAR"]), largo(numeros["NO_PAGAR"]), largo(numeros["ESCALAR"])
+
+    def svg(valor: float) -> str:
+        # Texto con punto decimal: si fuera un número, la plantilla lo escribiría «244,52» y el SVG leería tres tramos
+        return f"{valor:.2f}"
+
     return {
-        "pagar": pagar, "nopagar": no_pagar, "revisar": escalar,
-        "off_nopagar": -pagar, "off_revisar": -(pagar + no_pagar),
+        "pagar": svg(pagar), "nopagar": svg(no_pagar), "revisar": svg(escalar),
+        "off_nopagar": svg(-pagar), "off_revisar": svg(-(pagar + no_pagar)),
         "pct_pagar": round(100 * numeros["PAGAR"] / total), "pct_nopagar": round(100 * numeros["NO_PAGAR"] / total),
         "pct_revisar": round(100 * numeros["ESCALAR"] / total),
     }
@@ -65,9 +70,10 @@ def resumen(request: HttpRequest) -> HttpResponse:
     lecturas = consultas.lecturas_por_sha(d.documento.sha256 for d in decisiones)
     revisiones = consultas.revisiones_por_documento(ejecucion.lote)
     pendientes = list(consultas.pendientes_de_revision(ejecucion))
+    por_nif = consultas.nombres_por_nif()
     for d in pendientes[:EN_PORTADA]:  # quién es y cuánto pide, para que Alberto lo reconozca de un vistazo
         datos = consultas.campos(lecturas.get(d.documento.sha256))
-        d.proveedor, d.total = datos.get("proveedor_nombre"), datos.get("total")
+        d.proveedor, d.total = consultas.nombre_proveedor(datos, por_nif), datos.get("total")
         d.motivo_corto = consultas.motivo_corto(d)
     anterior, cambios = consultas.cambios_respecto_a_la_anterior(ejecucion)
     importes = _importes(decisiones, lecturas)

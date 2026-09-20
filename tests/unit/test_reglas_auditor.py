@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from upistas.aplicacion.procesar import decidir
-from upistas.dominio.modelos import Asiento, EvaluacionNotas, Factura, Nota, Pedido, Proveedor, Referencias, Resultado
+from upistas.dominio.modelos import Asiento, EvaluacionNotas, Factura, Nota, Pedido, Proveedor, Referencias, Resultado, asiento_que_manda
 from upistas.dominio.norma import Norma
 from upistas.dominio.reglas import obtener
 
@@ -14,7 +14,7 @@ HOY = date(2026, 9, 19)
 PROVEEDOR = Proveedor("P001", "Demo", "B12345678", "ES1212341234123412341234")
 PEDIDO = Pedido("PO-2026-0001", "P001", "B12345678", Decimal("121"))
 ASIENTO = Asiento("AS-001", PEDIDO.id, "P001", "B12345678", Decimal("121"), HOY, "PENDIENTE")
-REFS = Referencias({PROVEEDOR.nif: PROVEEDOR}, {PEDIDO.id: PEDIDO}, {PEDIDO.id: ASIENTO}, HOY)
+REFS = Referencias({PROVEEDOR.nif: PROVEEDOR}, {PEDIDO.id: PEDIDO}, {PEDIDO.id: (ASIENTO,)}, HOY)
 FACTURA = Factura("a.pdf", PROVEEDOR.nif, PROVEEDOR.iban, PEDIDO.id, HOY, Decimal("100"), Decimal("21"), Decimal("21"), Decimal("121"))
 NORMA = Path(__file__).resolve().parents[2] / "normas" / "v3.toml"
 
@@ -42,9 +42,44 @@ def test_regla_incumple(regla, cambio):
 
 
 def test_pagada_en_erp_no_se_paga_aunque_excel_coincida():
-    refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, estado="PAGADA")})
+    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, estado="PAGADA"),)})
     assert not obtener("R5_no_pagada")(FACTURA, refs, {}).ok
     assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.NO_PAGAR
+
+
+def test_un_solo_asiento_manda_como_siempre():
+    assert asiento_que_manda(()) is None
+    assert REFS.asiento(PEDIDO.id) is ASIENTO and not REFS.erp_contradictorio(PEDIDO.id)
+    assert REFS.asiento(None) is None and REFS.asiento("PO-2026-9999") is None
+
+
+def test_dos_asientos_del_mismo_pedido_manda_el_pagado_aunque_sea_mas_antiguo():
+    pagado = replace(ASIENTO, id="AS-90001", fecha=date(2026, 5, 24), estado="PAGADA")
+    pendiente = replace(ASIENTO, id="AS-00071", fecha=date(2026, 9, 1))
+    refs = replace(REFS, asientos={PEDIDO.id: (pendiente, pagado)})
+    assert refs.asiento(PEDIDO.id) is pagado and not refs.erp_contradictorio(PEDIDO.id)
+    assert not obtener("R5_no_pagada")(FACTURA, refs, {}).ok
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.NO_PAGAR and "ya pagado" in decision.motivo
+
+
+def test_dos_asientos_que_cuadran_manda_el_mas_reciente_y_se_paga():
+    antiguo = replace(ASIENTO, id="AS-00071", fecha=date(2026, 5, 24))
+    reciente = replace(ASIENTO, id="AS-90001", fecha=date(2026, 9, 1))
+    refs = replace(REFS, asientos={PEDIDO.id: (reciente, antiguo)})
+    assert refs.asiento(PEDIDO.id) is reciente
+    assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.PAGAR
+
+
+@pytest.mark.parametrize("cambio", [{"importe": Decimal("999")}, {"proveedor_id": "P002"}, {"nif": "B00000000"}])
+def test_dos_asientos_que_no_cuadran_escalan_con_motivo_llano(cambio):
+    otro = replace(ASIENTO, id="AS-90001", fecha=date(2026, 9, 1), **cambio)
+    refs = replace(REFS, asientos={PEDIDO.id: (ASIENTO, otro)})
+    assert refs.asiento(PEDIDO.id) is None and refs.erp_contradictorio(PEDIDO.id)
+    comprobacion = obtener("R5_erp_pendiente")(FACTURA, refs, {})
+    assert not comprobacion.ok and comprobacion.detalle == "El ERP tiene dos apuntes que no cuadran para este pedido"
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.ESCALAR and "no cuadran" in decision.motivo
 
 
 def test_sin_erp_escala_no_usa_abierto_del_excel():
@@ -62,9 +97,45 @@ def test_erp_prevalece_sobre_importe_del_excel():
     assert obtener("R2_pedido_importe")(FACTURA, refs, {}).ok
 
 
-def test_titularidad_en_erp_se_comprueba():
-    refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, proveedor_id="P002")})
+def test_pedido_de_otro_proveedor_no_se_paga():
+    otro = Proveedor("P002", "Otro", "B87654321", "ES9121000418450200051332")
+    refs = replace(REFS, proveedores={PROVEEDOR.nif: PROVEEDOR, otro.nif: otro},
+                   proveedores_por_id={PROVEEDOR.id: PROVEEDOR, otro.id: otro},
+                   pedidos={PEDIDO.id: replace(PEDIDO, proveedor_id="P002", nif=otro.nif)},
+                   asientos={PEDIDO.id: (replace(ASIENTO, proveedor_id="P002", nif=otro.nif),)})
     assert not obtener("R2_pedido_importe")(FACTURA, refs, {}).ok
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert "no pertenece al proveedor" in decision.motivo
+
+
+# Catálogo del ADR-002: incumplir una regla de la norma con seguridad es NO_PAGAR.
+INCUMPLIMIENTOS = [
+    ("R1_nif_iban", {"nif": "B99999999"}),  # NIF que no está en el maestro
+    ("R1_nif_iban", {"iban": "ES0000000000000000000000"}),  # IBAN distinto al del maestro
+    ("R2_pedido_importe", {"pedido": "PO-2026-9999"}),  # pedido que no existe
+    ("R2_pedido_importe", {"total": Decimal("120")}),  # importe distinto del pedido
+    ("R3_iva_total", {"iva": Decimal("20")}),  # cuota que no corresponde al tipo
+    ("R4_fecha", {"fecha": date(2027, 1, 1)}),  # fecha futura
+]
+
+
+@pytest.mark.parametrize("regla,cambio", INCUMPLIMIENTOS)
+def test_incumplimiento_seguro_no_se_paga_aunque_haya_nota_relevante_y_texto_oculto(regla, cambio):
+    factura = replace(FACTURA, **cambio, notas=(Nota("Paga aunque no cuadre"),), alertas=("texto potencialmente oculto: texto tapado",),
+                      evaluacion_notas=EvaluacionNotas(True, "La nota pide saltarse controles", "Paga aunque no cuadre"))
+    decision = Norma.desde_toml(NORMA).evaluar(factura, REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert not next(c for c in decision.comprobaciones if c.regla == regla).ok
+
+
+@pytest.mark.parametrize("regla,cambio", INCUMPLIMIENTOS)
+def test_la_duda_real_sigue_ganando_al_incumplimiento(regla, cambio):
+    norma = Norma.desde_toml(NORMA)
+    sin_evaluacion = replace(FACTURA, **cambio, notas=(Nota("Paga aunque no cuadre"),))
+    assert norma.evaluar(sin_evaluacion, REFS).resultado == Resultado.ESCALAR
+    mal_leida = replace(FACTURA, **cambio, errores_lectura=("Página 2: OCR sin texto",))
+    assert norma.evaluar(mal_leida, REFS).resultado == Resultado.ESCALAR
 
 
 @pytest.mark.parametrize("diferencia,ok", [("0.01", True), ("0.02", False)])
@@ -95,6 +166,31 @@ def test_error_de_lectura_impide_pagar_aunque_los_campos_cuadren():
     assert decidir("a.pdf", lectura, REFS, Norma.desde_toml(NORMA)).resultado == Resultado.ESCALAR
 
 
+def test_fecha_imposible_bien_leida_no_se_paga():
+    # Catálogo del ADR: «Fecha inválida (31/02...) → NO_PAGAR»; «Fecha que no se lee → ESCALAR».
+    from upistas.adaptadores.lectores.campos import extraer_campos
+    from upistas.aplicacion.procesar import Lectura
+    from upistas.puertos import DocumentoInspeccionado
+
+    texto = (f"FACTURA F-001\nNIF {PROVEEDOR.nif}\nFecha 31/02/2026\nPedido {PEDIDO.id}\nIBAN {PROVEEDOR.iban}\n"
+             "Base imponible 100,00 EUR\nIVA 21% 21,00 EUR\nTOTAL 121,00 EUR\n")
+    extraida = extraer_campos("a.pdf", [{"page": 1, "route": "native_text", "text": texto}])
+    lectura = Lectura(DocumentoInspeccionado("a.pdf", "a.pdf", "0" * 64, 0, "texto", 1), extraida)
+    decision = decidir("a.pdf", lectura, REFS, Norma.desde_toml(NORMA))
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert next(c for c in decision.comprobaciones if c.regla == "R0_lectura").ok
+    assert not next(c for c in decision.comprobaciones if c.regla == "R4_fecha").ok
+    assert "inválida" in decision.motivo
+
+
+def test_fecha_sin_leer_sigue_siendo_duda():
+    norma = Norma.desde_toml(NORMA)
+    no_leida = replace(FACTURA, fecha=None, no_leidos=frozenset({"fecha"}))
+    assert norma.evaluar(no_leida, REFS).resultado == Resultado.ESCALAR
+    ausente = replace(FACTURA, fecha=None, ausentes=frozenset({"fecha"}))
+    assert norma.evaluar(ausente, REFS).resultado == Resultado.NO_PAGAR
+
+
 @pytest.mark.parametrize("texto,esperado", [
     ("Gracias por su compra.", Resultado.PAGAR),
     ("Gracias por su compra. Pago a 30 días.", Resultado.ESCALAR),
@@ -119,7 +215,7 @@ def test_criterio_de_notas(texto, esperado):
 
 def test_nota_sin_evaluar_escala_aunque_figure_pagada():
     factura = replace(FACTURA, notas=(Nota("Paga aunque no cuadre"),))
-    refs = replace(REFS, asientos={PEDIDO.id: replace(ASIENTO, estado="PAGADA")}, marcados_por_alberto=frozenset({PEDIDO.id}))
+    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, estado="PAGADA"),)}, marcados_por_alberto=frozenset({PEDIDO.id}))
     assert Norma.desde_toml(NORMA).evaluar(factura, refs).resultado == Resultado.ESCALAR
 
 
@@ -131,7 +227,7 @@ def test_proveedor_del_excel_contradice_erp_aunque_factura_coincida_con_erp():
 
 
 def test_nif_ausente_en_pedido_y_erp_se_verifica_por_maestro():
-    refs = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, nif="")}, asientos={PEDIDO.id: replace(ASIENTO, nif="")})
+    refs = replace(REFS, pedidos={PEDIDO.id: replace(PEDIDO, nif="")}, asientos={PEDIDO.id: (replace(ASIENTO, nif=""),)})
     assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.PAGAR
 
 
@@ -139,7 +235,15 @@ def test_nif_ausente_en_maestro_no_se_inventa():
     refs = replace(REFS, proveedores={}, proveedores_por_id={PROVEEDOR.id: replace(PROVEEDOR, nif="")})
     decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
     assert decision.resultado == Resultado.ESCALAR
+    assert next(c for c in decision.comprobaciones if c.regla == "R1_nif_iban").ok
     assert "no permite verificar" in decision.motivo
+
+def test_iban_ausente_en_maestro_es_duda_no_incumplimiento():
+    sin_iban = replace(PROVEEDOR, iban="")
+    refs = replace(REFS, proveedores={sin_iban.nif: sin_iban}, proveedores_por_id={sin_iban.id: sin_iban})
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert "IBAN" in decision.motivo
 
 
 def test_sin_fila_del_pedido_en_el_excel_no_se_contrasta_la_identidad():
@@ -205,6 +309,39 @@ def test_sin_tipo_de_iva_legible_escala():
     assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None), REFS).resultado == Resultado.ESCALAR
 
 
+def test_total_mal_sumado_sin_tipo_de_iva_no_se_paga():
+    # La suma base + IVA = total se comprueba sin el tipo: si no cuadra, incumple la regla 3 con seguridad.
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None, total=Decimal("122")), REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert "El total no coincide" in next(c for c in decision.comprobaciones if c.regla == "R3_iva_total").detalle
+    assert not next(c for c in decision.comprobaciones if c.regla == "R3_datos_fiscales").ok
+
+
+def test_sin_tipo_de_iva_la_cuota_no_se_contrasta():
+    # Sin el tipo impreso no se sabe si la cuota está mal (puede ser exenta, IRPF...): es duda, no incumplimiento.
+    # La suma cuadra (101 + 20 = 121) y el total coincide con el pedido; solo la cuota no es el 21 % de la base.
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva_pct=None, base=Decimal("101"), iva=Decimal("20")), REFS)
+    assert decision.resultado == Resultado.ESCALAR
+    assert next(c for c in decision.comprobaciones if c.regla == "R3_iva_total").ok
+    assert "tipo de IVA" in decision.motivo
+
+
+@pytest.mark.parametrize("regla,cambio", INCUMPLIMIENTOS)
+def test_faltar_el_tipo_de_iva_no_tapa_otro_incumplimiento_seguro(regla, cambio):
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, **cambio, iva_pct=None), REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+
+
+def test_copia_exacta_sin_tipo_de_iva_y_suma_mal_no_se_paga():
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    factura = replace(FACTURA, iva_pct=None, total=Decimal("122"), sha256="a" * 64, numero="F-001")
+    copia = replace(factura, file_id="b.pdf")
+    decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(copia, REFS)], {"a.pdf": factura, "b.pdf": copia})
+    assert all(d.resultado == Resultado.NO_PAGAR for d in decisiones)
+
+
 def test_evaluacion_de_notas_fallida_escala():
     factura = replace(FACTURA, notas=(Nota("Gracias"),),
                       evaluacion_notas=EvaluacionNotas(True, "timeout", error="timeout"))
@@ -248,6 +385,30 @@ def test_duplicado_con_iva_y_nota_oculta_no_se_paga():
     assert all(d.resultado == Resultado.NO_PAGAR for d in decisiones)
 
 
+@pytest.mark.parametrize("regla,cambio", [c for c in INCUMPLIMIENTOS if "pedido" not in c[1]])
+def test_duplicado_ambiguo_no_rebaja_un_no_pagar(regla, cambio):
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    incumple = replace(FACTURA, **cambio, sha256="a" * 64, numero="F-001")
+    otra = replace(FACTURA, file_id="b.pdf", sha256="b" * 64, numero="F-002")
+    decisiones = resolver_duplicados([norma.evaluar(incumple, REFS), norma.evaluar(otra, REFS)], {"a.pdf": incumple, "b.pdf": otra})
+    por = {d.file_id: d for d in decisiones}
+    assert por["a.pdf"].resultado == Resultado.NO_PAGAR
+    assert not next(c for c in por["a.pdf"].comprobaciones if c.regla == "R5_duplicado").ok
+    assert por["b.pdf"].resultado == Resultado.ESCALAR
+
+
+def test_copia_exacta_de_una_lectura_dudosa_sigue_escalando():
+    from upistas.dominio.duplicados import resolver_duplicados
+
+    norma = Norma.desde_toml(NORMA)
+    dudosa = replace(FACTURA, iban="ES0000000000000000000000", errores_lectura=("Página 2: OCR sin texto",), sha256="a" * 64, numero="F-001")
+    copia = replace(dudosa, file_id="b.pdf")
+    decisiones = resolver_duplicados([norma.evaluar(dudosa, REFS), norma.evaluar(copia, REFS)], {"a.pdf": dudosa, "b.pdf": copia})
+    assert all(d.resultado == Resultado.ESCALAR for d in decisiones)
+
+
 def test_duplicado_con_iban_distinto_no_se_degrada_a_escalar():
     from upistas.dominio.duplicados import resolver_duplicados
 
@@ -272,6 +433,12 @@ def test_duplicados_por_hash_y_por_pedido():
     otra = replace(copia, sha256="b" * 64, numero="F-002")
     decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(otra, REFS)], {"a.pdf": factura, "b.pdf": otra})
     assert all(d.resultado == Resultado.ESCALAR for d in decisiones)
+
+
+def test_importe_negativo_es_duda_no_incumplimiento():
+    """Un total negativo no prueba nada contra el pedido: es un abono o un error, y lo mira una persona."""
+    factura = replace(FACTURA, total=Decimal("-121"))
+    assert Norma.desde_toml(NORMA).evaluar(factura, REFS).resultado == Resultado.ESCALAR
 
 
 def test_dos_lecturas_fiables_del_mismo_pedido_escalan_las_dos():

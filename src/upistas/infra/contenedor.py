@@ -21,12 +21,14 @@ from upistas.adaptadores.fuentes.memoria import MaestroEnMemoria
 from upistas.adaptadores.fuentes.snapshot import ErpSnapshot
 from upistas.adaptadores.lectores.pdf import InspectorPdf
 from upistas.adaptadores.lectores.pdf_unificado import VERSION, LectorPdfUnificado
+from upistas.adaptadores.pdf_marcado import MarcadorPdfMuPDF
 from upistas.adaptadores.persistencia.django_decisiones import RepositorioDecisionesDjango
 from upistas.adaptadores.persistencia.django_erp import AlmacenERPDjango
 from upistas.adaptadores.persistencia.django_lecturas import RepositorioLecturasDjango
 from upistas.adaptadores.persistencia.django_maestro import MaestroDjango
+from upistas.aplicacion.marcar_pdf import MarcadorPdf
 from upistas.config import ROOT, Settings, settings
-from upistas.dominio.modelos import Referencias
+from upistas.dominio.modelos import Referencias, asientos_por_pedido
 from upistas.dominio.norma import Norma
 from upistas.dominio.versiones import version_asientos
 from upistas.infra import django_setup
@@ -49,12 +51,18 @@ def _ocr() -> Callable[[bytes], str] | None:
 
 
 @cache
+def marcador_pdf() -> MarcadorPdf:
+    """Para la web: el PDF con el texto escondido rodeado en rojo (caso de uso `marcar_pdf`)."""
+    return MarcadorPdfMuPDF()
+
+
+@cache
 def lectores() -> tuple[LectorPdfUnificado, ...]:
     # Del más barato al más caro: texto determinista → LLM texto → LLM visión.
     from upistas.adaptadores.lectores.vision_helmcode import VisionHelmcode
 
     vision = VisionHelmcode(
-        settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_vision,
+        settings.helmcode_api_key, settings.helmcode_base_url, settings.modelo_vision, timeout=settings.vision_timeout_s,
     ) if settings.usar_ocr and settings.helmcode_api_key else None
     return (LectorPdfUnificado(
         ocr=_ocr(),
@@ -155,13 +163,11 @@ def norma(version: str) -> Norma:
 def referencias() -> Referencias:
     fuente = maestro()
     asientos = erp().asientos()
-    if len({a.pedido for a in asientos}) != len(asientos):
-        raise ValueError("ERP: hay varios asientos para un mismo pedido; requiere revisión")
     return Referencias(
         proveedores={p.nif: p for p in fuente.proveedores() if p.nif},
         proveedores_por_id={p.id: p for p in fuente.proveedores()},
         pedidos={p.id: p for p in fuente.pedidos()},
-        asientos={a.pedido: a for a in asientos},
+        asientos=asientos_por_pedido(asientos),
         hoy=settings.hoy or date.today(),
         marcados_por_alberto=fuente.marcados_para_revisar(),
         version_datos=f"{getattr(fuente, 'version', '')}:{version_asientos(asientos)}",
@@ -170,10 +176,10 @@ def referencias() -> Referencias:
 
 def configurar(nuevos: Settings) -> None:
     global settings
-    if not math.isfinite(nuevos.lectura_timeout_s) or nuevos.lectura_timeout_s <= 0:
-        raise ValueError("LECTURA_TIMEOUT_S debe ser un número positivo y finito")
-    if not math.isfinite(nuevos.notas_timeout_s) or nuevos.notas_timeout_s <= 0:
-        raise ValueError("NOTAS_TIMEOUT_S debe ser un número positivo y finito")
+    for ajuste in ("lectura_timeout_s", "notas_timeout_s", "vision_timeout_s"):
+        segundos = getattr(nuevos, ajuste)
+        if not math.isfinite(segundos) or segundos <= 0:
+            raise ValueError(f"{ajuste.upper()} debe ser un número positivo y finito")
     settings = nuevos
     for funcion in (inspector, lectores, maestro, erp, cliente_erp, almacen_erp, lecturas, decisiones, norma, referencias, huella_lectores):
         funcion.cache_clear()

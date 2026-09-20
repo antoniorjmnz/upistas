@@ -49,9 +49,9 @@
   <div class="tarjeta dona">
     <svg viewBox="0 0 120 120" role="img" aria-label="Reparto del lote: {{ dona.pct_pagar }} % se pagan, {{ dona.pct_nopagar }} % no, {{ dona.pct_revisar }} % las decide usted">
       <circle cx="60" cy="60" r="46" fill="none" stroke="#E5E7EB" stroke-width="16"/>
-      <circle cx="60" cy="60" r="46" fill="none" stroke="#12B76A" stroke-width="16" stroke-dasharray="{{ dona.pagar }} 289.03" transform="rotate(-90 60 60)"/>
-      <circle cx="60" cy="60" r="46" fill="none" stroke="#F04438" stroke-width="16" stroke-dasharray="{{ dona.nopagar }} 289.03" stroke-dashoffset="{{ dona.off_nopagar }}" transform="rotate(-90 60 60)"/>
-      <circle cx="60" cy="60" r="46" fill="none" stroke="#F79009" stroke-width="16" stroke-dasharray="{{ dona.revisar }} 289.03" stroke-dashoffset="{{ dona.off_revisar }}" transform="rotate(-90 60 60)"/>
+      <circle class="rosquilla-arco" cx="60" cy="60" r="46" fill="none" stroke="#12B76A" stroke-width="16" stroke-dasharray="{{ dona.pagar }} 289.03" transform="rotate(-90 60 60)"/>
+      <circle class="rosquilla-arco" cx="60" cy="60" r="46" fill="none" stroke="#F04438" stroke-width="16" stroke-dasharray="{{ dona.nopagar }} 289.03" stroke-dashoffset="{{ dona.off_nopagar }}" transform="rotate(-90 60 60)"/>
+      <circle class="rosquilla-arco" cx="60" cy="60" r="46" fill="none" stroke="#F79009" stroke-width="16" stroke-dasharray="{{ dona.revisar }} 289.03" stroke-dashoffset="{{ dona.off_revisar }}" transform="rotate(-90 60 60)"/>
       <text x="60" y="57" text-anchor="middle" fill="#111827" font-family="Sora, Inter, sans-serif" font-size="22" font-weight="600">{{ cifras.documentos }}</text>
       <text x="60" y="74" text-anchor="middle" fill="#6B7280" font-family="Inter, sans-serif" font-size="11">facturas</text>
     </svg>
