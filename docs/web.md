@@ -11,9 +11,51 @@ No hay usuarios ni contraseña: la web se abre y ya está. Alberto es quien la a
 uv run python manage.py migrate
 uv run python manage.py runserver      # http://127.0.0.1:8000
 ```
-Los datos los pone el pipeline: `uv run upistas run` deja el lote decidido y la web lo enseña, o los
-sube Alberto desde «Subir facturas». Sin ninguna ejecución, la portada lo explica y dice cómo lanzarla.
-Funciona sin internet: htmx, el CSS y las letras van en el repo.
+En el portátil hace falta `DJANGO_DEBUG=1` en el `.env` (viene puesto en `.env.example`): sin ella la web
+arranca como en producción y pide su clave. Los datos los pone el pipeline: `uv run upistas run` deja el
+lote decidido y la web lo enseña, o los sube Alberto desde «Subir facturas». Sin ninguna ejecución, la
+portada lo explica y dice cómo lanzarla. Funciona sin internet: htmx, el CSS y las letras van en el repo.
+
+## En producción
+La web se comporta como un producto terminado sin que nadie tenga que acordarse de apagar nada: sin
+variables arranca sin DEBUG, y sin DEBUG exige su clave. Todo lo que cambia entre el portátil y el servidor
+va en el entorno (el `.env` o las variables del despliegue):
+
+- `DJANGO_DEBUG`: `1` solo en el portátil. Apagado (`0` o sin poner) es el valor por defecto.
+- `DJANGO_SECRET_KEY`: obligatoria sin DEBUG; 50 caracteres o más al azar
+  (`python -c "import secrets; print(secrets.token_urlsafe(60))"`). Con DEBUG, si falta, se usa una de
+  desarrollo.
+- `DJANGO_ALLOWED_HOSTS`: los dominios desde los que se abre la web, separados por comas
+  (`pagos.ejemplo.com`). Sin ella, solo `127.0.0.1` y `localhost`.
+- `CSRF_TRUSTED_ORIGINS`: esos mismos dominios con `https://` delante, para que los formularios se acepten
+  cuando la web se sirve desde ellos (túnel de Cloudflare, previews).
+- `DJANGO_HTTPS`: `1` cuando la web va detrás de Cloudflare o de otro proxy que termina el TLS y manda
+  `X-Forwarded-Proto`. Activa las cookies `Secure`, la redirección a https y HSTS. En local no se pone.
+- `DATABASE_URL` y `ALMACEN_DIR`: la base de datos y la carpeta de los PDF subidos, como en
+  [backend.md](backend.md).
+
+Lo que va siempre, con o sin DEBUG: `SECURE_CONTENT_TYPE_NOSNIFF`, `X-Frame-Options: SAMEORIGIN` (el visor
+carga el PDF en un marco de la misma web), `Referrer-Policy: same-origin` y cookies `HttpOnly` y `SameSite=Lax`.
+Con las variables puestas, `uv run python manage.py check --deploy` no avisa de nada (lo comprueba un test).
+
+Los ficheros estáticos (CSS, letras, htmx, la marca) los sirve WhiteNoise, también sin DEBUG y sin servidor
+delante. Busca los ficheros donde están, así que no hace falta `collectstatic` para arrancar; en un
+despliegue con build conviene ejecutarlo (`uv run python manage.py collectstatic --noinput`, deja las copias
+comprimidas en `staticfiles/`, fuera de git).
+
+Sin DEBUG, las páginas de error son nuestras y en español llano: la 404 («Esta página no existe», con el
+enlace a Hoy y la barra lateral), la 500 («Algo ha fallado; no se ha perdido nada», sin barra lateral ni
+base de datos, porque puede ser justo eso lo que ha fallado) y la 403 de un formulario que llegó sin su
+marca de seguridad («Esta página llevaba demasiado tiempo abierta»). Están en `web/panel/views/errores.py`
+y en las plantillas `404.html`, `500.html` y `403.html`.
+
+`/salud/` responde `ok` en texto llano (y 503 «sin base de datos» si la base no contesta), para el
+comprobador del despliegue o el balanceador.
+
+Identidad: `<html lang="es">`, un título por pantalla («Hoy · Pagos de Alberto»), `meta description`, la
+marca de la barra lateral como favicon (`static/panel/marca.svg`) y un manifest mínimo
+(`static/panel/manifest.webmanifest`) para que el navegador llame a la web «Pagos de Alberto» y no por su
+dominio. Un pie discreto en todas las pantallas: «Pagos de Alberto · Banco Miralmar», y nada más.
 
 ## Cómo se escribe cada pantalla
 Alberto tiene 60 años y no sabe de informática. De ahí tres reglas que valen para toda la web:
