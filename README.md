@@ -11,7 +11,7 @@ a la bandeja «Para revisar» y lo decide Alberto con un clic.
 ## Cómo se usa
 
 Se abre en el navegador y ya está — no hay usuarios ni contraseñas. Para arrancarla:
-`cd solucion && uv run python manage.py runserver` y entrar en **http://127.0.0.1:8000**.
+`cd solucion && uv run python manage.py runserver` y entrar en **http://127.0.0.1:8000** (nivel local) para hacer un deploy se utiliza cloudfare https://telling-another-effect-prediction.trycloudflare.com/ 
 A la izquierda, la barra con las pantallas. Tres colores que significan siempre lo mismo en toda la web:
 
 - 🟢 **verde** — se paga
