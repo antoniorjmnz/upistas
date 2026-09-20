@@ -63,6 +63,7 @@ class SincronizacionERP(models.Model):
     nuevos = models.PositiveIntegerField(default=0)
     modificados = models.PositiveIntegerField(default=0)
     eliminados = models.PositiveIntegerField(default=0)
+    automatica = models.BooleanField(default=False)  # la hizo la sincronización constante, no el botón ni un repaso
 
     class Meta:
         ordering = ["-inicio", "-id"]
@@ -72,6 +73,33 @@ class SincronizacionERP(models.Model):
     @property
     def hay_cambios(self) -> bool:
         return bool(self.nuevos or self.modificados or self.eliminados)
+
+
+class Ajuste(models.Model):
+    """Un ajuste de la web con nombre y valor de texto (por ejemplo, si la sincronización con el ERP es constante).
+
+    Vive en la base de datos para que sobreviva a reinicios y valga para todos los procesos.
+    """
+
+    clave = models.CharField(max_length=40, primary_key=True)
+    valor = models.TextField(blank=True)
+    cambiado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "ajuste"
+        verbose_name_plural = "ajustes"
+
+    def __str__(self) -> str:
+        return f"{self.clave} = {self.valor}"
+
+    @classmethod
+    def leer(cls, clave: str, por_defecto: str = "") -> str:
+        valor = cls.objects.filter(pk=clave).values_list("valor", flat=True).first()
+        return por_defecto if valor is None else valor
+
+    @classmethod
+    def guardar(cls, clave: str, valor: str) -> None:
+        cls.objects.update_or_create(clave=clave, defaults={"valor": valor})
 
 
 # --- Documentos y lecturas ------------------------------------------------------------------

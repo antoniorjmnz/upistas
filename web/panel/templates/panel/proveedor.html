@@ -1,6 +1,6 @@
 {% extends "panel/base.html" %}
 {% load panel_extras %}
-{% block titulo %}{{ proveedor.nombre }} · Pagos de Alberto{% endblock %}
+{% block titulo %}{{ proveedor.nombre }} · Control de facturas{% endblock %}
 {% block contenido %}
 
 <section class="hero">
@@ -79,7 +79,7 @@
             <td><a href="{% url 'panel:factura' f.decision.documento.lote f.decision.documento.file_id %}">{{ f.decision.documento.file_id }}</a></td>
             <td class="mono">{{ f.decision.pedido }}</td>
             <td><span class="pildora {{ f.decision.resultado|pildora }}">{{ f.decision.resultado|etiqueta }}</span></td>
-            <td class="porque">{{ f.motivo }}</td>
+            <td class="porque">{{ f.motivo|motivo_llano }}</td>
           </tr>
         {% endfor %}
         </tbody>

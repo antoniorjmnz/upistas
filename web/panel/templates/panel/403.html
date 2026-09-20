@@ -1,0 +1,18 @@
+{% extends "panel/base.html" %}
+{% load panel_extras %}
+{% block titulo %}No se ha podido hacer · Control de facturas{% endblock %}
+{% block contenido %}
+<section class="tarjeta">
+  <div class="vacio">
+    <div class="icono">{% icono "alerta" 28 %}</div>
+    {% if por_formulario %}
+      <p class="grande">Esta página llevaba demasiado tiempo abierta</p>
+      <p class="suave">Por seguridad no se ha guardado nada. Vuelva atrás, recargue la página y repita lo que estaba haciendo.</p>
+    {% else %}
+      <p class="grande">Esto no se puede hacer desde aquí</p>
+      <p class="suave">No se ha cambiado nada.</p>
+    {% endif %}
+    <p class="acciones" style="margin-top: 18px; justify-content: center;"><a class="boton" href="{% url 'panel:inicio' %}">{% icono "casa" 18 %}Ir a Hoy</a></p>
+  </div>
+</section>
+{% endblock %}

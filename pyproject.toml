@@ -13,6 +13,8 @@ dependencies = [
     "pydantic>=2.11",
     "python-dotenv>=1.1",
     "httpx>=0.28",
+    "gunicorn>=26.2.0",
+    "whitenoise>=6.12.0",
 ]
 
 [project.optional-dependencies]

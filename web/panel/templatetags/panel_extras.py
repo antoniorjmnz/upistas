@@ -65,6 +65,22 @@ def regla(id_regla: str) -> str:
 
 
 @register.filter
+def motivo_llano(texto: str | None) -> str:
+    """El motivo tal como lo escribe el sistema, sin el código de la norma: «Cumple la norma v3» → «Cumple la norma»."""
+    import re
+
+    return re.sub(r"Cumple la norma v\d+", "Cumple la norma", str(texto or ""))
+
+
+@register.filter
+def norma(nombre: str | None) -> str:
+    """"v3" → "versión 3 de la norma": nunca el código a secas."""
+    from web.panel.consultas import nombre_norma
+
+    return nombre_norma(nombre)
+
+
+@register.filter
 def lote(nombre: str) -> str:
     """"lote1" → "Lote 1"."""
     from web.panel.consultas import nombre_lote

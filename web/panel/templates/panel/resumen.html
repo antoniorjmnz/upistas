@@ -1,6 +1,6 @@
 {% extends "panel/base.html" %}
 {% load panel_extras %}
-{% block titulo %}Hoy · Pagos de Alberto{% endblock %}
+{% block titulo %}Hoy · Control de facturas{% endblock %}
 {% block contenido %}
 
 <section class="hero">
@@ -104,7 +104,7 @@
 {% endif %}
 
 <div class="acciones" style="justify-content: space-between;">
-  <p class="suave" style="margin: 0; font-size: 14px;">Repasadas el {{ ejecucion.inicio|date:"j \d\e F" }} a las {{ ejecucion.inicio|date:"H:i" }} con la copia del ERP de ese momento y la norma {{ ejecucion.norma }}.
+  <p class="suave" style="margin: 0; font-size: 14px;">Repasadas el {{ ejecucion.inicio|date:"j \d\e F" }} a las {{ ejecucion.inicio|date:"H:i" }} con la copia del ERP de ese momento y la {{ ejecucion.norma|norma }}.
     <a href="{% url 'panel:ejecucion' ejecucion.id %}">Ver el detalle</a></p>
   {% include "panel/_repasar_boton.html" %}
 </div>

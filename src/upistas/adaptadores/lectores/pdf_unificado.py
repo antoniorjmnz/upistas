@@ -13,7 +13,7 @@ import pymupdf
 from upistas.adaptadores.lectores.campos import extraer_campos
 from upistas.puertos import DocumentoInspeccionado, LecturaFallida
 
-VERSION = "unificado-5"
+VERSION = "unificado-6"
 
 
 def texto_util(texto: str) -> bool:

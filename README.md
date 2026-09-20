@@ -51,7 +51,8 @@ uv run upistas run --limit 20   # procesa 20 facturas → outputs/outcomes.jsonl
 uv run upistas run              # procesa La Caja entera (lote 1)
 uv run upistas run --lote lote2 --facturas ../caja/facturas_primin   # lote 2 → outputs/outcomes_lote2.jsonl
 ```
-Postgres (opcional, para varios procesos): `docker compose up -d` y `DATABASE_URL` en `.env`.
+Postgres (opcional, para varios procesos): `docker compose up -d postgres` y `DATABASE_URL` en `.env`.
+Para sacar la web del portátil (Railway + Cloudflare): [docs/despliegue.md](docs/despliegue.md).
 
 ## Estructura
 Arquitectura hexagonal: ver [docs/arquitectura.md](docs/arquitectura.md), con recetas para añadir reglas, normas, lectores o fuentes.

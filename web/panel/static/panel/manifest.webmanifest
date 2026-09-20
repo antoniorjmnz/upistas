@@ -1,0 +1,14 @@
+{
+  "name": "Control de facturas",
+  "short_name": "Control de facturas",
+  "description": "Las facturas de proveedores: cuáles se pagan, cuáles no y cuáles hay que revisar.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F6F7F9",
+  "theme_color": "#4F46E5",
+  "icons": [
+    { "src": "marca.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

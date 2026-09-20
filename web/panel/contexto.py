@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from django.http import HttpRequest
+from django.utils import timezone
 
-from web.panel import consultas
+from web.panel import consultas, sincronizacion
 from web.panel.models import SincronizacionERP
 from web.panel.views import chat
 
@@ -13,10 +14,13 @@ def _estado_erp() -> dict:
     if ultima is None:
         return {"clase": "sin", "texto": "ERP: todavía sin copia", "detalle": "Vaya a Conexión con el ERP y pulse Sincronizar ahora"}
     if ultima.ok:
-        cuando = ultima.fin or ultima.inicio
-        return {"clase": "bien", "texto": f"ERP al día · {cuando:%H:%M}", "detalle": f"Copia de las {cuando:%H:%M} del {cuando:%d/%m}, {ultima.n_asientos} asientos"}
+        cuando = timezone.localtime(ultima.fin or ultima.inicio)  # en hora local, como el resto de la web
+        estado = {"clase": "bien", "texto": f"ERP al día · {cuando:%H:%M}", "detalle": f"Copia de las {cuando:%H:%M} del {cuando:%d/%m}, {ultima.n_asientos} asientos"}
+        if sincronizacion.esta_activa():  # el punto late y se dice que la web trae sola el ERP
+            estado["clase"], estado["sub"] = "bien viva", "sincronización constante"
+        return estado
     copia = SincronizacionERP.objects.filter(ok=True).first()
-    detalle = f"Seguimos con la copia de las {copia.fin:%H:%M}" if copia else "No hay ninguna copia con la que trabajar"
+    detalle = f"Seguimos con la copia de las {timezone.localtime(copia.fin):%H:%M}" if copia else "No hay ninguna copia con la que trabajar"
     return {"clase": "mal", "texto": "ERP sin respuesta", "detalle": detalle}
 
 

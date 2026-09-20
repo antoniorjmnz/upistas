@@ -76,23 +76,46 @@ def cambios_respecto_a_la_anterior(ejecucion: Ejecucion) -> tuple[Ejecucion | No
 
 # Cómo se le explica cada regla a Alberto (los ids vienen de dominio/reglas y de normas/v3.toml).
 NOMBRE_REGLA = {
+    "R0_lectura": "Se ha podido leer todo lo que hace falta",
     "R1_nif_iban": "Proveedor conocido y su cuenta bancaria",
     "R2_pedido_importe": "El pedido existe y el importe coincide",
     "R3_iva_total": "IVA bien calculado y total correcto",
+    "R3_datos_fiscales": "Importes y tipo de IVA legibles",
     "R4_fecha": "Fecha válida y no futura",
     "R5_erp_pendiente": "Pendiente de pago en el ERP y no pagado antes",
     "R5_no_pagada": "No pagado ya en el ERP",
     "R5_duplicado": "No es una factura repetida",
+    "R5_hash_previo": "No aprobada ya en otro lote",
+    "R5_copia_hash": "No es copia de otra factura del lote",
+    "R5_reenvio": "No es un reenvío de otra factura",
     "R6_notas": "Sin texto que intente influir en la decisión",
+    "R6_contenido_oculto": "Sin texto escondido ni contenido raro",
+    "R6_evaluacion_disponible": "Sus notas se han podido evaluar",
+    "R6_maestro_verificable": "Sus datos se han podido contrastar con el maestro",
+    "R6_proveedor_referencias": "El proveedor del pedido cuadra entre el maestro y el ERP",
+    "R6_revision_interna": "Sin notas que pidan revisión",
     "R7_marcado_por_alberto": "No apuntada por Alberto para revisar",
     "R8_importe_anomalo": "Importe dentro de lo habitual",
-    "R9_destinatario": "Dirigida a Banco Miralmar",
+    "R9_destinatario": "Dirigida a nuestra empresa",
+    "D0_sha256": "Huella del documento",
     "R10_fichero_sospechoso": "Fichero sin contenido raro",
 }
 
 
 def nombre_regla(id_regla: str) -> str:
-    return NOMBRE_REGLA.get(id_regla, id_regla)
+    """El nombre en palabras; si la regla es nueva y aún no tiene nombre, algo legible («Comprobación 11»), nunca el id."""
+    if id_regla in NOMBRE_REGLA:
+        return NOMBRE_REGLA[id_regla]
+    numero = id_regla[1:].split("_", 1)[0] if id_regla.startswith("R") else ""
+    return f"Comprobación {numero}" if numero.isdigit() else "Otra comprobación"
+
+
+def nombre_norma(norma: str | None) -> str:
+    """"v3" → "versión 3 de la norma"; cualquier otro nombre, «la norma» tal cual, sin códigos."""
+    texto = str(norma or "").strip()
+    if texto.lower().startswith("v") and texto[1:].isdigit():
+        return f"versión {texto[1:]} de la norma"
+    return "norma en vigor"
 
 
 # Cómo se leyó cada factura, dicho para Alberto.
@@ -875,7 +898,7 @@ EXPLICACION_REGLA = {
         "Se manda a revisar: un importe muy fuera de lo normal no es un error probado, pero conviene mirarlo.",
     ),
     "R9_destinatario": (
-        "Que la factura va dirigida a la empresa de Alberto (Banco Miralmar) y no a otro cliente.",
+        "Que la factura va dirigida a nuestra empresa y no a otro cliente.",
         "Se manda a revisar: una factura para otro no se paga sin que alguien lo confirme.",
     ),
     "R10_fichero_sospechoso": (

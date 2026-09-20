@@ -33,6 +33,7 @@ urlpatterns = [
     path("ejecuciones/<int:id>/outcomes.jsonl", ejecuciones.outcomes, name="outcomes"),
     path("erp/", erp.conexion, name="conexion"),
     path("erp/sincronizar/", erp.sincronizar, name="sincronizar"),
+    path("erp/constante/", erp.constante, name="constante"),
     path("erp/asientos/", erp.asientos, name="asientos"),
     path("erp/cambios/<str:de>/<str:a>/", erp.cambios, name="cambios"),
 ]

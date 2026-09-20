@@ -1,6 +1,6 @@
 {% extends "panel/base.html" %}
 {% load static panel_extras %}
-{% block titulo %}{{ proveedor|default:documento.file_id }} · Pagos de Alberto{% endblock %}
+{% block titulo %}{{ proveedor|default:documento.file_id }} · Control de facturas{% endblock %}
 {% block css %}<link rel="stylesheet" href="{% static 'panel/facturas.css' %}">{% endblock %}
 {% block contenido %}
 
@@ -84,7 +84,7 @@
   <details class="mas">
     <summary>Ver todas las comprobaciones y los detalles técnicos{% icono "chevron" 16 %}</summary>
 
-    <h2>Las comprobaciones de la norma {{ ejecucion.norma }}</h2>
+    <h2>Las comprobaciones de la {{ ejecucion.norma|norma }}</h2>
     <div>
       {% for r in reglas %}
         <div class="regla">
@@ -144,7 +144,7 @@
           <tr>
             <td>{{ h.ejecucion.inicio|date:"d/m/Y H:i" }}</td>
             <td><span class="pildora {{ h.resultado|pildora }}">{{ h.resultado|etiqueta }}</span></td>
-            <td>{{ h.motivo }}</td>
+            <td>{{ h.motivo|motivo_llano }}</td>
             <td class="mono">{{ h.ejecucion.version_datos }}</td>
           </tr>
         {% endfor %}

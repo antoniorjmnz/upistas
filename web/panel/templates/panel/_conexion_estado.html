@@ -1,4 +1,4 @@
-{# El estado de la conexión con el ERP. Se pinta entero y también solo (htmx) al sincronizar. #}
+{# El estado de la conexión con el ERP. Se pinta entero y también solo (htmx) al sincronizar o al tocar el interruptor. #}
 {% load humanize panel_extras %}
 {% if fallo_reciente %}
 <div class="aviso mal" role="alert">
@@ -23,7 +23,6 @@
       Traída el {{ en_uso.fin|date:"j \d\e F" }} a las {{ en_uso.fin|date:"H:i" }} ({{ en_uso.fin|naturaltime }}) ·
       {% if en_uso.lote2_cargado %}con la actualización del lote 2{% else %}sin la actualización del lote 2{% endif %} ·
       <a href="{% url 'panel:asientos' %}?version={{ en_uso.version_id }}">ver sus asientos</a>
-      <span class="mono">{{ en_uso.version_id }}</span>
     </p>
   {% else %}
     <div class="vacio">
@@ -33,34 +32,48 @@
     </div>
   {% endif %}
 
-  <p class="acciones" style="margin: 20px 0 0;">
+  {# El interruptor es un checkbox de verdad (se maneja con el teclado); sin JavaScript se guarda con el botón. #}
+  <form class="constante" method="post" action="{% url 'panel:constante' %}" hx-post="{% url 'panel:constante' %}" hx-target="#estado" hx-trigger="change">
+    {% csrf_token %}
+    <label class="interruptor">
+      <input type="checkbox" role="switch" name="activa" value="1"{% if constante %} checked{% endif %}>
+      <span class="pista" aria-hidden="true"></span>
+      <span>Mantener la sincronización constante</span>
+    </label>
+    <p class="suave">{% if cada_s == 60 %}Cada minuto{% else %}Cada {{ cada_s }} segundos{% endif %} se trae lo que haya cambiado en el ERP.
+      Si no ha cambiado nada, no se guarda nada.{% if constante and ultima_comprobacion %} Última comprobación {{ ultima_comprobacion|naturaltime }}.{% endif %}</p>
+    <noscript><button class="boton pequeno suave" type="submit">Guardar</button></noscript>
+  </form>
+
+  <p class="acciones" style="margin: 16px 0 0;">
     <button class="boton" hx-post="{% url 'panel:sincronizar' %}" hx-target="#estado" hx-disabled-elt="this" hx-indicator="#hablando">
       Sincronizar ahora
     </button>
     <span id="hablando" class="htmx-indicator suave" style="align-items: center; gap: 8px;">
-      <span class="girando" aria-hidden="true"></span> Hablando con el ERP… (unos 4 segundos)
+      <span class="girando" aria-hidden="true"></span> Hablando con el ERP…
     </span>
   </p>
-  <p class="suave" style="margin: 10px 0 0; font-size: 14px;">Cada lote sincroniza solo al empezar. Este botón
-    es para cuando sepa que algo ha cambiado en el ERP.</p>
 
   <details class="mas">
     <summary>Historial de conexiones{% icono "chevron" 16 %}</summary>
+    {% if n_sin_cambios %}
+    <p class="suave" style="margin: 10px 0 0; font-size: 14px;">{{ n_sin_cambios }} comprobaci{{ n_sin_cambios|pluralize:"ón,ones" }} automátic{{ n_sin_cambios|pluralize:"a,as" }} sin cambios (la última {{ ultima_sin_cambios.inicio|naturaltime }})</p>
+    {% endif %}
     <div class="tabla-caja">
       <table>
         <thead>
           <tr>
             <th>Cuándo</th><th>Resultado</th><th class="num">Duración</th><th class="num">Peticiones</th>
-            <th class="num" title="ORA-00600: el ERP falla una de cada diez consultas; se reintenta solo">Reintentos</th>
-            <th class="num" title="ERP-429: demasiadas peticiones; se espera lo que pide">Esperas</th>
-            <th class="num" title="SES-401: la sesión caducó; se vuelve a entrar">Reconexiones</th>
+            <th class="num" title="Consultas que el ERP falló y se repitieron">Reintentos</th>
+            <th class="num" title="Veces que el ERP pidió esperar">Esperas</th>
+            <th class="num" title="Veces que hubo que volver a entrar">Reconexiones</th>
             <th>Cambios en el ERP</th>
           </tr>
         </thead>
         <tbody>
         {% for s in historial %}
           <tr>
-            <td class="entero">{{ s.inicio|date:"d/m H:i:s" }}</td>
+            <td class="entero">{{ s.inicio|date:"d/m H:i:s" }}{% if s.automatica %} <span class="pildora neutra">automática</span>{% endif %}</td>
             <td>{% if s.ok %}<span class="pildora bien">Correcta</span>{% else %}<span class="pildora mal" title="{{ s.error }}">Falló</span>{% endif %}</td>
             <td class="num">{{ s.segundos|floatformat:1 }} s</td>
             <td class="num">{{ s.peticiones }}</td>
