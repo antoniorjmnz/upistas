@@ -129,7 +129,9 @@ def evaluacion_disponible(factura, refs, params):
 
 @regla("R6_contenido_oculto")
 def contenido_oculto(factura, refs, params):
-    avisos = [a for a in factura.alertas if a.startswith(("texto potencialmente oculto:", "visibilidad del texto no verificable:"))]
+    avisos = [a for a in factura.alertas if a.startswith((
+        "texto potencialmente oculto:", "visibilidad del texto no verificable:", "texto dibujado letra a letra",
+    ))]
     codigos = sorted({c for n in factura.notas for c in controles_invisibles(n.texto)})
     if codigos:
         avisos.append("Caracteres de control o invisibles en notas: " + ", ".join(codigos))

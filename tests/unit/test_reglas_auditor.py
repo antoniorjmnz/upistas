@@ -285,6 +285,15 @@ def test_revision_interna_prevalece_sobre_reglas_cumplidas():
     assert Norma.desde_toml(NORMA).evaluar(FACTURA, refs).resultado == Resultado.ESCALAR
 
 
+def test_texto_dibujado_letra_a_letra_escala_aunque_los_datos_cuadren():
+    """e18_P001: el impreso cuadra con el ERP, pero alguien escribió encima otro importe."""
+    alerta = "texto dibujado letra a letra (posible anotación superpuesta o manuscrita): página 1; 25 de 39 líneas de uno o dos caracteres; muestra='18.150,00'"
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, alertas=(alerta,)), REFS)
+    assert decision.resultado == Resultado.ESCALAR
+    assert not next(c for c in decision.comprobaciones if c.regla == "R6_contenido_oculto").ok
+    assert "posible anotación superpuesta o manuscrita" in decision.motivo
+
+
 def test_iva_incorrecto_no_se_paga():
     assert Norma.desde_toml(NORMA).evaluar(replace(FACTURA, iva=Decimal("20")), REFS).resultado == Resultado.NO_PAGAR
 
