@@ -450,3 +450,105 @@ def test_adaptador_ocr_con_respuesta_simulada():
     ocr = FirecrawlOCR("fc-clave", cliente=SimpleNamespace(post=Mock(return_value=respuesta)))
     png = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 20, 20)).tobytes("png")
     assert ocr(png) == TEXTO.strip()
+
+
+# --- Facturas internacionales del lote 2 (e0X) -------------------------------------------
+
+EN = """INVOICE No.: INV-9102
+Tax ID: A41220987
+IBAN: ES76 2100 0813 6101 2345 6789
+Issue date: 03 Feb 2026
+Purchase Order: PO-2026-1303
+Bill to: Banco Miralmar S.A.  ·  Tax ID: A58231074
+Subtotal: € 780.00
+VAT (21%): € 163.80
+TOTAL: € 943.80 EUR
+"""
+
+
+def test_factura_en_ingles_en_euros_se_lee_entera():
+    factura = extraer(EN)
+    assert factura.campos.numero_factura.valor == "INV-9102"
+    assert factura.campos.nif.valor == "A41220987"
+    assert factura.campos.fecha.valor == "2026-02-03"
+    assert factura.campos.pedido.valor == "PO-2026-1303"
+    assert factura.campos.base.valor == 780
+    assert factura.campos.iva.valor == 163.8
+    assert factura.campos.total.valor == 943.8
+    assert factura.campos.iban.valor == "ES7621000813610123456789"
+    assert factura.errores == []
+
+
+def test_el_cif_del_cliente_en_otro_idioma_no_es_un_nif_mas():
+    factura = extraer(EN.replace("Bill to:", "Facturé à:"))
+    assert factura.campos.nif.valor == "A41220987"  # un solo NIF, sin contradicción
+    assert factura.errores == []
+
+
+def test_sous_total_es_la_base_no_un_segundo_total():
+    frances = EN.replace("Subtotal:", "Sous-total:").replace("INVOICE No.:", "FACTURE N°:") \
+        .replace("Issue date:", "Date d'émission:").replace("VAT", "TVA")
+    factura = extraer(frances)
+    assert factura.campos.base.valor == 780
+    assert factura.campos.total.valor == 943.8  # sin «Valores contradictorios para total»
+    assert factura.campos.numero_factura.valor == "INV-9102"
+
+
+def test_etiquetas_italianas_y_alemanas():
+    italiano = EN.replace("Subtotal:", "Imponibile:").replace("TOTAL:", "TOTALE:") \
+        .replace("Issue date:", "Data di emissione:").replace("INVOICE No.:", "FATTURA N.:")
+    aleman = EN.replace("Subtotal:", "Zwischensumme:").replace("TOTAL:", "GESAMT:") \
+        .replace("VAT (21%):", "MwSt. (21%):").replace("INVOICE No.:", "RECHNUNG Nr.:")
+    for texto in (italiano, aleman):
+        factura = extraer(texto)
+        assert factura.campos.base.valor == 780
+        assert factura.campos.total.valor == 943.8
+        assert factura.campos.numero_factura.valor == "INV-9102"
+
+
+@pytest.mark.parametrize("fecha,esperada", [
+    ("dos de enero de dos mil veintiséis", "2026-01-02"),
+    ("the seventh of March, two thousand twenty-six", "2026-03-07"),
+    ("le trois janvier deux mille vingt-six", "2026-01-03"),
+    ("sette agosto duemilaventisei", "2026-08-07"),
+    ("am siebten März zweitausendsechsundzwanzig", "2026-03-07"),
+    ("am fünfzehnten Juni zweitausendsechsundzwanzig", "2026-06-15"),
+    ("dos de gener de dos mil vint-i-sis", "2026-01-02"),
+    ("15 de fevereiro de 2026", "2026-02-15"),
+    ("30/05/2026", "2026-05-30"),
+])
+def test_fechas_en_letra_en_cualquier_idioma(fecha, esperada):
+    factura = extraer(EN.replace("03 Feb 2026", fecha))
+    assert factura.campos.fecha.valor == esperada
+
+
+def test_divisa_distinta_de_eur_se_anota_y_no_se_compara():
+    dolares = EN.replace("Subtotal: € 780.00", "Billing currency: USD ($)\nSubtotal: $ 2,450.00") \
+        .replace("VAT (21%): € 163.80", "VAT (21%): $ 0.00").replace("TOTAL: € 943.80 EUR", "TOTAL: $ 2,450.00 USD")
+    factura = extraer(dolares)
+    assert factura.campos.total.valor is None  # 2450 USD no es comparable con el pedido en EUR
+    assert factura.campos.base.valor is None
+    assert "Divisa distinta de EUR: USD" in factura.errores
+    assert factura.campos.fecha.valor == "2026-02-03"  # el resto se sigue leyendo
+
+
+def test_divisa_declarada_sin_simbolos_en_importes():
+    yenes = EN.replace("Issue date: 03 Feb 2026", "Fecha de emisión: 12/04/2026") \
+        .replace("Subtotal: € 780.00", "Divisa de facturación: JPY (¥)\nBase imponible: ¥ 773,000") \
+        .replace("VAT (21%): € 163.80", "IVA (21%): ¥ 77,000").replace("TOTAL: € 943.80 EUR", "TOTAL: ¥ 850,000 JPY")
+    factura = extraer(yenes)
+    assert "Divisa distinta de EUR: JPY" in factura.errores
+
+
+def test_nif_e_iban_extranjeros_se_leen_etiquetados():
+    aleman = EN.replace("Tax ID: A41220987", "USt-ID: DE812345678") \
+        .replace("IBAN: ES76 2100 0813 6101 2345 6789", "IBAN: DE89 3704 0044 0532 0130 00")
+    factura = extraer(aleman)
+    assert factura.campos.nif.valor == "DE812345678"
+    assert factura.campos.iban.valor == "DE89370400440532013000"
+
+
+def test_payment_terms_en_otro_idioma_va_a_notas():
+    aleman = EN + "Zahlungsbedingungen: 30 Tage ab Ausstellungsdatum.\n"
+    factura = extraer(aleman)
+    assert any("Zahlungsbedingungen" in n.texto for n in factura.notas)

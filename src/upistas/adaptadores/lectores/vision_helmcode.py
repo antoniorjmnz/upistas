@@ -16,7 +16,7 @@ PROMPT = (
 
 
 class VisionHelmcode:
-    def __init__(self, api_key: str, base_url: str, modelo: str, timeout: float = 30,
+    def __init__(self, api_key: str, base_url: str, modelo: str, timeout: float = 120,
                  cliente=None, max_tokens: int = 4096):
         self.modelo = modelo
         self.version = f"{modelo}-{VERSION}"
