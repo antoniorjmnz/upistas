@@ -71,6 +71,25 @@ Cloudflare, no la web.
    Subir un PDF y decidir uno de la cola, para ver que los formularios pasan (si un formulario da
    «CSRF verification failed», falta `CSRF_TRUSTED_ORIGINS` con `https://`).
 
+## Publicar el portátil con un túnel de Cloudflare
+Para una demo sin servidor: la web corre en el portátil y Cloudflare le da una dirección pública. Como
+entraría cualquiera que la tenga, la web pide una clave (`WEB_CLAVE`) la primera vez y luego no la vuelve
+a pedir en 16 horas.
+
+1. Descargar `cloudflared` (https://github.com/cloudflare/cloudflared/releases; no hace falta cuenta).
+2. Con la web arrancada (`uv run python manage.py runserver`), en otra terminal:
+   `cloudflared tunnel --url http://127.0.0.1:8000`. Al momento imprime una dirección `https://….trycloudflare.com`.
+3. En el `.env`:
+   `DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost,.trycloudflare.com`,
+   `CSRF_TRUSTED_ORIGINS=https://*.trycloudflare.com` y
+   `WEB_CLAVE=` con una clave que se pueda dictar por teléfono.
+4. Reiniciar el servidor de la web para que lea el `.env`.
+5. Abrir la dirección en una ventana privada: pide la clave, y con ella entra la web.
+
+La dirección cambia cada vez que se arranca el túnel: hay que volver a pasarla. `ERP_URL` se queda como
+está (`127.0.0.1:8009`), porque el ERP corre en el mismo portátil. `comprobar_despliegue` avisa si falta
+`WEB_CLAVE`, pero no lo cuenta como fallo: con Cloudflare Access delante (arriba) la puerta ya la pone él.
+
 ## Lo que no se despliega
 - **La Caja** (`../caja`, `data/`): datos del reto. La web los recibe por «Subir facturas», «Importar datos»
   e `importar_maestro`, no de la imagen.
