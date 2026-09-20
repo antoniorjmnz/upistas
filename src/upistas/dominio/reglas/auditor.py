@@ -46,7 +46,11 @@ def pedido_importe(factura, refs, params):
         return Comprobacion("R2_pedido_importe", False, "El pedido no pertenece al proveedor de la factura")
     if otra := en_otra_divisa(factura, "R2_pedido_importe"):
         return otra
-    if factura.total is None or abs(factura.total - pedido.importe) > tolerancia(params):
+    if factura.total is None:
+        if "total" not in factura.ausentes:  # no se pudo leer: lo dice R0_lectura y no se da por incumplido
+            return Comprobacion("R2_pedido_importe", True, "No se compara: el total no se pudo leer")
+        return Comprobacion("R2_pedido_importe", False, "La factura no trae total que comparar con el pedido")
+    if abs(factura.total - pedido.importe) > tolerancia(params):
         return Comprobacion("R2_pedido_importe", False, f"Total {factura.total} distinto del pedido {pedido.importe}")
     return Comprobacion("R2_pedido_importe", True)
 
@@ -115,6 +119,15 @@ def iva_total(factura, refs, params):
     return Comprobacion("R3_iva_total", True)
 
 
+YA_APROBADO = "Pedido ya aprobado para pago en otro lote"
+
+
+def ya_pagado(asiento):
+    """«Pedido ya pagado en el ERP (asiento AS-90001, 01/09/2026)»: la misma frase en las dos reglas que lo ven."""
+    cuando = f", {asiento.fecha:%d/%m/%Y}" if asiento.fecha else ""
+    return f"Pedido ya pagado en el ERP (asiento {asiento.id}{cuando})"
+
+
 @regla("R5_erp_pendiente")
 def erp_pendiente(factura, refs, params):
     if refs.erp_contradictorio(factura.pedido):
@@ -124,9 +137,11 @@ def erp_pendiente(factura, refs, params):
     if asiento is None:
         return Comprobacion("R5_erp_pendiente", False, "No hay asiento del ERP para comprobar el estado del pedido")
     if factura.pedido in refs.pedidos_ya_decididos:
-        return Comprobacion("R5_erp_pendiente", False, "Pedido ya aprobado en otra decisión")
+        return Comprobacion("R5_erp_pendiente", False, YA_APROBADO)
+    if asiento.estado == "PAGADA":
+        return Comprobacion("R5_erp_pendiente", False, ya_pagado(asiento))
     if asiento.estado != "PENDIENTE":
-        return Comprobacion("R5_erp_pendiente", False, f"Estado del ERP: {asiento.estado}")
+        return Comprobacion("R5_erp_pendiente", False, f"El ERP no da el pedido como pendiente (estado {asiento.estado})")
     return Comprobacion("R5_erp_pendiente", True)
 
 
@@ -134,7 +149,7 @@ def erp_pendiente(factura, refs, params):
 def no_pagada(factura, refs, params):
     asiento = refs.asiento(factura.pedido)
     if asiento is not None and asiento.estado == "PAGADA":
-        return Comprobacion("R5_no_pagada", False, "Pedido ya pagado en el ERP")
+        return Comprobacion("R5_no_pagada", False, ya_pagado(asiento))
     if factura.pedido and factura.pedido in refs.pedidos_ya_decididos:
-        return Comprobacion("R5_no_pagada", False, "Pedido ya aprobado en otro lote")
+        return Comprobacion("R5_no_pagada", False, YA_APROBADO)
     return Comprobacion("R5_no_pagada", True)

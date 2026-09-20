@@ -149,9 +149,24 @@ class Factura:
     sha256: str = ""
     errores_lectura: tuple[str, ...] = ()
     evaluacion_notas: EvaluacionNotas | None = None
+    fecha_texto: str | None = None  # la fecha tal como está escrita cuando no es una fecha real (31/02/2026)
 
     def dudoso(self, campo: str) -> bool:
         return campo in self.no_leidos
+
+
+# Cada campo leído, como se nombra dentro de un motivo («no se pudo leer la fecha»).
+NOMBRE_CAMPO = {
+    "nif": "el NIF", "iban": "el IBAN", "pedido": "el número de pedido", "numero_factura": "el número de factura",
+    "fecha": "la fecha", "base": "la base imponible", "iva_pct": "el porcentaje de IVA", "iva": "el IVA", "total": "el total",
+}
+
+
+def enumerar(textos: Sequence[str]) -> str:
+    """«a», «a y b», «a, b y c»."""
+    if len(textos) < 2:
+        return "".join(textos)
+    return ", ".join(textos[:-1]) + " y " + textos[-1]
 
 
 @dataclass(frozen=True)
@@ -192,7 +207,8 @@ class Referencias:
 class Comprobacion:
     regla: str
     ok: bool
-    detalle: str = ""
+    detalle: str = ""  # la traza completa: es lo que va en reglas[] del outcome
+    motivo: str = ""  # cómo se cuenta en el motivo de la decisión, si no es tal cual el detalle
 
 
 @dataclass(frozen=True)

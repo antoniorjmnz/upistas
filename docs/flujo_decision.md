@@ -59,6 +59,14 @@ Manda este orden, que es el de las prioridades de `normas/v3.toml`:
 A igual nivel gana la más restrictiva: NO PAGAR antes que ESCALAR, ESCALAR antes que PAGAR. Escalar
 nunca autoriza un segundo pago.
 
+El motivo de cada factura empieza por la causa que fija el resultado; siguen las demás por prioridad,
+los avisos al final, y como mucho tres (el resto se cuenta, «y N comprobaciones más»; todas están en
+`reglas[]` del outcome). Si cumple los datos y solo escala por revisión (notas, texto oculto, pedido
+apuntado, duplicado dudoso) empieza por «Cumple la norma; se escala porque…». Si el ERP ya la da por
+pagada pero una nota la escala, el pago previo va primero: «Pedido ya pagado en el ERP (asiento…);
+además lo revisa una persona: …». Lo que no se pudo leer se dice en español («No se pudo leer: la fecha
+y el total») y las reglas que dependen de ese dato no lo repiten.
+
 ## Facturas extranjeras
 
 Ser extranjera no es motivo de nada. Lo que cambia el tratamiento es el país del NIF y la divisa, no el

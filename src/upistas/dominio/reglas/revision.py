@@ -1,7 +1,7 @@
 import re
 
 from upistas.dominio.importes import normaliza_iban
-from upistas.dominio.modelos import Comprobacion
+from upistas.dominio.modelos import NOMBRE_CAMPO, Comprobacion, enumerar
 from upistas.dominio.notas import clasificar, controles_invisibles, normalizar, solo_plazo_de_pago
 from upistas.dominio.reglas import regla
 
@@ -18,9 +18,9 @@ def lectura_suficiente(factura, refs, params):
     if factura.errores_lectura:
         return Comprobacion("R0_lectura", False, "; ".join(factura.errores_lectura))
     # Un campo que el lector da por ausente con seguridad no es una duda de lectura: lo juzga su propia regla.
-    faltan = [c for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total")
+    faltan = [NOMBRE_CAMPO[c] for c in ("nif", "iban", "pedido", "fecha", "base", "iva", "total")
               if getattr(factura, c) is None and c not in factura.ausentes]
-    return Comprobacion("R0_lectura", not faltan, "Campos no verificables: " + ", ".join(faltan) if faltan else "")
+    return Comprobacion("R0_lectura", not faltan, "No se pudo leer: " + enumerar(faltan) if faltan else "")
 
 
 def _identidad_del_pedido(factura, refs):
@@ -76,7 +76,8 @@ def proveedor_coherente(factura, refs, params):
 @regla("R6_revision_interna")
 def revision_interna(factura, refs, params):
     revisar = factura.pedido in refs.marcados_por_alberto
-    return Comprobacion("R6_revision_interna", not revisar, "Pedido marcado en pendiente_revisar del Excel" if revisar else "")
+    detalle = "El pedido está apuntado para revisar (marca pendiente_revisar del maestro)" if revisar else ""
+    return Comprobacion("R6_revision_interna", not revisar, detalle)
 
 
 @regla("R6_notas")
@@ -93,10 +94,13 @@ def notas_requieren_revision(factura, refs, params):
     solo_plazos = all(solo_plazo_de_pago(n.texto) for n in notas)
     revisar_por_el_plazo = solo_plazos and bool(_MOTIVO_SOBRE_EL_PLAZO.search(normalizar(evaluacion.motivo)))
     if evaluacion.error or (evaluacion.requiere_revision and not revisar_por_el_plazo):
+        # El modelo y la versión del prompt quedan en la traza (reglas[]); el motivo va en llano.
         detalle = f"Evaluación de notas [{evaluacion.modelo or 'no disponible'}; {evaluacion.version_prompt}]: {evaluacion.motivo}"
+        motivo = evaluacion.motivo.strip()
         if evaluacion.evidencia:
             detalle += f" | Evidencia: {evaluacion.evidencia}"
-        return Comprobacion(nombre, False, detalle)
+            motivo = f"{motivo.rstrip('.')}. Evidencia: «{' '.join(evaluacion.evidencia.split())}»"
+        return Comprobacion(nombre, False, detalle, motivo)
     asiento = refs.asiento(factura.pedido)
     proveedor = refs.proveedores.get(factura.nif)
     for nota in notas:
@@ -144,8 +148,9 @@ def contenido_oculto(factura, refs, params):
     ))]
     codigos = sorted({c for n in factura.notas for c in controles_invisibles(n.texto)})
     if codigos:
-        avisos.append("Caracteres de control o invisibles en notas: " + ", ".join(codigos))
-    return Comprobacion("R6_contenido_oculto", not avisos, "; ".join(avisos))
+        avisos.append("caracteres de control o invisibles en notas: " + ", ".join(codigos))
+    detalle = "; ".join(avisos)
+    return Comprobacion("R6_contenido_oculto", not avisos, detalle, f"El fichero trae {detalle}" if avisos else "")
 
 
 @regla("R5_hash_previo")

@@ -30,7 +30,8 @@ def test_fecha_futura_escala_con_motivo(tmp_path):
 
 def test_la_norma_decide_la_consecuencia(tmp_path):
     n = norma(tmp_path, 'version = "t"\n[reglas.R4_fecha]\nsi_falla = "NO_PAGAR"\n')
-    assert n.evaluar(Factura("a.pdf"), REFS).resultado is Resultado.NO_PAGAR
+    sin_fecha = Factura("a.pdf", ausentes=frozenset({"fecha"}))  # el lector está seguro de que no la trae
+    assert n.evaluar(sin_fecha, REFS).resultado is Resultado.NO_PAGAR
 
 
 def test_norma_con_regla_inexistente_falla_al_cargar(tmp_path):

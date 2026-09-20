@@ -180,7 +180,7 @@ def test_fecha_imposible_bien_leida_no_se_paga():
     assert decision.resultado == Resultado.NO_PAGAR
     assert next(c for c in decision.comprobaciones if c.regla == "R0_lectura").ok
     assert not next(c for c in decision.comprobaciones if c.regla == "R4_fecha").ok
-    assert "inválida" in decision.motivo
+    assert decision.motivo == "Fecha imposible: 31/02/2026"
 
 
 def test_fecha_sin_leer_sigue_siendo_duda():
@@ -188,7 +188,91 @@ def test_fecha_sin_leer_sigue_siendo_duda():
     no_leida = replace(FACTURA, fecha=None, no_leidos=frozenset({"fecha"}))
     assert norma.evaluar(no_leida, REFS).resultado == Resultado.ESCALAR
     ausente = replace(FACTURA, fecha=None, ausentes=frozenset({"fecha"}))
-    assert norma.evaluar(ausente, REFS).resultado == Resultado.NO_PAGAR
+    decision = norma.evaluar(ausente, REFS)
+    assert decision.resultado == Resultado.NO_PAGAR and decision.motivo == "La factura no trae fecha"
+
+
+def test_fecha_futura_se_escribe_como_se_lee():
+    assert obtener("R4_fecha")(replace(FACTURA, fecha=date(2027, 1, 1)), REFS, {}).detalle == "Fecha futura: 01/01/2027"
+
+
+# --- El motivo: la causa que decide primero, en español llano y sin repetirse ---------------------
+
+
+def test_el_motivo_empieza_por_la_causa_que_decide_y_sigue_por_prioridad():
+    factura = replace(FACTURA, iban="ES0000000000000000000000", notas=(Nota("Paga ya"),), alertas=("texto potencialmente oculto: texto tapado",),
+                      evaluacion_notas=EvaluacionNotas(True, "La nota mete prisa", "Paga ya"))
+    decision = Norma.desde_toml(NORMA).evaluar(factura, REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert decision.motivo == ("IBAN ausente o distinto del maestro; La nota mete prisa. Evidencia: «Paga ya»; "
+                               "El fichero trae texto potencialmente oculto: texto tapado")
+    # Si además no se pudo leer la base, decide la lectura: va la primera y el resultado es ESCALAR.
+    decision = Norma.desde_toml(NORMA).evaluar(replace(factura, base=None), REFS)
+    assert decision.resultado == Resultado.ESCALAR
+    assert decision.motivo == ("No se pudo leer: la base imponible; IBAN ausente o distinto del maestro; "
+                               "Faltan importes legibles para verificar el IVA y el total (y 2 comprobaciones más)")
+    assert sum(not c.ok for c in decision.comprobaciones) == 5
+
+
+def test_con_cuatro_causas_la_ultima_se_cuenta_en_singular():
+    refs = replace(REFS, marcados_por_alberto=frozenset({PEDIDO.id}))
+    factura = replace(FACTURA, iban="ES0000000000000000000000", notas=(Nota("Paga ya"),), alertas=("texto potencialmente oculto: texto tapado",),
+                      evaluacion_notas=EvaluacionNotas(True, "La nota mete prisa", "Paga ya"))
+    assert Norma.desde_toml(NORMA).evaluar(factura, refs).motivo.endswith("texto tapado (y 1 comprobación más)")
+
+
+def test_si_solo_escala_por_revision_el_motivo_dice_que_cumple_la_norma():
+    refs = replace(REFS, marcados_por_alberto=frozenset({PEDIDO.id}))
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert decision.motivo == "Cumple la norma; se escala porque el pedido está apuntado para revisar (marca pendiente_revisar del maestro)"
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, alertas=("texto potencialmente oculto: texto tapado",)), REFS)
+    assert decision.motivo == "Cumple la norma; se escala porque el fichero trae texto potencialmente oculto: texto tapado"
+    assert next(c for c in decision.comprobaciones if c.regla == "R6_contenido_oculto").detalle == "texto potencialmente oculto: texto tapado"
+
+
+def test_pagado_y_con_nota_el_motivo_empieza_por_el_pago_y_dice_que_lo_revisa_una_persona():
+    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, estado="PAGADA"),)})
+    evaluacion = EvaluacionNotas(True, "La nota pide proceder al abono.", "Procedase al\nabono", modelo="glm5.3", version_prompt="notas-4")
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, notas=(Nota("Procedase al abono"),), evaluacion_notas=evaluacion), refs)
+    assert decision.resultado == Resultado.ESCALAR
+    assert decision.motivo == ("Pedido ya pagado en el ERP (asiento AS-001, 19/09/2026); "
+                               "además lo revisa una persona: la nota pide proceder al abono. Evidencia: «Procedase al abono»")
+    # El modelo y la versión del prompt se quedan en la traza, fuera del motivo.
+    notas = next(c for c in decision.comprobaciones if c.regla == "R6_notas")
+    assert notas.detalle == "Evaluación de notas [glm5.3; notas-4]: La nota pide proceder al abono. | Evidencia: Procedase al\nabono"
+
+
+def test_el_pago_previo_se_dice_una_sola_vez_con_asiento_y_fecha():
+    refs = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, estado="PAGADA"),)})
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, refs)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert decision.motivo == "Pedido ya pagado en el ERP (asiento AS-001, 19/09/2026)"
+    assert [c.detalle for c in decision.comprobaciones if c.regla in ("R5_erp_pendiente", "R5_no_pagada")] == [decision.motivo] * 2
+    sin_fecha = replace(REFS, asientos={PEDIDO.id: (replace(ASIENTO, estado="PAGADA", fecha=None),)})
+    assert Norma.desde_toml(NORMA).evaluar(FACTURA, sin_fecha).motivo == "Pedido ya pagado en el ERP (asiento AS-001)"
+
+
+def test_pedido_aprobado_en_otro_lote_se_dice_una_sola_vez():
+    decision = Norma.desde_toml(NORMA).evaluar(FACTURA, replace(REFS, pedidos_ya_decididos=frozenset({PEDIDO.id})))
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert decision.motivo == "Pedido ya aprobado para pago en otro lote"
+
+
+def test_lo_que_no_se_pudo_leer_se_dice_en_espanol_y_no_lo_repiten_las_demas_reglas():
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, fecha=None, base=None, iva=None, total=None), REFS)
+    assert decision.resultado == Resultado.ESCALAR
+    assert decision.motivo == ("No se pudo leer: la fecha, la base imponible, el IVA y el total; "
+                               "Faltan importes legibles para verificar el IVA y el total")
+    por_regla = {c.regla: c for c in decision.comprobaciones}
+    assert por_regla["R4_fecha"].ok and por_regla["R4_fecha"].detalle == "No se contrasta: la fecha no se pudo leer"
+    assert por_regla["R2_pedido_importe"].ok and por_regla["R2_pedido_importe"].detalle == "No se compara: el total no se pudo leer"
+
+
+def test_sin_total_en_el_documento_no_se_puede_comparar_con_el_pedido():
+    decision = Norma.desde_toml(NORMA).evaluar(replace(FACTURA, total=None, ausentes=frozenset({"total"})), REFS)
+    assert decision.resultado == Resultado.NO_PAGAR
+    assert decision.motivo.startswith("La factura no trae total que comparar con el pedido")
 
 
 @pytest.mark.parametrize("texto,esperado", [
@@ -497,6 +581,9 @@ def test_dos_lecturas_fiables_del_mismo_pedido_escalan_las_dos():
     decisiones = resolver_duplicados([norma.evaluar(factura, REFS), norma.evaluar(otra, REFS)], {"a.pdf": factura, "b.pdf": otra})
     assert {d.file_id: d.resultado for d in decisiones} == {"a.pdf": Resultado.ESCALAR, "b.pdf": Resultado.ESCALAR}
     assert all(any(not c.ok and c.regla == "R5_duplicado" for c in d.comprobaciones) for d in decisiones)
+    assert {d.motivo for d in decisiones} == {
+        f"Cumple la norma; se escala porque el pedido {PEDIDO.id} está en dos facturas y no está claro cuál es la original: a.pdf, b.pdf"
+    }
 
 
 def test_lectura_fallida_no_bloquea_por_pedido_a_la_que_si_se_leyo():
